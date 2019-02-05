@@ -527,6 +527,10 @@ int main(int Argc, char *Argv[]) {
     LLVMInitializeWebAssemblyTargetInfo();
     LLVMInitializeWebAssemblyTargetMC();
 #endif
+#ifdef ISPC_GENX_ENABLED
+    LLVMInitializeGenXTargetInfo();
+    LLVMInitializeGenXTarget();
+#endif
 
     char *file = NULL;
     const char *headerFileName = NULL;

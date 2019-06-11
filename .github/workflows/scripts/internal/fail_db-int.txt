@@ -1,0 +1,68 @@
+% List of known fails.
+% The list is unordered and contains information about commonly used platforms / configurations.
+% Our goal is to maintain this list for Linux, macOS and Windows with reasonably new compilers.
+% Note, that it's important which C++ compiler was used.
+% Please also note that it's very important to have correctly built LLVM. There are a number of
+% LLVM bugs in released versions, that we have to workaround by applying patches (see llvm_patches
+% folder). The recommended way to build LLVM on Unix is to use "alloy.py".
+%
+./tests/clock.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int16.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int32.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint16.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint32.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/clock.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int16.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int32.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint16.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint32.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int16.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int32.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint16.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint32.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int16.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-int32.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint16.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/idiv-uint32.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
+./tests/fmod-double-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
+./tests/fmod-float-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
+./tests/fmod-float16-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
+.\tests\idiv-uint16.ispc runfail    xe64        xelp-x8 tgllp Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint32.ispc runfail    xe64        xelp-x8 tgllp Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint16.ispc runfail    xe64        xelp-x16 tgllp Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint32.ispc runfail    xe64        xelp-x16 tgllp Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-int16.ispc runfail    xe64        xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-int32.ispc runfail    xe64        xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint16.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint32.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-int16.ispc runfail    xe64        xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-int32.ispc runfail    xe64        xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint16.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\idiv-uint32.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
+.\tests\switch-18.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 16.0         cl O2 spv *
+.\tests\print_bool.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\print_varying_simd.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\print_bool.ispc runfail    xe64       xehpg-x8 dg2 Windows LLVM 17.0         cl O2 spv *
+.\tests\print_varying_simd.ispc runfail    xe64       xehpg-x8 dg2 Windows LLVM 17.0         cl O2 spv *
+.\tests\aossoa-10.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\aossoa-14.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\reduce-equal-11.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\aossoa-14.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\aossoa-23.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\asin_f64.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\cfor-gs-double-improve-varying-1.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\gs-double-improve-varying-1.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\reduce-equal-11.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\transcendentals-atan2-varying.ispc runfail    xe64      xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-uniform.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-varying.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-uniform.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-varying.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-uniform.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-varying.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-uniform.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-varying.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-uniform.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float-varying.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-uniform.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+.\tests\fmod-float16-varying.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *

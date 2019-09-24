@@ -2779,7 +2779,7 @@ static bool lImproveMaskedStore(llvm::CallInst *callInst) {
     } else if (maskStatus == MaskStatus::all_on) {
         // The mask is all on, so turn this into a regular store
         llvm::Type *rvalueType = rvalue->getType();
-        llvm::Instruction *store;
+        llvm::Instruction *store = NULL;
 #ifdef ISPC_GENX_ENABLED
         if (g->target->getISA() == Target::GENX && GetAddressSpace(lvalue) == AddressSpace::External) {
             assert(isa<llvm::VectorType>(rvalue->getType()));
@@ -2795,7 +2795,8 @@ static bool lImproveMaskedStore(llvm::CallInst *callInst) {
 
             auto Fn = llvm::Intrinsic::getDeclaration(m->module, llvm::Intrinsic::genx_svm_block_st, argTypes);
             store = lCallInst(Fn, svm_st_zext, rvalue, "", NULL);
-        } else {
+        } else if (g->target->getISA() != Target::GENX ||
+                   g->target->getISA() == Target::GENX && GetAddressSpace(lvalue) == AddressSpace::Local) {
 #endif
             llvm::Type *ptrType = llvm::PointerType::get(rvalueType, 0);
 
@@ -2814,9 +2815,11 @@ static bool lImproveMaskedStore(llvm::CallInst *callInst) {
 #ifdef ISPC_GENX_ENABLED
         }
 #endif
-        lCopyMetadata(store, callInst);
-        llvm::ReplaceInstWithInst(callInst, store);
-        return true;
+        if (store != NULL) {
+            lCopyMetadata(store, callInst);
+            llvm::ReplaceInstWithInst(callInst, store);
+            return true;
+        }
     }
 
     return false;
@@ -2860,7 +2863,7 @@ static bool lImproveMaskedLoad(llvm::CallInst *callInst, llvm::BasicBlock::itera
         return true;
     } else if (maskStatus == MaskStatus::all_on) {
         // The mask is all on, so turn this into a regular load
-        llvm::Instruction *load;
+        llvm::Instruction *load = NULL;
 #ifdef ISPC_GENX_ENABLED
         if (g->target->getISA() == Target::GENX && GetAddressSpace(ptr) == AddressSpace::External) {
             llvm::Type *retType = callInst->getType();
@@ -2874,7 +2877,8 @@ static bool lImproveMaskedLoad(llvm::CallInst *callInst, llvm::BasicBlock::itera
 
             auto Fn = llvm::Intrinsic::getDeclaration(m->module, llvm::Intrinsic::genx_svm_block_ld, retType);
             load = llvm::CallInst::Create(Fn, svm_ld_zext, callInst->getName());
-        } else {
+        } else if (g->target->getISA() != Target::GENX ||
+                   g->target->getISA() == Target::GENX && GetAddressSpace(ptr) == AddressSpace::Local) {
 #endif
             llvm::Type *ptrType = llvm::PointerType::get(callInst->getType(), 0);
             ptr = new llvm::BitCastInst(ptr, ptrType, "ptr_cast_for_load", callInst);
@@ -2899,11 +2903,13 @@ static bool lImproveMaskedLoad(llvm::CallInst *callInst, llvm::BasicBlock::itera
 #ifdef ISPC_GENX_ENABLED
         }
 #endif
-        lCopyMetadata(load, callInst);
-        llvm::ReplaceInstWithInst(callInst, load);
-        return true;
-    } else
-        return false;
+        if (load != NULL) {
+            lCopyMetadata(load, callInst);
+            llvm::ReplaceInstWithInst(callInst, load);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool ImproveMemoryOpsPass::runOnBasicBlock(llvm::BasicBlock &bb) {
@@ -2927,14 +2933,10 @@ restart:
             modifiedAny = true;
             goto restart;
         }
-        // WIP for gen
-#ifdef ISPC_GENX_ENABLED
-        if (g->target->getISA() != Target::GENX)
-            if (lGSToLoadStore(callInst)) {
-                modifiedAny = true;
-                goto restart;
-            }
-#endif
+        if (lGSToLoadStore(callInst)) {
+            modifiedAny = true;
+            goto restart;
+        }
         if (lImproveMaskedStore(callInst)) {
             modifiedAny = true;
             goto restart;

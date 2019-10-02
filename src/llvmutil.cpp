@@ -570,6 +570,9 @@ static int64_t lGetIntValue(llvm::Value *offset) {
  */
 static bool lIsFirstElementConstVector(llvm::Value *v) {
     llvm::ConstantVector *cv = llvm::dyn_cast<llvm::ConstantVector>(v);
+    if (cv == NULL && llvm::isa<llvm::Instruction>(v)) {
+        cv = llvm::dyn_cast<llvm::ConstantVector>(llvm::dyn_cast<llvm::Instruction>(v)->getOperand(1));
+    }
     if (cv != NULL) {
         llvm::Constant *c = llvm::dyn_cast<llvm::Constant>(cv->getOperand(0));
         if (c == NULL) {

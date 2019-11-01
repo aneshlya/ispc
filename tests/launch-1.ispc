@@ -1,3 +1,6 @@
+// rule: run on arch=x86
+// rule: run on arch=x86-64
+
 static uniform float array[10000];
 
 task void x(float f) {

@@ -1,3 +1,6 @@
+// rule: run on arch=x86
+// rule: run on arch=x86-64
+
 export void f_f(uniform float RET[], uniform float aFOO[]) {
     int32 * uniform src = uniform new int32[1024];
     int32 * uniform dst = uniform new int32[1024];

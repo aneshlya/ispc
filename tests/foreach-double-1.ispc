@@ -1,3 +1,6 @@
+// rule: run on arch=x86
+// rule: run on arch=x86-64
+
 uniform double one = 1;
 
 void copy(uniform double dst[], uniform double src[], uniform int count) {

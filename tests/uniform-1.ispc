@@ -1,3 +1,6 @@
+// rule: run on arch=x86
+// rule: run on arch=x86-64
+
 #define THREADS 4
 
 task void f_f_task(uniform float RET[], uniform float aFOO[]) {

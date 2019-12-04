@@ -1,4 +1,5 @@
-
+// rule: run on arch=x86
+// rule: run on arch=x86-64
 struct Foo {
     float x;
     float a[0];

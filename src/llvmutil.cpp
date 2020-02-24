@@ -1589,7 +1589,6 @@ void lGetAddressSpace(llvm::Value *v, std::set<llvm::Value *> &done, std::set<Ad
             addrSpaceVec.insert(AddressSpace::External);
         return;
     }
-
     // Found global value
     if (llvm::isa<llvm::GlobalValue>(v)) {
         addrSpaceVec.insert(AddressSpace::Global);
@@ -1627,8 +1626,13 @@ void lGetAddressSpace(llvm::Value *v, std::set<llvm::Value *> &done, std::set<Ad
             addrSpaceVec.insert(AddressSpace::External);
         return;
     }
-    for (unsigned i = 0; i < inst->getNumOperands(); ++i) {
-        lGetAddressSpace(inst->getOperand(i), done, addrSpaceVec);
+    // For GEP we check only pointer operand, for the rest check all
+    if (llvm::isa<llvm::GetElementPtrInst>(inst)) {
+        lGetAddressSpace(inst->getOperand(0), done, addrSpaceVec);
+    } else {
+        for (unsigned i = 0; i < inst->getNumOperands(); ++i) {
+            lGetAddressSpace(inst->getOperand(i), done, addrSpaceVec);
+        }
     }
 
     if (isConstExpr) {

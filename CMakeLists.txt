@@ -158,6 +158,13 @@ else()
     set(ISPC_UNIX_TARGET OFF)
 endif()
 
+# __INTEL_EMBARGO_BEGIN__
+if (XE_ENABLED)
+    option(__INTEL_EMBARGO__ "Building with IP sensitive code for Xe" ON)
+    message("-- Building with IP sensitive code for Xe")
+endif()
+# __INTEL_EMBARGO_END__
+
 if (APPLE)
     # Use standard macOS SDK location if this is not specified.
     if (NOT ISPC_MACOS_SDK_PATH)
@@ -351,6 +358,12 @@ list(APPEND ARM_TARGETS neon-i8x16 neon-i16x8 neon-i32x4 neon-i32x8)
 list(APPEND WASM_TARGETS wasm-i32x4)
 list(APPEND XE_TARGETS gen9-x16 gen9-x8 xelp-x16 xelp-x8 xehpg-x16 xehpg-x8 xehpc-x16 xehpc-x32 xelpg-x16 xelpg-x8
                        xe2hpg-x16 xe2hpg-x32 xe2lpg-x16 xe2lpg-x32)
+
+# __INTEL_EMBARGO_BEGIN__
+if( __INTEL_EMBARGO__)
+set(EMBARGO_ENABLED ON)
+endif(__INTEL_EMBARGO__)
+# __INTEL_EMBARGO_END__
 
 if (X86_ENABLED)
     list(APPEND ISPC_TARGETS ${X86_TARGETS})
@@ -586,6 +599,9 @@ endif()
 
 if (XE_ENABLED)
     list(APPEND COMPILE_DEFINITIONS ISPC_XE_ENABLED)
+    if( __INTEL_EMBARGO__)
+        list(APPEND COMPILE_DEFINITIONS __INTEL_EMBARGO__)
+    endif(__INTEL_EMBARGO__)
 endif()
 
 if (WASM_ENABLED)

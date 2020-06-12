@@ -1653,7 +1653,6 @@ AddressSpace GetAddressSpace(llvm::Value *v) {
     std::set<llvm::Value *> done;
     std::set<AddressSpace> addrSpaceVec;
     lGetAddressSpace(v, done, addrSpaceVec);
-    std::vector<AddressSpace>::iterator it;
     if (addrSpaceVec.find(AddressSpace::External) != addrSpaceVec.end()) {
         return AddressSpace::External;
     }

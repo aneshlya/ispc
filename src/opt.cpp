@@ -6204,6 +6204,7 @@ class CheckUnsupportedInsts : public llvm::FunctionPass {
 char CheckUnsupportedInsts::ID = 0;
 
 bool CheckUnsupportedInsts::runOnBasicBlock(llvm::BasicBlock &bb) {
+    DEBUG_START_PASS("CheckUnsupportedInsts");
     bool modifiedAny = false;
     // This list contains regex expr for unsupported function names
     // To be extended
@@ -6222,7 +6223,7 @@ bool CheckUnsupportedInsts::runOnBasicBlock(llvm::BasicBlock &bb) {
                 if (std::regex_match(funcName, match, unsupportedFuncs[i])) {
                     // We found unsupported function. Generate error and stop compilation.
                     SourcePos pos;
-                    bool gotPosition = lGetSourcePosFromMetadata(ci, &pos);
+                    lGetSourcePosFromMetadata(ci, &pos);
                     if (i == 0 && match.size() == 4) {
                         std::string match_func = match[1].str();
                         std::string match_var = match[2].str();
@@ -6238,17 +6239,16 @@ bool CheckUnsupportedInsts::runOnBasicBlock(llvm::BasicBlock &bb) {
             }
         }
     }
+    DEBUG_END_PASS("CheckUnsupportedInsts");
 
     return modifiedAny;
 }
 
 bool CheckUnsupportedInsts::runOnFunction(llvm::Function &F) {
-    DEBUG_START_PASS("CheckUnsupportedInsts");
     bool modifiedAny = false;
     for (llvm::BasicBlock &BB : F) {
         modifiedAny |= runOnBasicBlock(BB);
     }
-    DEBUG_END_PASS("CheckUnsupportedInsts");
     return modifiedAny;
 }
 

@@ -118,7 +118,6 @@ static void lPrintVersion() {
     printf("    [--emit-llvm-text]\t\t\tEmit LLVM bitcode file as output in textual form\n");
     printf("    [--emit-obj]\t\t\tGenerate object file file as output (default)\n");
 #ifdef ISPC_GENX_ENABLED
-    printf("    [--emit-isa]\t\t\tGenerate ISA file as output (default for gen target)\n");
     printf("    [--emit-spirv]\t\t\tGenerate SPIR-V file as output\n");
 #endif
     printf("    [--force-alignment=<value>]\t\tForce alignment in memory allocations routine to be <value>\n");
@@ -643,8 +642,6 @@ int main(int Argc, char *Argv[]) {
         else if (!strcmp(argv[i], "--emit-obj"))
             ot = Module::Object;
 #ifdef ISPC_GENX_ENABLED
-        else if (!strcmp(argv[i], "--emit-isa"))
-            ot = Module::ISA;
         else if (!strcmp(argv[i], "--emit-spirv")) {
             ot = Module::SPIRV;
             g->emitSPIRV = true;
@@ -992,6 +989,17 @@ int main(int Argc, char *Argv[]) {
             arch = Arch::wasm32;
             g->target_os = TargetOS::web;
         }
+#ifdef ISPC_GENX_ENABLED
+        if (ISPCTargetIsGen(target)) {
+            Assert(targets.size() == 1 && "multi-target is not supported for genx-* targets yet.");
+            // Generate .spv for gen target instead of object by default.
+            if (ot == Module::Object) {
+                Warning(SourcePos(), "Emitting spir-v file for genx-* targets.");
+                g->emitSPIRV = true;
+                ot = Module::SPIRV;
+            }
+        }
+#endif
     }
 
     // This needs to happen after the TargetOS  is decided.

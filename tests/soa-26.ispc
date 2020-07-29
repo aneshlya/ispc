@@ -1,5 +1,5 @@
-// rule: run on arch=x86
-// rule: run on arch=x86-64
+// rule: skip on arch=genx32
+// rule: skip on arch=genx64
 struct Point { float x, y, z; };
 
 struct Foo {

@@ -84,8 +84,8 @@
 
 using SizeT = int;
 using MaskT = uint64_t;
-constexpr SizeT RES_STR_SIZE = 4096;
-constexpr SizeT ARG_STR_SIZE = 256;
+constexpr SizeT RES_STR_SIZE = 8196;
+constexpr SizeT ARG_STR_SIZE = 1024;
 template <typename T, SizeT Size> using StaticContainer = notstd::array<T, Size>;
 template <typename T, SizeT Size> using StaticContainerRef = StaticContainer<T, Size> &;
 

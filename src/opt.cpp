@@ -1441,7 +1441,11 @@ static llvm::Value *lGetBasePtrAndOffsets(llvm::Value *ptrs, llvm::Value **offse
                     if (bop_var != NULL) {
                         llvm::Type *bop_var_type = bop_var->getType();
                         llvm::Value *zeroMask = llvm::ConstantVector::getSplat(
+#if ISPC_LLVM_VERSION < ISPC_LLVM_11_0
                             bop_var_type->getVectorNumElements(),
+#else // LLVM 11.0+
+                            {llvm::dyn_cast<llvm::VectorType>(bop_var_type)->getNumElements(), false},
+#endif
                             llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*g->ctx)));
                         shuffle_offset = new llvm::ShuffleVectorInst(bop_var, llvm::UndefValue::get(bop_var_type),
                                                                      zeroMask, "shuffle", bop_var);

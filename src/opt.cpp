@@ -721,10 +721,8 @@ void Optimize(llvm::Module *module, int optLevel) {
         optPM.add(llvm::createIndVarSimplifyPass());
         // Currently CM does not support memset/memcpy
         // so this pass is temporary disabled for GEN.
-#ifdef ISPC_GENX_ENABLED
         if (!g->target->isGenXTarget())
             optPM.add(llvm::createLoopIdiomPass());
-#endif
         optPM.add(llvm::createLoopDeletionPass());
         if (g->opt.unrollLoops) {
             optPM.add(llvm::createLoopUnrollPass(), 300);
@@ -736,10 +734,8 @@ void Optimize(llvm::Module *module, int optLevel) {
         optPM.add(CreateInstructionSimplifyPass());
         // Currently CM does not support memset/memcpy
         // so this pass is temporary disabled for GEN.
-#ifdef ISPC_GENX_ENABLED
         if (!g->target->isGenXTarget())
             optPM.add(llvm::createMemCpyOptPass());
-#endif
         optPM.add(llvm::createSCCPPass());
         optPM.add(llvm::createInstructionCombiningPass());
         optPM.add(CreateInstructionSimplifyPass());

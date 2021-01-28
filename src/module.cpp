@@ -1718,6 +1718,14 @@ static std::string translateCPU(const std::string &CPU) {
     return CPU;
 }
 
+#ifdef __INTEL_EMBARGO__
+// Get revision id for given stepping.
+static std::string translateStepping(const std::string &CPU) {
+    // Match CPU by name and return stepping if needed.
+    return "";
+}
+#endif // __INTEL_EMBARGO__
+
 // Copy outputs. Required file should have provided extension (it is
 // different for different binary kinds).
 static void saveOutput(uint32_t numOutputs, uint8_t **dataOutputs, uint64_t *lenOutputs, char **nameOutputs,
@@ -1749,6 +1757,9 @@ bool Module::writeZEBin() {
 
     const std::string CPUName = g->target->getCPU();
     const std::string neoCPU = translateCPU(CPUName);
+#ifdef __INTEL_EMBARGO__
+    const std::string revId = translateStepping(CPUName);
+#endif // __INTEL_EMBARGO__
 
     invokePtr invoke;
     freeOutputPtr freeOutput;
@@ -1796,6 +1807,12 @@ bool Module::writeZEBin() {
     oclocArgs.push_back("compile");
     oclocArgs.push_back("-device");
     oclocArgs.push_back(neoCPU.c_str());
+#ifdef __INTEL_EMBARGO__
+    if (!revId.empty()) {
+        oclocArgs.push_back("-revision_id");
+        oclocArgs.push_back(revId.c_str());
+    }
+#endif // __INTEL_EMBARGO__
     oclocArgs.push_back("-spirv_input");
     oclocArgs.push_back("-file");
     oclocArgs.push_back(spvFileName);

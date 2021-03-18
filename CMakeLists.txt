@@ -410,6 +410,11 @@ if (WASM_ENABLED)
     list(APPEND LLVM_COMPONENTS webassembly)
 endif()
 if (XE_ENABLED)
+# __INTEL_EMBARGO_BEGIN__
+    if( __INTEL_EMBARGO__)
+        set(EMBARGO_ENABLED ON)
+    endif(__INTEL_EMBARGO__)
+# __INTEL_EMBARGO_END__
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
         set(TARGET_MODIFIER "32")
         set(PB_PATH_MODIFIER "x86")

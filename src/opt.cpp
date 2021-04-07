@@ -1512,6 +1512,10 @@ static llvm::Value *lGetBasePtrAndOffsets(llvm::Value *ptrs, llvm::Value **offse
                 if (shuffle_offset != NULL) {
                     *offsets = llvm::BinaryOperator::Create(llvm::Instruction::Add, *offsets, shuffle_offset,
                                                             "new_offsets", insertBefore);
+                    return base;
+                } else {
+                    // Base + offset pattern was not recognized
+                    return NULL;
                 }
             }
         }

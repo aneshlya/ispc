@@ -266,9 +266,18 @@ FunctionEmitContext::FunctionEmitContext(Function *func, Symbol *funSym, llvm::F
     disableGSWarningCount = 0;
 
     const Type *returnType = function->GetReturnType();
-    if (!returnType || returnType->IsVoidType())
+    if (!returnType || returnType->IsVoidType() || function->GetType()->IsRVOEligible()) {
         returnValuePtr = NULL;
-    else {
+        // In case of RVO optimization we do not create alloca for returnValuePtr
+        // but use first function argument for this.
+        // We expect that function signature has been already prepared for it.
+        if (function->GetType()->IsRVOEligible()) {
+            Assert(lf->arg_size() > 0);
+            llvm::Type *returnStructPtrType = lf->getArg(0)->getType();
+            Assert(llvm::isa<llvm::PointerType>(returnStructPtrType));
+            returnValuePtr = lf->getArg(0);
+        }
+    } else {
         returnValuePtr = AllocaInst(returnType, "return_value_memory");
     }
 
@@ -3265,11 +3274,22 @@ llvm::Value *FunctionEmitContext::CallInst(llvm::Value *func, const FunctionType
     }
 
     std::vector<llvm::Value *> argVals = args;
+    llvm::Value *resultPtr = NULL;
+
+    // TODO_RVO: This part is planned to be optimized.
+    // For now just create alloca for return value on caller site.
+    if (funcType && funcType->IsRVOEligible()) {
+        const Type *returnType = funcType->GetReturnType();
+        resultPtr = AllocaInst(returnType);
+        argVals.insert(argVals.begin(), resultPtr);
+    }
+
     // Most of the time, the mask is passed as the last argument.  this
     // isn't the case for things like intrinsics, builtins, and extern "C"
     // functions from the application.  Add the mask if it's needed.
     unsigned int calleeArgCount = lCalleeArgCount(func, funcType);
     AssertPos(currentPos, argVals.size() + 1 == calleeArgCount || argVals.size() == calleeArgCount);
+
     if (argVals.size() + 1 == calleeArgCount) {
         llvm::Value *mask = NULL;
 
@@ -3290,9 +3310,22 @@ llvm::Value *FunctionEmitContext::CallInst(llvm::Value *func, const FunctionType
 #if ISPC_LLVM_VERSION >= ISPC_LLVM_11_0
         llvm::PointerType *func_ptr_type = llvm::dyn_cast<llvm::PointerType>(func->getType());
         llvm::FunctionType *func_type = llvm::dyn_cast<llvm::FunctionType>(func_ptr_type->getPointerElementType());
-        llvm::CallInst *callinst = llvm::CallInst::Create(func_type, func, argVals, name, bblock);
+        llvm::CallInst *callinst;
+        // In case of RVO we return void so CallInst must be unnamed
+        if (funcType && funcType->IsRVOEligible()) {
+            callinst = llvm::CallInst::Create(func_type, func, argVals, "", bblock);
+        } else {
+            callinst = llvm::CallInst::Create(func_type, func, argVals, name, bblock);
+        }
+
 #else
-        llvm::CallInst *callinst = llvm::CallInst::Create(func, argVals, name, bblock);
+        llvm::CallInst *callinst;
+        // In case of RVO we return void so CallInst must be unnamed
+        if (funcType && funcType->IsRVOEligible()) {
+            callinst = llvm::CallInst::Create(func, argVals, "", bblock);
+        } else {
+            callinst = llvm::CallInst::Create(func, argVals, name, bblock);
+        }
 #endif
 
         // We could be dealing with a function pointer in which case this will not be a 'llvm::Function'.
@@ -3331,6 +3364,12 @@ llvm::Value *FunctionEmitContext::CallInst(llvm::Value *func, const FunctionType
         }
 
         AddDebugPos(ci);
+        // TODO_RVO: This part is planned to be optimized.
+        // For now just load and return value from resultPtr
+        if (funcType && funcType->IsRVOEligible()) {
+            Assert(callinst->getType()->isVoidTy() == true);
+            return LoadInst(resultPtr, funcType->GetReturnType());
+        }
         return ci;
     } else {
         // Emit the code for a varying function call, where we have an
@@ -3357,6 +3396,7 @@ llvm::Value *FunctionEmitContext::CallInst(llvm::Value *func, const FunctionType
 
         // First allocate memory to accumulate the various program
         // instances' return values...
+        Assert(funcType != NULL);
         const Type *returnType = funcType->GetReturnType();
         llvm::Type *llvmReturnType = returnType->LLVMType(g->ctx);
         llvm::Value *resultPtr = NULL;
@@ -3530,13 +3570,13 @@ llvm::Instruction *FunctionEmitContext::ReturnInst() {
 #endif
 
     llvm::Instruction *rinst = NULL;
-    if (returnValuePtr != NULL) {
+    if (returnValuePtr != NULL && !function->GetType()->IsRVOEligible()) {
         // We have value(s) to return; load them from their storage
         // location
         llvm::Value *retVal = LoadInst(returnValuePtr, function->GetReturnType(), "return_value");
         rinst = llvm::ReturnInst::Create(*g->ctx, retVal, bblock);
     } else {
-        AssertPos(currentPos, function->GetReturnType()->IsVoidType());
+        AssertPos(currentPos, function->GetReturnType()->IsVoidType() || function->GetType()->IsRVOEligible());
         rinst = llvm::ReturnInst::Create(*g->ctx, bblock);
     }
 

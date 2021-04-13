@@ -42,7 +42,7 @@
 
 namespace ispc {
 
-enum class CallingConv { uninitialized, defaultcall, x86_vectorcall };
+enum class CallingConv { uninitialized, defaultcall, x86_vectorcall, spirv };
 
 enum class TargetOS { windows, linux, custom_linux, freebsd, macos, android, ios, ps4, web, error };
 

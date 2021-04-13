@@ -120,6 +120,9 @@ class Type {
     /** Returns true if the underlying type is a array type */
     bool IsReferenceType() const;
 
+    /** Returns true if the underlying type is a structure type */
+    bool IsStructType() const;
+
     /** Returns true if the underlying type is either a pointer or an array */
     bool IsVoidType() const;
 
@@ -844,6 +847,7 @@ class FunctionType : public Type {
     bool IsIntType() const;
     bool IsUnsignedType() const;
     bool IsConstType() const;
+    bool IsRVOEligible() const;
 
     const Type *GetBaseType() const;
     const Type *GetAsVaryingType() const;
@@ -1013,5 +1017,7 @@ template <> inline const FunctionType *CastType(const Type *type) {
 }
 
 inline bool IsReferenceType(const Type *t) { return CastType<ReferenceType>(t) != NULL; }
+
+inline bool IsStructType(const Type *t) { return CastType<StructType>(t) != NULL; }
 
 } // namespace ispc

@@ -167,6 +167,8 @@ bool Type::IsArrayType() const { return (CastType<ArrayType>(this) != NULL); }
 
 bool Type::IsReferenceType() const { return (CastType<ReferenceType>(this) != NULL); }
 
+bool Type::IsStructType() const { return (CastType<StructType>(this) != NULL); }
+
 bool Type::IsVoidType() const { return EqualIgnoringConst(this, AtomicType::Void); }
 
 bool AtomicType::IsFloatType() const { return (basicType == TYPE_FLOAT || basicType == TYPE_DOUBLE); }
@@ -2261,6 +2263,10 @@ bool FunctionType::IsUnsignedType() const { return false; }
 
 bool FunctionType::IsConstType() const { return false; }
 
+bool FunctionType::IsRVOEligible() const {
+    return g->calling_conv == CallingConv::spirv && returnType != NULL && CastType<StructType>(returnType) != NULL;
+}
+
 const Type *FunctionType::GetBaseType() const {
     FATAL("FunctionType::GetBaseType() shouldn't be called");
     return NULL;
@@ -2463,6 +2469,12 @@ llvm::FunctionType *FunctionType::LLVMFunctionType(llvm::LLVMContext *ctx, bool 
 
     // Get the LLVM Type *s for the function arguments
     std::vector<llvm::Type *> llvmArgTypes;
+
+    // Add structure pointer type for RVO-optimized functions
+    if (IsRVOEligible()) {
+        llvm::Type *st = returnType->LLVMType(g->ctx);
+        llvmArgTypes.push_back(llvm::PointerType::getUnqual(st));
+    }
     for (unsigned int i = 0; i < paramTypes.size(); ++i) {
         if (paramTypes[i] == NULL) {
             Assert(m->errorCount > 0);
@@ -2518,7 +2530,11 @@ llvm::FunctionType *FunctionType::LLVMFunctionType(llvm::LLVMContext *ctx, bool 
         isStorageType = true;
     const Type *retType = returnType;
 
-    llvm::Type *llvmReturnType = retType->LLVMType(g->ctx);
+    // In case of RVO optimization, LLVM return type is void
+    // and structure is returned using first function input
+    // parameter
+    llvm::Type *llvmReturnType = IsRVOEligible() ? LLVMTypes::VoidType : retType->LLVMType(g->ctx);
+
     if (llvmReturnType == NULL)
         return NULL;
     return llvm::FunctionType::get(llvmReturnType, callTypes, false);

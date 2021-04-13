@@ -217,6 +217,7 @@ static void lPrintVersion() {
     printf("    [--fuzz-seed=<value>]\t\tSeed value for RNG for fuzz testing\n");
     printf("    [--fuzz-test]\t\t\tRandomly perturb program input to test error conditions\n");
     printf("    [--off-phase=<value>]\t\tSwitch off optimization phases. --off-phase=first,210:220,300,305,310:last\n");
+    printf("    [--spirv-abi]\t\t\t\tGenerate SPIR-V compatible ABI\n");
     printf("    [--opt=<option>]\t\t\tSet optimization option\n");
     printf("        disable-all-on-optimizations\t\tDisable optimizations that take advantage of \"all on\" mask\n");
     printf("        disable-blended-masked-stores\t\tScalarize masked stores on SSE (vs. using vblendps)\n");
@@ -463,6 +464,8 @@ static void setCallingConv(VectorCallStatus vectorCall, Arch arch) {
         // Arch is not properly set yet, we assume none is x86_64.
         (arch == Arch::x86_64 || arch == Arch::none)) {
         g->calling_conv = CallingConv::x86_vectorcall;
+    } else if (arch == Arch::genx32 || arch == Arch::genx64 || g->calling_conv == CallingConv::spirv) {
+        g->calling_conv = CallingConv::spirv;
     } else {
         g->calling_conv = CallingConv::defaultcall;
     }
@@ -641,6 +644,8 @@ int main(int Argc, char *Argv[]) {
                                       "only intel and att are allowed.",
                                       argv[i] + 17);
             }
+        } else if (!strncmp(argv[i], "--spirv-abi", 11)) {
+            g->calling_conv = CallingConv::spirv;
         } else if (!strncmp(argv[i], "--cpu=", 6)) {
             cpu = argv[i] + 6;
         } else if (!strcmp(argv[i], "--fast-math")) {
@@ -1065,6 +1070,9 @@ int main(int Argc, char *Argv[]) {
             if (ot == Module::Object) {
                 Warning(SourcePos(), "Emitting spir-v file for genx-* targets.");
                 ot = Module::SPIRV;
+            }
+            if (arch == Arch::none) {
+                arch = Arch::genx64;
             }
         }
 #endif

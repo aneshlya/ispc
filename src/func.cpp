@@ -285,6 +285,16 @@ void Function::emitCode(FunctionEmitContext *ctx, llvm::Function *function, Sour
     } else {
         // Regular, non-task function or GPU task
         llvm::Function::arg_iterator argIter = function->arg_begin();
+
+        // For RVO optimized functions the first parameter is a pointer to the
+        // returning structure
+        if (type->IsRVOEligible()) {
+            Assert(llvm::isa<llvm::PointerType>(argIter->getType()));
+            argIter->setName("s.ret");
+            Assert((argIter->getArgNo() == 0));
+            // function->addParamAttr(0, llvm::Attribute::NoAlias);
+            argIter++;
+        }
         for (unsigned int i = 0; i < args.size(); ++i, ++argIter) {
             Symbol *argSym = args[i];
             if (argSym == NULL)
@@ -311,7 +321,6 @@ void Function::emitCode(FunctionEmitContext *ctx, llvm::Function *function, Sour
             ctx->SetFunctionMask(LLVMMaskAllOn);
         } else {
             Assert(type->isUnmasked == false);
-
             // Otherwise use the mask to set the entry mask value
             argIter->setName("__mask");
             Assert(argIter->getType() == LLVMTypes::MaskType);
@@ -577,9 +586,12 @@ void Function::GenerateIR() {
                     appFunction->addFnAttr("CMGenxMain");
                 }
 
-                for (int i = 0; i < function->getFunctionType()->getNumParams() - 1; i++) {
+                // Even if masked function is RVO optimized, it is not applicable for
+                // 'export'-qualified functions.
+                int argsStartIndex = type->IsRVOEligible() ? 1 : 0;
+                for (int i = argsStartIndex; i < function->getFunctionType()->getNumParams() - 1; i++) {
                     if (function->hasParamAttribute(i, llvm::Attribute::NoAlias)) {
-                        appFunction->addParamAttr(i, llvm::Attribute::NoAlias);
+                        appFunction->addParamAttr(i - argsStartIndex, llvm::Attribute::NoAlias);
                     }
                 }
                 g->target->markFuncWithTargetAttr(appFunction);

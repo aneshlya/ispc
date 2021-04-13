@@ -899,6 +899,14 @@ void Module::AddFunctionDeclaration(const std::string &name, const FunctionType 
     // and do other checks and parameter attribute setting.
     bool seenDefaultArg = false;
     int nArgs = functionType->GetNumParameters();
+    // For RVO-optimized functions we have additional first parameter
+    // which is the pointer to the structure. Add NoAlias attribute to
+    // it and set starting index for LLVM representation of the function.
+    int argsStartIndex = 0;
+    if (functionType->IsRVOEligible()) {
+        function->addParamAttr(0, llvm::Attribute::NoAlias);
+        argsStartIndex++;
+    }
     for (int i = 0; i < nArgs; ++i) {
         const Type *argType = functionType->GetParameterType(i);
         const std::string &argName = functionType->GetParameterName(i);
@@ -926,10 +934,10 @@ void Module::AddFunctionDeclaration(const std::string &name, const FunctionType 
 
                                       CastType<ReferenceType>(argType) != NULL)) {
 
-            function->addParamAttr(i, llvm::Attribute::NoAlias);
+            function->addParamAttr(i + argsStartIndex, llvm::Attribute::NoAlias);
 #if 0
             int align = 4 * RoundUpPow2(g->target->nativeVectorWidth);
-            function->addAttribute(i+1, llvm::Attribute::constructAlignmentFromInt(align));
+            function->addAttribute(i + argsStartIndex+ 1, llvm::Attribute::constructAlignmentFromInt(align));
 #endif
         }
 

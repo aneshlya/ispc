@@ -3,8 +3,8 @@
 // additional space for the return structure in the caller and then the
 // address of that structure is passed as a hidden first parameter to the function.
 
-// RUN: %{ispc} %s --target=genx-x8 --nowrap --emit-llvm-text -o - | FileCheck %s -check-prefix=CHECK_RVO
-// RUN: %{ispc} %s --target=sse4 --nowrap --emit-llvm-text -o - | FileCheck %s -check-prefix=CHECK_NO_RVO
+// RUN: %{ispc} %s --target=genx-x8 --nowrap --no-discard-value-names --emit-llvm-text -o - | FileCheck %s -check-prefix=CHECK_RVO
+// RUN: %{ispc} %s --target=sse4 --nowrap --no-discard-value-names --emit-llvm-text -o - | FileCheck %s -check-prefix=CHECK_NO_RVO
 
 // REQUIRES: GENX_ENABLED
 

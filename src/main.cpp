@@ -464,10 +464,8 @@ static void setCallingConv(VectorCallStatus vectorCall, Arch arch) {
         // Arch is not properly set yet, we assume none is x86_64.
         (arch == Arch::x86_64 || arch == Arch::none)) {
         g->calling_conv = CallingConv::x86_vectorcall;
-    } else if (arch == Arch::genx32 || arch == Arch::genx64 || g->calling_conv == CallingConv::spirv) {
-        g->calling_conv = CallingConv::spirv;
     } else {
-        g->calling_conv = CallingConv::defaultcall;
+        g->calling_conv = CallingConv::spirv;
     }
 }
 

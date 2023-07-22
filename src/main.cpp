@@ -1128,6 +1128,29 @@ int main(int Argc, char *Argv[]) {
         }
     }
 
+#ifdef ISPC_WASM_ENABLED
+    // Default setting for wasm
+    if (arch == Arch::wasm32 || arch == Arch::wasm64) {
+        g->target_os = TargetOS::web;
+    }
+    for (auto target : targets) {
+        if (target == ISPCTarget::wasm_i32x4) {
+            g->target_os = TargetOS::web;
+            if (arch == Arch::none) {
+                arch = Arch::wasm32;
+            }
+        }
+    }
+    if (g->target_os == TargetOS::web) {
+        if (arch == Arch::none) {
+            arch = Arch::wasm32;
+        }
+        if (targets.empty()) {
+            targets.push_back(ISPCTarget::wasm_i32x4);
+        }
+    }
+#endif
+
     if (g->enableFuzzTest) {
         if (g->fuzzTestSeed == -1) {
 #ifdef ISPC_HOST_IS_WINDOWS
@@ -1204,12 +1227,6 @@ int main(int Argc, char *Argv[]) {
     }
 
     for (auto target : targets) {
-        if (target == ISPCTarget::wasm_i32x4) {
-            if (arch == Arch::none) {
-                arch = Arch::wasm32;
-            }
-            g->target_os = TargetOS::web;
-        }
 #ifdef ISPC_XE_ENABLED
         if (ISPCTargetIsGen(target)) {
             Assert(targets.size() == 1 && "multi-target is not supported for Xe targets yet.");

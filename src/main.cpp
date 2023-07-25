@@ -1135,6 +1135,7 @@ int main(int Argc, char *Argv[]) {
     }
     for (auto target : targets) {
         if (target == ISPCTarget::wasm_i32x4) {
+            Assert(targets.size() == 1 && "wasm supports only one target: i32x4");
             g->target_os = TargetOS::web;
             if (arch == Arch::none) {
                 arch = Arch::wasm32;
@@ -1226,11 +1227,8 @@ int main(int Argc, char *Argv[]) {
         llvm::cl::ParseCommandLineOptions(2, Args.data());
     }
 
-    for (auto target : targets) {
-        if (target == ISPCTarget::wasm_i32x4) {
-            Assert(targets.size() == 1 && "wasm supports only one target: i32x4");
-        }
 #ifdef ISPC_XE_ENABLED
+    for (auto target : targets) {
         if (ISPCTargetIsGen(target)) {
             Assert(targets.size() == 1 && "multi-target is not supported for Xe targets yet.");
             // Generate .spv for Xe target instead of object by default.
@@ -1239,8 +1237,8 @@ int main(int Argc, char *Argv[]) {
                 ot = Module::SPIRV;
             }
         }
-#endif
     }
+#endif
 
     // This needs to happen after the TargetOS is decided.
     setCallingConv(vectorCall, arch);

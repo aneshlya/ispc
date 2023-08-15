@@ -396,7 +396,7 @@ def run_test(testname, host, target):
                 else:
                     obj_name = "%s.obj" % os.path.basename(filename)
 
-                if target.arch == "wasm32":
+                if target.arch == "wasm32" or target.arch == "wasm64":
                     exe_name = "%s.js" % os.path.realpath(filename)
                 else:
                     exe_name = "%s.exe" % os.path.basename(filename)
@@ -415,14 +415,14 @@ def run_test(testname, host, target):
                 else:
                     obj_name = "%s.o" % testname
 
-                if target.arch == "wasm32":
+                if target.arch == "wasm32" or target.arch == "wasm64":
                     exe_name = "%s.js" % os.path.realpath(testname)
                 else:
                     exe_name = "%s.run" % testname
 
                 if target.arch == 'arm':
                     gcc_arch = '--with-fpu=hardfp -marm -mfpu=neon -mfloat-abi=hard'
-                elif target.arch == 'x86' or target.arch == "wasm32":
+                elif target.arch == 'x86' or target.arch == "wasm32" or target.arch == "wasm64":
                     gcc_arch = '-m32'
                 elif target.arch == 'aarch64':
                     gcc_arch = '-march=armv8-a'
@@ -465,7 +465,7 @@ def run_test(testname, host, target):
                 ispc_cmd += " -O2"
 
         exe_wd = "."
-        if target.arch == "wasm32":
+        if target.arch == "wasm32" or target.arch == "wasm64":
             cc_cmd += " -D__WASM__"
             options.wrapexe = "v8 --experimental-wasm-simd"
             exe_wd = os.path.realpath("./tests")
@@ -740,7 +740,7 @@ def populate_ex_state(options, target, total_tests, test_result):
 # set compiler exe depending on the OS
 def set_compiler_exe(host, options):
     if options.compiler_exe == None:
-        if options.arch == "wasm32":
+        if options.arch == "wasm32" or options.arch == "wasm64":
           options.compiler_exe = "emcc"
         elif host.is_windows():
             options.compiler_exe = "cl.exe"

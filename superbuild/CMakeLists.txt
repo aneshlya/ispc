@@ -31,6 +31,9 @@ check_cache_var_declaration(L0_URL "Level Zero url")
 check_cache_var_declaration(L0_TAG "Level Zero url")
 check_cache_var_declaration(ISPC_CORPUS_URL "ispc-corpus url")
 
+option(__INTEL_EMBARGO__ "Building with IP sensitive code for XE" ON)
+message(STATUS "Building with IP sensitive code for XE __INTEL_EMBARGO__ is ${__INTEL_EMBARGO__}")
+
 set(GNUWIN32 "c:/gnuwin32" CACHE STRING "Set path to gnuwin32 root dir (Windows only)")
 set(CCACHE_VERSION "4.8.2" CACHE STRING "ccache version ")
 set(CCACHE_DIR "default" CACHE STRING "ccache cache directory")
@@ -731,6 +734,9 @@ if (ISPC_CROSS)
         -DISPC_CROSS=ON
         )
 endif()
+list(APPEND ISPC_COMMON_CMAKE_ARGS
+    -D__INTEL_EMBARGO__=${__INTEL_EMBARGO__}
+    )
 if (XE_DEPS)
     list(APPEND ISPC_COMMON_CMAKE_ARGS
         -DXE_ENABLED=ON

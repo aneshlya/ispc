@@ -542,6 +542,12 @@ if (ISPC_OPAQUE_PTR_MODE)
     target_compile_definitions(${PROJECT_NAME} PRIVATE ISPC_OPAQUE_PTR_MODE)
 endif()
 
+# Disable libstdc++/libc++ assertions, even in an LLVM_ENABLE_ASSERTIONS build,
+# to avoid an unwanted dependency on libstdc++/libc++.so.
+if (${LLVM_VERSION_NUMBER} VERSION_GREATER_EQUAL "17.0.0")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE "_LIBCPP_ENABLE_ASSERTIONS=0")
+endif()
+
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
                            ${LLVM_INCLUDE_DIRS}

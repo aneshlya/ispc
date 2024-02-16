@@ -71,7 +71,7 @@ RUN git clone https://github.com/$REPO.git ispc && \
     cmake ispc/superbuild \
         -B build \
         --preset os \
-        -DLTO=$LTO \
+        -DLTO="$LTO" \
         -DXE_DEPS=OFF \
         -DLLVM_VERSION="$LLVM_VERSION" \
         -DBUILD_STAGE1_TOOLCHAIN_ONLY=ON \
@@ -89,7 +89,7 @@ WORKDIR /usr/local/src
 RUN cmake ispc/superbuild \
         -B build \
         --preset os \
-        -DLTO=$LTO \
+        -DLTO="$LTO" \
         -DXE_DEPS=OFF \
         -DLLVM_VERSION="$LLVM_VERSION" \
         -DBUILD_STAGE2_TOOLCHAIN_ONLY=ON \
@@ -114,7 +114,7 @@ WORKDIR /usr/local/src
 RUN cmake ispc/superbuild \
         -B build \
         --preset os \
-        -DLTO=$LTO \
+        -DLTO="$LTO" \
         -DXE_DEPS=OFF \
         -DCMAKE_CXX_FLAGS=-Werror \
         -DPREBUILT_STAGE2_PATH="$LLVM_HOME"/bin-"$LLVM_VERSION" \

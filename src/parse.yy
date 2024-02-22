@@ -2400,12 +2400,12 @@ func(...)
 template_type_parameter
     : TOKEN_TYPENAME TOKEN_IDENTIFIER
       {
-          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, Union(@1, @2));
+          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, false, Union(@1, @2));
           lCleanUpString($<stringVal>2);
       }
     | TOKEN_TYPENAME TOKEN_IDENTIFIER '=' type_specifier
       {
-          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, Union(@1, @2));
+          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, false, Union(@1, @2));
           lCleanUpString($<stringVal>2);
           // TODO: implement
           Error(@4, "Default values for template type parameters are not yet supported.");
@@ -2415,10 +2415,9 @@ template_type_parameter
 template_int_parameter
     : TOKEN_INT TOKEN_IDENTIFIER
       {
-          $$ = nullptr;
+         // TODO: pass real type, it can be unsigned/signed int or enum
+          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, true, Union(@1, @2));
           lCleanUpString($2);
-          // TODO: implement
-          Error(Union(@1, @2), "Non-type template parameters are not yet supported.");
       }
     ;
 
@@ -2466,7 +2465,14 @@ template_declaration
           for(size_t i = 0; i < list->GetCount(); i++) {
               std::string name = (*list)[i]->GetName();
               SourcePos pos = (*list)[i]->GetSourcePos();
-              m->AddTypeDef(name, (*list)[i], pos);
+              if ((*list)[i]->isIntegralType()) {
+                // TODO: support real type here
+                Symbol *sym = new Symbol(name, pos, AtomicType::UniformInt32->GetAsConstType());
+                m->symbolTable->AddVariable(sym);
+              }
+              else {
+                m->AddTypeDef(name, (*list)[i], pos);
+              }
           }
       }
       declaration_specifiers declarator
@@ -2510,6 +2516,16 @@ template_argument_list
           vec->push_back(std::make_pair($1, @1));
           $$ = vec;
       }
+    //| constant_expression
+    //  {
+    //     $$ = nullptr;
+    //      int value;
+    //      lGetConstantInt($1, &value, @1, "Template argument integral value"); 
+    //      ConstExpr *oneExpr = new ConstExpr(AtomicType::UniformInt32, value, @1);
+    //      std::vector<std::pair<const ConstExpr *, SourcePos>> *vec = new std::vector<std::pair<const ConstExpr *, SourcePos>>;
+    //      vec->push_back(std::make_pair(oneExpr, @1));
+    //      $$ = vec;
+    //  }
     | template_argument_list ',' rate_qualified_type_specifier
       {
           std::vector<std::pair<const Type *, SourcePos>> *vec = (std::vector<std::pair<const Type *, SourcePos>> *) $1;

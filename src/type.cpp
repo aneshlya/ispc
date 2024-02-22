@@ -666,8 +666,8 @@ llvm::DIType *AtomicType::GetDIType(llvm::DIScope *scope) const {
 ///////////////////////////////////////////////////////////////////////////
 // TemplateTypeParmType
 
-TemplateTypeParmType::TemplateTypeParmType(std::string n, Variability v, bool ic, SourcePos p)
-    : Type(TEMPLATE_TYPE_PARM_TYPE), name(n), variability(v), isConst(ic), pos(p) {
+TemplateTypeParmType::TemplateTypeParmType(std::string n, Variability v, bool ic, bool ii, SourcePos p)
+    : Type(TEMPLATE_TYPE_PARM_TYPE), name(n), variability(v), isConst(ic), isIntegral(ii), pos(p) {
     asOtherConstType = nullptr;
     asUniformType = asVaryingType = nullptr;
 }
@@ -692,7 +692,7 @@ const Type *TemplateTypeParmType::GetAsVaryingType() const {
     if (variability == Variability::Varying)
         return this;
     if (asVaryingType == nullptr) {
-        asVaryingType = new TemplateTypeParmType(name, Variability::Varying, isConst, pos);
+        asVaryingType = new TemplateTypeParmType(name, Variability::Varying, isConst, isIntegral, pos);
         if (variability == Variability::Uniform)
             asVaryingType->asUniformType = this;
     }
@@ -703,7 +703,7 @@ const Type *TemplateTypeParmType::GetAsUniformType() const {
     if (variability == Variability::Uniform)
         return this;
     if (asUniformType == nullptr) {
-        asUniformType = new TemplateTypeParmType(name, Variability::Uniform, isConst, pos);
+        asUniformType = new TemplateTypeParmType(name, Variability::Uniform, isConst, isIntegral, pos);
         if (variability == Variability::Varying)
             asUniformType->asVaryingType = this;
     }
@@ -713,7 +713,7 @@ const Type *TemplateTypeParmType::GetAsUniformType() const {
 const Type *TemplateTypeParmType::GetAsUnboundVariabilityType() const {
     if (variability == Variability::Unbound)
         return this;
-    return new TemplateTypeParmType(name, Variability::Unbound, isConst, pos);
+    return new TemplateTypeParmType(name, Variability::Unbound, isConst, isIntegral, pos);
 }
 
 // Revisit: Should soa type be supported for template type param?
@@ -751,7 +751,7 @@ const Type *TemplateTypeParmType::ResolveUnboundVariability(Variability v) const
     Assert(v != Variability::Unbound);
     if (variability != Variability::Unbound)
         return this;
-    return new TemplateTypeParmType(name, v, isConst, pos);
+    return new TemplateTypeParmType(name, v, isConst, isIntegral, pos);
 }
 
 const Type *TemplateTypeParmType::GetAsConstType() const {
@@ -759,7 +759,7 @@ const Type *TemplateTypeParmType::GetAsConstType() const {
         return this;
 
     if (asOtherConstType == nullptr) {
-        asOtherConstType = new TemplateTypeParmType(name, variability, true, pos);
+        asOtherConstType = new TemplateTypeParmType(name, variability, true, isIntegral, pos);
         asOtherConstType->asOtherConstType = this;
     }
     return asOtherConstType;
@@ -770,7 +770,7 @@ const Type *TemplateTypeParmType::GetAsNonConstType() const {
         return this;
 
     if (asOtherConstType == nullptr) {
-        asOtherConstType = new TemplateTypeParmType(name, variability, false, pos);
+        asOtherConstType = new TemplateTypeParmType(name, variability, false, isIntegral, pos);
         asOtherConstType->asOtherConstType = this;
     }
     return asOtherConstType;
@@ -821,6 +821,8 @@ llvm::Type *TemplateTypeParmType::LLVMType(llvm::LLVMContext *ctx) const { UNREA
 
 // This should never be called.
 llvm::DIType *TemplateTypeParmType::GetDIType(llvm::DIScope *scope) const { UNREACHABLE(); }
+
+bool TemplateTypeParmType::isIntegralType() const { return isIntegral; }
 
 ///////////////////////////////////////////////////////////////////////////
 // EnumType

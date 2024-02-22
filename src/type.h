@@ -369,7 +369,7 @@ class AtomicType : public Type {
  */
 class TemplateTypeParmType : public Type {
   public:
-    TemplateTypeParmType(std::string, Variability v, bool ic, SourcePos pos);
+    TemplateTypeParmType(std::string, Variability v, bool ic, bool ii, SourcePos pos);
 
     Variability GetVariability() const;
 
@@ -401,10 +401,13 @@ class TemplateTypeParmType : public Type {
 
     llvm::DIType *GetDIType(llvm::DIScope *scope) const;
 
+    bool isIntegralType() const;
+
   private:
     const std::string name;
     const Variability variability;
     const bool isConst;
+    const bool isIntegral;
     const SourcePos pos;
     mutable const TemplateTypeParmType *asOtherConstType, *asUniformType, *asVaryingType;
 };

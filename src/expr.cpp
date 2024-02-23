@@ -1750,7 +1750,7 @@ bool lCreateBinaryOperatorCall(const BinaryExpr::Op bop, Expr *a0, Expr *a1, Exp
         std::vector<TemplateSymbol *> funcTempls;
         bool foundAny = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
         if (foundAny && funcTempls.size() > 0) {
-            std::vector<std::pair<const Type *, SourcePos>> vec;
+            std::vector<std::pair<TemplateArgType, SourcePos>> vec;
             FunctionSymbolExpr *functionSymbolExpr = new FunctionSymbolExpr(opName.c_str(), funcTempls, vec, sp);
             Assert(functionSymbolExpr != nullptr);
             ExprList *args = new ExprList(sp);
@@ -8242,17 +8242,24 @@ FunctionSymbolExpr::FunctionSymbolExpr(const char *n, const std::vector<Symbol *
 }
 
 FunctionSymbolExpr::FunctionSymbolExpr(const char *n, const std::vector<TemplateSymbol *> &candidates,
-                                       const std::vector<std::pair<const Type *, SourcePos>> &types, SourcePos p)
+                                       const std::vector<std::pair<TemplateArgType, SourcePos>> &types, SourcePos p)
     : Expr(p, FunctionSymbolExprID), name(n), candidateTemplateFunctions(candidates), templateArgs(types),
       matchingFunc(nullptr), triedToResolve(false), unresolvedButDependent(false) {
     // Do template argument "normalization", i.e apply "varying type default":
     //
     // template <typename T> void foo(T t);
     // foo<int>(1); // T is assumed to be "varying int" here.
-    for (auto &arg : templateArgs) {
-        if (arg.first->GetVariability() == Variability::Unbound) {
-            arg.first = arg.first->GetAsVaryingType();
-        }
+    for (auto &[first, second] : templateArgs) {
+        std::visit(
+            [&](auto &&a) {
+                using T = std::decay_t<decltype(a)>;
+                if constexpr (std::is_same_v<T, const Type *>) {
+                    if (a->GetVariability() == Variability::Unbound) {
+                        a = a->GetAsVaryingType();
+                    }
+                }
+            },
+            first);
     }
 }
 
@@ -8288,9 +8295,22 @@ FunctionSymbolExpr *FunctionSymbolExpr::Instantiate(TemplateInstantiation &templ
         Assert(candidateTemplateFunctions.size() == 0);
         return new FunctionSymbolExpr(name.c_str(), candidateFunctions, pos);
     }
-    std::vector<std::pair<const Type *, SourcePos>> instTemplateArgs;
+    std::vector<std::pair<TemplateArgType, SourcePos>> instTemplateArgs;
     for (auto &arg : templateArgs) {
-        instTemplateArgs.push_back(std::make_pair(arg.first->ResolveDependenceForTopType(templInst), arg.second));
+        instTemplateArgs.push_back(std::make_pair(std::visit(
+                                                      [&templInst](auto &&a) -> TemplateArgType {
+                                                          using T = std::decay_t<decltype(a)>;
+                                                          if constexpr (std::is_same_v<T, const Type *>) {
+                                                              // Assuming ResolveDependenceForTopType returns a `const
+                                                              // Type *`
+                                                              return a->ResolveDependenceForTopType(templInst);
+                                                          } else if constexpr (std::is_same_v<T, const ConstExpr *>) {
+                                                              // No conversion needed, directly return a
+                                                              return a;
+                                                          }
+                                                      },
+                                                      arg.first),
+                                                  arg.second));
     }
     return new FunctionSymbolExpr(name.c_str(), candidateTemplateFunctions, instTemplateArgs, pos);
 }
@@ -8651,7 +8671,7 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
         }
 
         // Build a complete vector of deduced template arguments.
-        std::vector<std::pair<const Type *, SourcePos>> deducedArgs;
+        std::vector<std::pair<TemplateArgType, SourcePos>> deducedArgs;
         for (int i = 0; i < templateParms->GetCount(); ++i) {
             if (i < templateArgs.size()) {
                 deducedArgs.push_back(templateArgs[i]);
@@ -8663,7 +8683,7 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
                     deductionFailed = true;
                     break;
                 }
-                deducedArgs.push_back(std::pair<const Type *, SourcePos>(deducedArg, pos));
+                deducedArgs.push_back(std::pair<TemplateArgType, SourcePos>(deducedArg, pos));
             }
         }
         if (deductionFailed) {

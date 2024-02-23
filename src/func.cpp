@@ -810,14 +810,30 @@ bool TemplateParms::IsEqual(const TemplateParms *p) const {
 ///////////////////////////////////////////////////////////////////////////
 // TemplateArgs
 
-TemplateArgs::TemplateArgs(const std::vector<std::pair<const Type *, SourcePos>> &a) : args(a) {}
+TemplateArgs::TemplateArgs(const std::vector<std::pair<TemplateArgType, SourcePos>> &a) : args(a) {}
 
 bool TemplateArgs::IsEqual(TemplateArgs &otherArgs) const {
     if (args.size() != otherArgs.args.size()) {
         return false;
     }
     for (int i = 0; i < args.size(); i++) {
-        if (!Type::Equal(args[i].first, otherArgs.args[i].first)) {
+        const auto &arg = args[i];
+        const auto &otherArg = otherArgs.args[i];
+        bool isSame = std::visit(
+            [](auto &&arg1, auto &&arg2) -> bool {
+                using T1 = std::decay_t<decltype(arg1)>;
+                using T2 = std::decay_t<decltype(arg2)>;
+                if constexpr (!std::is_same_v<T1, T2>) {
+                    return false; // Different types
+                } else {
+                    if constexpr (std::is_same_v<T1, const Type *>) {
+                        return Type::Equal(arg1, arg2);
+                    }
+                    return false; // Fallback case, should not reach here
+                }
+            },
+            arg.first, otherArg.first);
+        if (!isSame) {
             return false;
         }
     }
@@ -938,7 +954,15 @@ void FunctionTemplate::Print(Indent &indent) const {
         std::string args;
         for (size_t i = 0; i < inst.first->args.size(); i++) {
             auto &arg = inst.first->args[i];
-            args += arg.first->GetString();
+            std::visit(
+                [&args](auto &&a) {
+                    using T = std::decay_t<decltype(a)>;
+                    if constexpr (std::is_same_v<T, const Type *>) {
+                        args += a->GetString();
+                    }
+                },
+                arg.first);
+
             if (i + 1 < inst.first->args.size()) {
                 args += ", ";
             }
@@ -961,7 +985,7 @@ bool FunctionTemplate::IsStdlibSymbol() const {
     return false;
 };
 
-Symbol *FunctionTemplate::LookupInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types) {
+Symbol *FunctionTemplate::LookupInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &types) {
     TemplateArgs argsToMatch(types);
     for (const auto &inst : instantiations) {
         if (inst.first->IsEqual(argsToMatch)) {
@@ -971,7 +995,7 @@ Symbol *FunctionTemplate::LookupInstantiation(const std::vector<std::pair<const 
     return nullptr;
 }
 
-Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types,
+Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
                                            TemplateInstantiationKind kind, bool isInline, bool isNoinline) {
     const TemplateParms *typenames = GetTemplateParms();
     Assert(typenames);
@@ -996,8 +1020,8 @@ Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<const Typ
 }
 
 Symbol *FunctionTemplate::AddSpecialization(const FunctionType *ftype,
-                                            const std::vector<std::pair<const Type *, SourcePos>> &types, bool isInline,
-                                            bool isNoInline, SourcePos pos) {
+                                            const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
+                                            bool isInline, bool isNoInline, SourcePos pos) {
     const TemplateParms *typenames = GetTemplateParms();
     Assert(typenames);
     TemplateInstantiation templInst(*typenames, types, TemplateInstantiationKind::Specialization, isInline, isNoInline);
@@ -1028,7 +1052,7 @@ Symbol *FunctionTemplate::AddSpecialization(const FunctionType *ftype,
 // TemplateInstantiation
 
 TemplateInstantiation::TemplateInstantiation(const TemplateParms &typeParms,
-                                             const std::vector<std::pair<const Type *, SourcePos>> &typeArgs,
+                                             const std::vector<std::pair<TemplateArgType, SourcePos>> &typeArgs,
                                              TemplateInstantiationKind k, bool ii, bool ini)
     : functionSym(nullptr), kind(k), isInline(ii), isNoInline(ini) {
     Assert(typeArgs.size() <= typeParms.GetCount());
@@ -1038,8 +1062,16 @@ TemplateInstantiation::TemplateInstantiation(const TemplateParms &typeParms,
     // deduction.
     for (int i = 0; i < typeArgs.size(); i++) {
         std::string name = typeParms[i]->GetName();
-        const Type *type = typeArgs[i].first;
-        argsMap[name] = type;
+        std::visit(
+            [this, &name](auto &&ta) {
+                using T = std::decay_t<decltype(ta)>;
+                if constexpr (std::is_same_v<T, const Type *>) {
+                    const Type *type = ta;
+                    argsMap[name] = type;
+                }
+            },
+            typeArgs[i].first);
+
         templateArgs.push_back(typeArgs[i].first);
     }
 }

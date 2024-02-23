@@ -67,10 +67,10 @@ class TemplateParms : public Traceable {
 
 class TemplateArgs {
   public:
-    TemplateArgs(const std::vector<std::pair<const Type *, SourcePos>> &args);
+    TemplateArgs(const std::vector<std::pair<TemplateArgType, SourcePos>> &args);
     bool IsEqual(TemplateArgs &otherArgs) const;
 
-    std::vector<std::pair<const Type *, SourcePos>> args;
+    std::vector<std::pair<TemplateArgType, SourcePos>> args;
 };
 
 enum class TemplateInstantiationKind { Implicit, Explicit, Specialization };
@@ -83,11 +83,12 @@ class FunctionTemplate {
     const FunctionType *GetFunctionType() const;
     StorageClass GetStorageClass();
 
-    Symbol *LookupInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types);
-    Symbol *AddInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types,
+    Symbol *LookupInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &types);
+    Symbol *AddInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
                              TemplateInstantiationKind kind, bool isInline, bool isNoInline);
-    Symbol *AddSpecialization(const FunctionType *ftype, const std::vector<std::pair<const Type *, SourcePos>> &types,
-                              bool isInline, bool isNoInline, SourcePos pos);
+    Symbol *AddSpecialization(const FunctionType *ftype,
+                              const std::vector<std::pair<TemplateArgType, SourcePos>> &types, bool isInline,
+                              bool isNoInline, SourcePos pos);
 
     // Generate code for instantiations and specializations.
     void GenerateIR() const;
@@ -111,7 +112,7 @@ class FunctionTemplate {
 class TemplateInstantiation {
   public:
     TemplateInstantiation(const TemplateParms &typeParms,
-                          const std::vector<std::pair<const Type *, SourcePos>> &typeArgs,
+                          const std::vector<std::pair<TemplateArgType, SourcePos>> &typeArgs,
                           TemplateInstantiationKind kind, bool IsInline, bool IsNoInline);
     const Type *InstantiateType(const std::string &name);
     Symbol *InstantiateSymbol(Symbol *sym);
@@ -128,7 +129,7 @@ class TemplateInstantiation {
     // Mapping of template parameter names to the types in the instantiation.
     std::unordered_map<std::string, const Type *> argsMap;
     // Template arguments in the order of the template parameters.
-    std::vector<const Type *> templateArgs;
+    std::vector<TemplateArgType> templateArgs;
     // Kind of instantiation (explicit, implicit, specialization).
     TemplateInstantiationKind kind;
 

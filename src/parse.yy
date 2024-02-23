@@ -53,7 +53,7 @@ struct PragmaAttributes {
     int count;
 };
 
-typedef std::pair<Declarator *, std::vector<std::pair<const Type *, SourcePos>>*> SimpleTemplateIDType;
+typedef std::pair<Declarator *, std::vector<std::pair<TemplateArgType, SourcePos>>*> SimpleTemplateIDType;
 
 }
 
@@ -95,7 +95,7 @@ static void lSuggestParamListAlternates();
 
 static void lAddDeclaration(DeclSpecs *ds, Declarator *decl);
 static void lAddTemplateDeclaration(TemplateParms *templateParmList, DeclSpecs *ds, Declarator *decl);
-static void lAddTemplateSpecialization(const std::vector<std::pair<const Type *, SourcePos>> &types, DeclSpecs *ds, Declarator *decl);
+static void lAddTemplateSpecialization(const std::vector<std::pair<TemplateArgType, SourcePos>> &types, DeclSpecs *ds, Declarator *decl);
 static void lAddFunctionParams(Declarator *decl);
 static void lAddMaskToSymbolTable(SourcePos pos);
 static void lAddThreadIndexCountToSymbolTable(SourcePos pos);
@@ -152,6 +152,7 @@ struct ForeachDimension {
     ExprList *exprList;
     const Type *type;
     std::vector<std::pair<const Type *, SourcePos> > *typeList;
+    std::vector<std::pair<TemplateArgType, SourcePos> > *typeTemplateList;
     const AtomicType *atomicType;
     int typeQualifier;
     StorageClass storageClass;
@@ -269,7 +270,7 @@ struct ForeachDimension {
 %type <declspecList> declspec_specifier declspec_list
 
 %type <constCharPtr> template_identifier
-%type <typeList> template_argument_list
+%type <typeTemplateList> template_argument_list
 %type <simpleTemplateID> simple_template_id template_function_specialization_declaration
 %type <templateParm> template_type_parameter template_int_parameter template_parameter
 %type <templateParmList> template_parameter_list template_head
@@ -586,7 +587,7 @@ funcall_expression
           const std::string name = $1->first->name;
           m->symbolTable->LookupFunctionTemplate(name, &funcTempls);
           if (funcTempls.size() > 0) {
-              std::vector<std::pair<const Type *, SourcePos>> *templArgs = $1->second;
+              std::vector<std::pair<TemplateArgType, SourcePos>> *templArgs = $1->second;
               Assert(templArgs);
               functionSymbolExpr = new FunctionSymbolExpr(name.c_str(), funcTempls, *templArgs, @1);
               $$ = new FunctionCallExpr(functionSymbolExpr, new ExprList(Union(@1,@2)), Union(@1,@3));
@@ -606,7 +607,7 @@ funcall_expression
           const std::string name = $1->first->name;
           m->symbolTable->LookupFunctionTemplate(name, &funcTempls);
           if (funcTempls.size() > 0) {
-              std::vector<std::pair<const Type *, SourcePos>> *templArgs = $1->second;
+              std::vector<std::pair<TemplateArgType, SourcePos>> *templArgs = $1->second;
               Assert(templArgs);
               functionSymbolExpr = new FunctionSymbolExpr(name.c_str(), funcTempls, *templArgs, @1);
               $$ = new FunctionCallExpr(functionSymbolExpr, $3, Union(@1,@4));
@@ -2512,7 +2513,7 @@ template_function_declaration_or_definition
 template_argument_list
     : rate_qualified_type_specifier
       {
-          std::vector<std::pair<const Type *, SourcePos>> *vec = new std::vector<std::pair<const Type *, SourcePos>>;
+          std::vector<std::pair<TemplateArgType, SourcePos>> *vec = new std::vector<std::pair<TemplateArgType, SourcePos>>;
           vec->push_back(std::make_pair($1, @1));
           $$ = vec;
       }
@@ -2528,7 +2529,7 @@ template_argument_list
     //  }
     | template_argument_list ',' rate_qualified_type_specifier
       {
-          std::vector<std::pair<const Type *, SourcePos>> *vec = (std::vector<std::pair<const Type *, SourcePos>> *) $1;
+          std::vector<std::pair<TemplateArgType, SourcePos>> *vec = (std::vector<std::pair<TemplateArgType, SourcePos>> *) $1;
           vec->push_back(std::make_pair($3, @3));
           $$ = vec;
       }
@@ -2551,7 +2552,7 @@ simple_template_id
           // allocated by strdup in template_identifier
           free((char*)$1);
           // Arguments vector
-          std::vector<std::pair<const Type *, SourcePos>> *vec = (std::vector<std::pair<const Type *, SourcePos>> *) $3;
+          std::vector<std::pair<TemplateArgType, SourcePos>> *vec = (std::vector<std::pair<TemplateArgType, SourcePos>> *) $3;
           // Bundle template ID declarator and type list.
           $$ = new std::pair(d, vec);
       }
@@ -2563,7 +2564,7 @@ simple_template_id
           // allocated by strdup in template_identifier
           free((char*)$1);
           // Arguments vector
-          std::vector<std::pair<const Type *, SourcePos>> *vec = new std::vector<std::pair<const Type *, SourcePos>>;
+          std::vector<std::pair<TemplateArgType, SourcePos>> *vec = new std::vector<std::pair<TemplateArgType, SourcePos>>;
           // Bundle template ID declarator and empty type list.
           $$ = new std::pair(d, vec);
       }
@@ -2640,7 +2641,7 @@ template_function_specialization_declaration
             // parameter_type_list returns vector of Declarations that is not needed anymore.
             delete $7;
         }
-        std::vector<std::pair<const Type *, SourcePos>> *templArgs = new std::vector<std::pair<const Type *, SourcePos>>(*$5->second);
+        std::vector<std::pair<TemplateArgType, SourcePos>> *templArgs = new std::vector<std::pair<TemplateArgType, SourcePos>>(*$5->second);
         Assert(templArgs);
         lAddTemplateSpecialization(*templArgs, $4, d);
         m->symbolTable->PushScope();
@@ -2655,7 +2656,7 @@ template_function_specialization_declaration
       {
         Declarator *d = new Declarator(DK_FUNCTION, Union(@1, @5));
         d->child = $5->first;
-        std::vector<std::pair<const Type *, SourcePos>> *templArgs = new std::vector<std::pair<const Type *, SourcePos>>(*$5->second);
+        std::vector<std::pair<TemplateArgType, SourcePos>> *templArgs = new std::vector<std::pair<TemplateArgType, SourcePos>>(*$5->second);
         Assert(templArgs);
         lAddTemplateSpecialization(*templArgs, $4, d);
         m->symbolTable->PushScope();
@@ -2720,7 +2721,7 @@ void lCleanUpString(std::string *s) {
 
 void lFreeSimpleTemplateID(void *p) {
     SimpleTemplateIDType *sid = (SimpleTemplateIDType*) p;
-    std::vector<std::pair<const Type *, SourcePos>> *templArgs = sid->second;
+    std::vector<std::pair<TemplateArgType, SourcePos>> *templArgs = sid->second;
     if (templArgs) {
         delete templArgs;
     }
@@ -2916,7 +2917,7 @@ lAddTemplateDeclaration(TemplateParms *templateParmList, DeclSpecs *ds, Declarat
 }
 
 static void
-lAddTemplateSpecialization(const std::vector<std::pair<const Type *, SourcePos>> &types, DeclSpecs *ds, Declarator *decl) {
+lAddTemplateSpecialization(const std::vector<std::pair<TemplateArgType, SourcePos>> &types, DeclSpecs *ds, Declarator *decl) {
     if (ds == nullptr || decl == nullptr)
         // Error happened earlier during parsing
         return;

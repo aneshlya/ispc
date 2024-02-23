@@ -412,6 +412,8 @@ class TemplateTypeParmType : public Type {
     mutable const TemplateTypeParmType *asOtherConstType, *asUniformType, *asVaryingType;
 };
 
+using TemplateArgType = std::variant<const Type *, const ConstExpr*>;
+
 /** @brief Type implementation for enumerated types
  *
  *  Note that ISPC enum assumes 32 bit int as underlying type.
@@ -979,7 +981,7 @@ class FunctionType : public Type {
         The \c appFunction parameter indicates whether the function is generated for
         internal ISPC call or for external call from application.*/
     FunctionMangledName GetFunctionMangledName(bool appFunction,
-                                               std::vector<const Type *> *templateArgs = nullptr) const;
+                                               std::vector<TemplateArgType> *templateArgs = nullptr) const;
 
     /** This method returns std::vector of LLVM types of function arguments.
         The \c disableMask parameter indicates whether the mask parameter should be
@@ -1040,7 +1042,7 @@ class FunctionType : public Type {
     int costOverride;
 
   private:
-    std::string mangleTemplateArgs(std::vector<const Type *> *templateArgs) const;
+    std::string mangleTemplateArgs(std::vector<TemplateArgType> *templateArgs) const;
 
     const Type *const returnType;
 

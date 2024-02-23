@@ -2926,23 +2926,36 @@ const std::string FunctionType::GetReturnTypeString() const {
     return ret + returnType->GetString();
 }
 
-std::string FunctionType::mangleTemplateArgs(std::vector<const Type *> *templateArgs) const {
+std::string FunctionType::mangleTemplateArgs(std::vector<TemplateArgType> *templateArgs) const {
     if (templateArgs == nullptr) {
         return "";
     }
     std::string ret = "___";
-    for (const Type *arg : *templateArgs) {
-        if (arg) {
-            ret += arg->Mangle();
-        } else {
-            Assert(m->errorCount > 0);
-        }
+    for (auto arg : *templateArgs) {
+        std::visit(
+            [&ret](auto &&a) {
+                if (a) {
+                    using T = std::decay_t<decltype(a)>;
+                    if constexpr (std::is_same_v<T, const Type *>) {
+                        ret += a->Mangle();
+                    } else if constexpr (std::is_same_v<T, const ConstExpr*>) {
+                        uint32_t v1[ISPC_MAX_NVEC];
+                        a->GetValues(v1);
+                        ret += std::to_string(v1[0]);
+                    } else {
+                        Assert(m->errorCount > 0);
+                    }
+                } else {
+                    Assert(m->errorCount > 0);
+                }
+            },
+            arg);
     }
     return ret;
 }
 
-FunctionType::FunctionMangledName FunctionType::GetFunctionMangledName(bool appFunction,
-                                                                       std::vector<const Type *> *templateArgs) const {
+FunctionType::FunctionMangledName
+FunctionType::GetFunctionMangledName(bool appFunction, std::vector<TemplateArgType> *templateArgs) const {
     FunctionMangledName mangle = {};
     // Mangle internal functions name.
     if (!(isExternC || isExternSYCL || appFunction)) {

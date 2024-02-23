@@ -13,6 +13,7 @@
 
 #include "ast.h"
 #include "ispc.h"
+#include "type.h"
 
 #include <llvm/IR/DebugInfo.h>
 
@@ -87,16 +88,16 @@ class Module {
                                        const FunctionType *ftype, Stmt *code);
 
     void AddFunctionTemplateInstantiation(const std::string &name,
-                                          const std::vector<std::pair<const Type *, SourcePos>> &types,
+                                          const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
                                           const FunctionType *ftype, StorageClass sc, bool isInline, bool isNoInline,
                                           SourcePos pos);
 
     void AddFunctionTemplateSpecializationDeclaration(const std::string &name, const FunctionType *ftype,
-                                                      const std::vector<std::pair<const Type *, SourcePos>> &types,
+                                                      const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
                                                       StorageClass sc, bool isInline, bool isNoInline, SourcePos pos);
 
     void AddFunctionTemplateSpecializationDefinition(const std::string &name, const FunctionType *ftype,
-                                                     const std::vector<std::pair<const Type *, SourcePos>> &types,
+                                                     const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
                                                      SourcePos pos, Stmt *code);
 
     /** Adds the given type to the set of types that have their definitions
@@ -113,7 +114,8 @@ class Module {
        foo<int>(1); // T is assumed to be "varying int" here.
     */
     FunctionTemplate *MatchFunctionTemplate(const std::string &name, const FunctionType *ftype,
-                                            std::vector<std::pair<const Type *, SourcePos>> &normTypes, SourcePos pos);
+                                            std::vector<std::pair<TemplateArgType, SourcePos>> &normTypes,
+                                            SourcePos pos);
 
     /** After a source file has been compiled, output can be generated in a
         number of different formats. */

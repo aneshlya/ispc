@@ -119,7 +119,7 @@ class TemplateInstantiation {
     Symbol *InstantiateTemplateSymbol(TemplateSymbol *sym);
     void SetFunction(Function *func);
 
-    void AddArgument(std::string paramName, const Type *argType);
+    void AddArgument(std::string paramName, TemplateArgType argType);
 
   private:
     // Function Symbol of the instantiation.

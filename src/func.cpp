@@ -995,25 +995,41 @@ Symbol *FunctionTemplate::LookupInstantiation(const std::vector<std::pair<Templa
     return nullptr;
 }
 
-Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &types,
+Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<TemplateArgType, SourcePos>> &templArgTypes,
                                            TemplateInstantiationKind kind, bool isInline, bool isNoinline) {
     const TemplateParms *typenames = GetTemplateParms();
     Assert(typenames);
-    TemplateInstantiation templInst(*typenames, types, kind, isInline, isNoinline);
+    TemplateInstantiation templInst(*typenames, templArgTypes, kind, isInline, isNoinline);
 
     Symbol *instSym = templInst.InstantiateTemplateSymbol(sym);
     Symbol *instMaskSym = templInst.InstantiateSymbol(maskSymbol);
+
     std::vector<Symbol *> instArgs;
     for (auto arg : args) {
         instArgs.push_back(templInst.InstantiateSymbol(arg));
     }
+    // here we need to find symbols created from function template and update their constValue.
+    // after that we can run Optimize and SymbolExpr will be promoted to SymbolExpr
+    /*std::vector<Symbol *> instTemplArgs;
+    for (auto &[first, second] : templArgTypes) {
+        std::visit(
+            [&](auto &&a) {
+                using T = std::decay_t<decltype(a)>;
+                if constexpr (std::is_same_v<T, const ConstExpr *>) {
+                    Symbol* sym = a->GetBaseSymbol();
+                    sym->constValue = const_cast<ConstExpr*>(a);
+                    instTemplArgs.push_back(templInst.InstantiateSymbol(sym));
+                }
+            },
+            first);
+    }*/
 
     Stmt *instCode = code->Instantiate(templInst);
     Function *inst = new Function(instSym, instCode, instMaskSym, instArgs);
 
     templInst.SetFunction(inst);
 
-    TemplateArgs *templArgs = new TemplateArgs(types);
+    TemplateArgs *templArgs = new TemplateArgs(templArgTypes);
     instantiations.push_back(std::make_pair(templArgs, instSym));
 
     return instSym;
@@ -1068,6 +1084,8 @@ TemplateInstantiation::TemplateInstantiation(const TemplateParms &typeParms,
                 if constexpr (std::is_same_v<T, const Type *>) {
                     const Type *type = ta;
                     argsMap[name] = type;
+                } else if constexpr (std::is_same_v<T, const ConstExpr *>) {
+                    argsMap[name] = AtomicType::UniformUInt32;
                 }
             },
             typeArgs[i].first);
@@ -1076,7 +1094,18 @@ TemplateInstantiation::TemplateInstantiation(const TemplateParms &typeParms,
     }
 }
 
-void TemplateInstantiation::AddArgument(std::string paramName, const Type *argType) { argsMap[paramName] = argType; }
+void TemplateInstantiation::AddArgument(std::string paramName, TemplateArgType argType) {
+    std::visit(
+        [this, &paramName](auto &&ta) {
+            using T = std::decay_t<decltype(ta)>;
+            if constexpr (std::is_same_v<T, const Type *>) {
+                argsMap[paramName] = ta;
+            } else if constexpr (std::is_same_v<T, const ConstExpr *>) {
+                argsMap[paramName] = AtomicType::UniformUInt32;
+            }
+        },
+        argType);
+}
 
 const Type *TemplateInstantiation::InstantiateType(const std::string &name) {
     auto t = argsMap.find(name);

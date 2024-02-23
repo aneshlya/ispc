@@ -2938,7 +2938,7 @@ std::string FunctionType::mangleTemplateArgs(std::vector<TemplateArgType> *templ
                     using T = std::decay_t<decltype(a)>;
                     if constexpr (std::is_same_v<T, const Type *>) {
                         ret += a->Mangle();
-                    } else if constexpr (std::is_same_v<T, const ConstExpr*>) {
+                    } else if constexpr (std::is_same_v<T, const ConstExpr *>) {
                         uint32_t v1[ISPC_MAX_NVEC];
                         a->GetValues(v1);
                         ret += std::to_string(v1[0]);

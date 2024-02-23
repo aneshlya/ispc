@@ -100,6 +100,7 @@ class TemplateSymbol {
     StorageClass storageClass;
     const TemplateParms *templateParms;
     FunctionTemplate *functionTemplate;
+    // Should we keep here symbols related to non-type templates?
 
     // Inline / noinline attributes.
     // TODO: it's bad idea to store them here, this need to be redesigned.

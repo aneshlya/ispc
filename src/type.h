@@ -412,7 +412,7 @@ class TemplateTypeParmType : public Type {
     mutable const TemplateTypeParmType *asOtherConstType, *asUniformType, *asVaryingType;
 };
 
-using TemplateArgType = std::variant<const Type *, const ConstExpr*>;
+using TemplateArgType = std::variant<const Type *, const ConstExpr *>;
 
 /** @brief Type implementation for enumerated types
  *

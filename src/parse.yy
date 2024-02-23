@@ -174,6 +174,7 @@ struct ForeachDimension {
     std::vector<std::pair<std::string, SourcePos> > *declspecList;
     PragmaAttributes *pragmaAttributes;
     const TemplateTypeParmType *templateParm;
+    const TemplateArgType *templateArgType;
     TemplateParms *templateParmList;
     TemplateSymbol *functionTemplateSym;
     SimpleTemplateIDType *simpleTemplateID;
@@ -275,6 +276,7 @@ struct ForeachDimension {
 %type <templateParm> template_type_parameter template_int_parameter template_parameter
 %type <templateParmList> template_parameter_list template_head
 %type <functionTemplateSym> template_declaration
+%type <templateArgType> template_argument
 
 %destructor { lCleanUpString($$); } <stringVal>
 // TODO! destructos for all semantic types that return pointer to heap-allocated memory
@@ -2510,27 +2512,32 @@ template_function_declaration_or_definition
       }
     ;
 
-template_argument_list
+
+template_argument
     : rate_qualified_type_specifier
+    {
+        $$ = new TemplateArgType($1);
+    }
+    | int_constant
+    {
+        int value = $1;
+        ConstExpr* intArg = new ConstExpr(AtomicType::UniformUInt32->GetAsConstType(),
+                                              (uint32_t)value, @1);
+        $$ = new TemplateArgType(intArg);
+    }
+    ;
+
+template_argument_list
+    : template_argument
       {
           std::vector<std::pair<TemplateArgType, SourcePos>> *vec = new std::vector<std::pair<TemplateArgType, SourcePos>>;
-          vec->push_back(std::make_pair($1, @1));
+          vec->push_back(std::make_pair(*$1, @1));
           $$ = vec;
       }
-    //| constant_expression
-    //  {
-    //     $$ = nullptr;
-    //      int value;
-    //      lGetConstantInt($1, &value, @1, "Template argument integral value"); 
-    //      ConstExpr *oneExpr = new ConstExpr(AtomicType::UniformInt32, value, @1);
-    //      std::vector<std::pair<const ConstExpr *, SourcePos>> *vec = new std::vector<std::pair<const ConstExpr *, SourcePos>>;
-    //      vec->push_back(std::make_pair(oneExpr, @1));
-    //      $$ = vec;
-    //  }
-    | template_argument_list ',' rate_qualified_type_specifier
+    | template_argument_list ',' template_argument
       {
           std::vector<std::pair<TemplateArgType, SourcePos>> *vec = (std::vector<std::pair<TemplateArgType, SourcePos>> *) $1;
-          vec->push_back(std::make_pair($3, @3));
+          vec->push_back(std::make_pair(*$3, @3));
           $$ = vec;
       }
     ;

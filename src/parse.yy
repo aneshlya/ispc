@@ -2413,6 +2413,15 @@ template_type_parameter
           // TODO: implement
           Error(@4, "Default values for template type parameters are not yet supported.");
       }
+      // Enum case
+    | TOKEN_TYPE_NAME TOKEN_IDENTIFIER
+      {
+          // TODO: pass real type, it can be unsigned/signed int or enum
+          const Type *t = m->symbolTable->LookupType(yytext);
+          lCleanUpString($1);
+          $$ = new TemplateTypeParmType(*$<stringVal>2, Variability::VarType::Unbound, false, true, Union(@1, @2));
+          lCleanUpString($2);
+      }
     ;
 
 template_int_parameter
@@ -2472,6 +2481,7 @@ template_declaration
                 // TODO: support real type here
                 Symbol *sym = new Symbol(name, pos, AtomicType::UniformInt32->GetAsConstType());
                 m->symbolTable->AddVariable(sym);
+                (*list).non_type_args.push_back(sym);
               }
               else {
                 m->AddTypeDef(name, (*list)[i], pos);
@@ -2524,6 +2534,12 @@ template_argument
         ConstExpr* intArg = new ConstExpr(AtomicType::UniformUInt32->GetAsConstType(),
                                               (uint32_t)value, @1);
         $$ = new TemplateArgType(intArg);
+    }
+    | enum_identifier
+    {
+        // Here we need to extract real constexpr from enum identifier
+        Symbol *s = m->symbolTable->LookupVariable($1);
+        $$ = new TemplateArgType(s->constValue);
     }
     ;
 

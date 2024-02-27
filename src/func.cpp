@@ -828,6 +828,13 @@ bool TemplateArgs::IsEqual(TemplateArgs &otherArgs) const {
                 } else {
                     if constexpr (std::is_same_v<T1, const Type *>) {
                         return Type::Equal(arg1, arg2);
+                    } else if constexpr (std::is_same_v<T1, const ConstExpr *>){
+                        uint32_t v1[ISPC_MAX_NVEC];
+                        uint32_t v2[ISPC_MAX_NVEC];
+                        arg1->GetValues(v1);
+                        arg2->GetValues(v2);
+                        //(const ConstExpr *)arg2->GetValues(v2);
+                        return v1[0] == v2[0];
                     }
                     return false; // Fallback case, should not reach here
                 }
@@ -1010,19 +1017,22 @@ Symbol *FunctionTemplate::AddInstantiation(const std::vector<std::pair<TemplateA
     }
     // here we need to find symbols created from function template and update their constValue.
     // after that we can run Optimize and SymbolExpr will be promoted to SymbolExpr
-    /*std::vector<Symbol *> instTemplArgs;
+    std::vector<Symbol *> instTemplArgs;
     for (auto &[first, second] : templArgTypes) {
         std::visit(
             [&](auto &&a) {
                 using T = std::decay_t<decltype(a)>;
                 if constexpr (std::is_same_v<T, const ConstExpr *>) {
-                    Symbol* sym = a->GetBaseSymbol();
-                    sym->constValue = const_cast<ConstExpr*>(a);
-                    instTemplArgs.push_back(templInst.InstantiateSymbol(sym));
+                    for (int i = 0; i < typenames->non_type_args.size(); i++) {
+                        Symbol *sym = typenames->non_type_args[i];
+                        sym->constValue = const_cast<ConstExpr *>(a);
+                    }
+
+                    // instTemplArgs.push_back(templInst.InstantiateSymbol(sym));
                 }
             },
             first);
-    }*/
+    }
 
     Stmt *instCode = code->Instantiate(templInst);
     Function *inst = new Function(instSym, instCode, instMaskSym, instArgs);

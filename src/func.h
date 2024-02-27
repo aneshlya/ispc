@@ -60,6 +60,7 @@ class TemplateParms : public Traceable {
     size_t GetCount() const;
     const TemplateTypeParmType *operator[](size_t i) const;
     bool IsEqual(const TemplateParms *p) const;
+    std::vector<Symbol *> non_type_args;
 
   private:
     std::vector<const TemplateTypeParmType *> parms;

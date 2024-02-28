@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011-2023, Intel Corporation
+  Copyright (c) 2011-2024, Intel Corporation
 
   SPDX-License-Identifier: BSD-3-Clause
 */
@@ -65,12 +65,57 @@ class TemplateParms : public Traceable {
     std::vector<const TemplateTypeParmType *> parms;
 };
 
+// Represents a single argument in a template instantiation. This can either be a type
+// or a non-type (constant expression).
+class TemplateArg {
+  public:
+    enum class ArgType { Type, NoneType };
+
+  private:
+    ArgType argType;
+    union {
+        const Type *type;
+        const ConstExpr *constExpr;
+    };
+    SourcePos pos;
+
+  public:
+    TemplateArg(const Type *t, SourcePos pos);
+    TemplateArg(const ConstExpr *c, SourcePos pos);
+
+    bool IsType() const;
+    bool IsConstExpr() const;
+    const Type *GetType() const;
+    const ConstExpr *GetConstExpr() const;
+    SourcePos GetPos() const;
+    std::string GetString() const;
+    bool IsEqual(const TemplateArg &other) const;
+    // Transforms the stored type to its varying equivalent.
+    void SetAsVaryingType();
+};
+
+// Represents a list of template arguments. This is used
+// to store all arguments provided to a template, preserving their order and types.
 class TemplateArgs {
   public:
-    TemplateArgs(const std::vector<std::pair<const Type *, SourcePos>> &args);
-    bool IsEqual(TemplateArgs &otherArgs) const;
+    TemplateArgs() = default;
+    TemplateArgs(const std::vector<TemplateArg> &args);
 
-    std::vector<std::pair<const Type *, SourcePos>> args;
+    void AddArg(const TemplateArg &arg);
+    const std::vector<TemplateArg> &GetArgs() const;
+    bool IsEqual(const TemplateArgs &other) const;
+    size_t Size() const;
+    // Iterators support, both in const and non-const contexts.
+    std::vector<TemplateArg>::iterator begin();
+    std::vector<TemplateArg>::iterator end();
+    std::vector<TemplateArg>::const_iterator begin() const;
+    std::vector<TemplateArg>::const_iterator end() const;
+    // Access to individual arguments by index, both in const and non-const contexts.
+    const TemplateArg &operator[](std::size_t index) const;
+    const TemplateArg &operator[](std::size_t index);
+
+  private:
+    std::vector<TemplateArg> args;
 };
 
 enum class TemplateInstantiationKind { Implicit, Explicit, Specialization };
@@ -83,11 +128,10 @@ class FunctionTemplate {
     const FunctionType *GetFunctionType() const;
     StorageClass GetStorageClass();
 
-    Symbol *LookupInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types);
-    Symbol *AddInstantiation(const std::vector<std::pair<const Type *, SourcePos>> &types,
-                             TemplateInstantiationKind kind, bool isInline, bool isNoInline);
-    Symbol *AddSpecialization(const FunctionType *ftype, const std::vector<std::pair<const Type *, SourcePos>> &types,
-                              bool isInline, bool isNoInline, SourcePos pos);
+    Symbol *LookupInstantiation(const TemplateArgs &tArgs);
+    Symbol *AddInstantiation(const TemplateArgs &tArgs, TemplateInstantiationKind kind, bool isInline, bool isNoInline);
+    Symbol *AddSpecialization(const FunctionType *ftype, const TemplateArgs &tArgs, bool isInline, bool isNoInline,
+                              SourcePos pos);
 
     // Generate code for instantiations and specializations.
     void GenerateIR() const;
@@ -110,9 +154,8 @@ class FunctionTemplate {
 // - type instantiation
 class TemplateInstantiation {
   public:
-    TemplateInstantiation(const TemplateParms &typeParms,
-                          const std::vector<std::pair<const Type *, SourcePos>> &typeArgs,
-                          TemplateInstantiationKind kind, bool IsInline, bool IsNoInline);
+    TemplateInstantiation(const TemplateParms &typeParms, const TemplateArgs &tArgs, TemplateInstantiationKind kind,
+                          bool IsInline, bool IsNoInline);
     const Type *InstantiateType(const std::string &name);
     Symbol *InstantiateSymbol(Symbol *sym);
     Symbol *InstantiateTemplateSymbol(TemplateSymbol *sym);

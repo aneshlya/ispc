@@ -177,7 +177,6 @@ struct ForeachDimension {
     const TemplateParam *templateParm;
     TemplateParms *templateParmList;
     const TemplateTypeParmType *templateTypeParm;
-    const TemplateNonTypeParmType *templateNonTypeParm;
     TemplateSymbol *functionTemplateSym;
     SimpleTemplateIDType *simpleTemplateID;
 }
@@ -245,7 +244,7 @@ struct ForeachDimension {
 %type <structDeclarationList> struct_declaration_list
 
 %type <symbolList> enumerator_list
-%type <symbol> enumerator foreach_identifier foreach_active_identifier
+%type <symbol> enumerator foreach_identifier foreach_active_identifier template_int_parameter template_enum_parameter
 %type <enumType> enum_specifier
 
 %type <type> specifier_qualifier_list struct_or_union_specifier
@@ -277,7 +276,6 @@ struct ForeachDimension {
 %type <templateArgs> template_argument_list
 %type <simpleTemplateID> simple_template_id template_function_specialization_declaration
 %type <templateTypeParm> template_type_parameter
-%type <templateNonTypeParm> template_int_parameter template_enum_parameter
 %type <templateParm> template_parameter
 %type <templateParmList> template_parameter_list template_head
 %type <functionTemplateSym> template_declaration
@@ -2433,12 +2431,12 @@ int_constant_type
 template_int_parameter
     : int_constant_type TOKEN_IDENTIFIER
       {
-          $$ = new TemplateNonTypeParmType(*$<stringVal>2, Variability::VarType::Uniform, $1, true, Union(@1, @2));
+          $$ = new Symbol(*$<stringVal>2, Union(@1, @2), $1);
           lCleanUpString($2);
       }
       | int_constant_type TOKEN_IDENTIFIER '=' int_constant
       {
-          $$ = new TemplateNonTypeParmType(*$<stringVal>2, Variability::VarType::Uniform, $1, true, Union(@1, @2));
+          $$ = new Symbol(*$<stringVal>2, Union(@1, @2), $1);
           lCleanUpString($2);
           // TODO: implement
           Error(@4, "Default values for template non-type parameters are not yet supported.");
@@ -2453,7 +2451,7 @@ template_enum_parameter
           if (enumType == nullptr) {
             Error(@1, "Only enum types and integral types are allowed as non-type template parameters.");
           }
-          $$ = new TemplateNonTypeParmType(*$<stringVal>2, Variability::VarType::Uniform, enumType->GetAsConstType()->GetAsUniformType(), true, Union(@1, @2));
+          $$ = new Symbol(*$<stringVal>2, Union(@1, @2), enumType->GetAsConstType()->GetAsUniformType());
           lCleanUpString($1);
           lCleanUpString($2);
       }
@@ -2514,10 +2512,9 @@ template_declaration
               std::string name = (*list)[i]->GetName();
               SourcePos pos = (*list)[i]->GetSourcePos();
               if ((*list)[i]->IsTypeParam()) {
-                  m->AddTypeDef(name, (*list)[i]->GetParam(), pos);
+                  m->AddTypeDef(name, (*list)[i]->GetTypeParam(), pos);
               } else if ((*list)[i]->IsNonTypeParam()) {
-                  Symbol *sym = new Symbol(name, pos, (*list)[i]->GetParam());
-                  m->symbolTable->AddVariable(sym);
+                  m->symbolTable->AddVariable((*list)[i]->GetNonTypeParam());
               }
           }
       }

@@ -857,7 +857,7 @@ bool TemplateParms::IsEqual(const TemplateParms *p) const {
 
 TemplateArg::TemplateArg(const Type *t, SourcePos pos) : argType(ArgType::Type), type(t), pos(pos) {}
 TemplateArg::TemplateArg(const Expr *c, SourcePos pos) : argType(ArgType::NonType), expr(c), pos(pos) {
-    const ConstExpr *ce = llvm::dyn_cast<ConstExpr>(c);
+    /*const ConstExpr *ce = llvm::dyn_cast<ConstExpr>(c);
     if (ce == nullptr) {
         const SymbolExpr *se = llvm::dyn_cast<SymbolExpr>(c);
         if (se && se->GetBaseSymbol()->constValue != nullptr) {
@@ -869,7 +869,7 @@ TemplateArg::TemplateArg(const Expr *c, SourcePos pos) : argType(ArgType::NonTyp
         int count = ce->GetValues(constValue);
         Assert(count == 1);
         nonTypeValue = constValue[0];
-    }
+    }*/
 }
 
 const Type *TemplateArg::GetAsType() const {
@@ -890,17 +890,12 @@ const Expr *TemplateArg::GetExpr() const {
 
 SourcePos TemplateArg::GetPos() const { return pos; }
 
-uint32_t TemplateArg::GetNonTypeValue() const {
-    Assert(IsNonType());
-    return nonTypeValue;
-}
-
 std::string TemplateArg::GetString() const {
     switch (argType) {
     case ArgType::Type:
         return type->GetString();
     case ArgType::NonType:
-        return std::to_string(nonTypeValue);
+        return expr->Mangle();
     default:
         return "Unknown ArgType";
     }
@@ -917,7 +912,7 @@ bool TemplateArg::operator==(const TemplateArg &other) const {
     case ArgType::Type:
         return Type::Equal(type, other.type);
     case ArgType::NonType:
-        return nonTypeValue == other.GetNonTypeValue();
+        return Type::Equal(GetAsType(), other.GetAsType()) && expr->Mangle() == other.expr->Mangle();
     default:
         return false;
     }
@@ -929,7 +924,7 @@ std::string TemplateArg::Mangle() const {
     case ArgType::Type:
         return type->Mangle();
     case ArgType::NonType:
-        return std::to_string(nonTypeValue);
+        return expr->Mangle();
     default:
         return "Unknown ArgType";
     }
@@ -1036,7 +1031,10 @@ void FunctionTemplate::Print(Indent &indent) const {
             snprintf(buffer, BUFSIZE, "template param %d", i);
             indent.setNextLabel(buffer);
             if ((*typenames)[i]) {
-                indent.Print("TemplateTypeParmType", (*typenames)[i]->GetSourcePos());
+                indent.Print((*typenames)[i]->IsTypeParam()
+                                 ? "TemplateTypeParmType"
+                                 : (*typenames)[i]->GetNonTypeParam()->type->GetString().c_str(),
+                             (*typenames)[i]->GetSourcePos());
                 printf("\"%s\"\n", (*typenames)[i]->GetName().c_str());
                 indent.Done();
             } else {
@@ -1205,7 +1203,11 @@ Symbol *TemplateInstantiation::InstantiateSymbol(Symbol *sym) {
                 ce = llvm::dyn_cast<ConstExpr>(se->GetBaseSymbol()->constValue);
             }
         }
-        instSym->constValue = ce ? ce->Instantiate(*this) : nullptr;
+        // ce = ce->Instantiate(*this);
+        Expr *castExpr = new TypeCastExpr(sym->type, const_cast<ConstExpr *>(ce), sym->pos);
+        castExpr = TypeCheck(castExpr);
+        castExpr = Optimize(castExpr);
+        instSym->constValue = ce ? llvm::dyn_cast<ConstExpr>(castExpr)->Instantiate(*this) : nullptr;
     } else {
         instSym->constValue = sym->constValue ? sym->constValue->Instantiate(*this) : nullptr;
     }

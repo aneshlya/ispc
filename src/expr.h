@@ -83,6 +83,8 @@ class Expr : public ASTNode {
     virtual Expr *Instantiate(TemplateInstantiation &templInst) const = 0;
 
     virtual bool HasAmbiguousVariability(std::vector<const Expr *> &warn) const;
+
+    virtual std::string Mangle() const;
 };
 
 /** @brief Unary expression */

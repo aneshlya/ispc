@@ -74,6 +74,24 @@ Symbol *Expr::GetBaseSymbol() const {
 
 bool Expr::HasAmbiguousVariability(std::vector<const Expr *> &warn) const { return false; }
 
+std::string Expr::Mangle() const {
+    const ConstExpr *ce = llvm::dyn_cast<ConstExpr>(this);
+    if (ce == nullptr) {
+        const SymbolExpr *se = llvm::dyn_cast<SymbolExpr>(this);
+        if (se && se->GetBaseSymbol()->constValue != nullptr) {
+            ce = llvm::dyn_cast<ConstExpr>(se->GetBaseSymbol()->constValue);
+        }
+    }
+    if (ce) {
+        unsigned int constValue[1];
+        int count = ce->GetValues(constValue);
+        Assert(count == 1);
+        int nonTypeValue = constValue[0];
+        return std::to_string(nonTypeValue);
+    }
+    return "";
+}
+
 #if 0
 /** If a conversion from 'fromAtomicType' to 'toAtomicType' may cause lost
     precision, issue a warning.  Don't warn for conversions to bool and
@@ -8229,6 +8247,10 @@ void SymbolExpr::Print(Indent &indent) const {
     indent.Print("SymbolExpr", pos);
 
     printf("[%s] symbol name: %s\n", GetType()->GetString().c_str(), symbol->name.c_str());
+    if (symbol->constValue != nullptr) {
+        printf("[%s] symbol const value type : %s\n", symbol->constValue->GetType()->GetString().c_str(),
+               symbol->name.c_str());
+    }
 
     indent.Done();
 }
@@ -8290,7 +8312,8 @@ FunctionSymbolExpr *FunctionSymbolExpr::Instantiate(TemplateInstantiation &templ
     TemplateArgs instTemplateArgs;
     for (auto &arg : templateArgs) {
         instTemplateArgs.push_back(
-            arg.IsType() ? TemplateArg(arg.GetAsType()->ResolveDependenceForTopType(templInst), arg.GetPos()) : arg);
+            arg.IsType() ? TemplateArg(arg.GetAsType()->ResolveDependenceForTopType(templInst), arg.GetPos())
+                         : TemplateArg(arg.GetExpr()->Instantiate(templInst), arg.GetPos()));
     }
     return new FunctionSymbolExpr(name.c_str(), candidateTemplateFunctions, instTemplateArgs, pos);
 }
@@ -8444,8 +8467,8 @@ static std::pair<std::string, const Type *> lDeduceParam(const Type *paramType, 
 
     // Pointers
     if (paramType->IsPointerType() && argType->IsPointerType()) {
-        // No additional restrictions for pointer const and variability matching, if they don't match,
-        // the candidate will be rejected by conversion rules.
+        // No additional restrictions for pointer const and variability matching, if they don't
+        // match, the candidate will be rejected by conversion rules.
         return lDeduceParam(paramType->GetBaseType(), argType->GetBaseType());
     }
 
@@ -8465,7 +8488,8 @@ static std::pair<std::string, const Type *> lDeduceParam(const Type *paramType, 
         const Type *deducedType = argType;
 
         if (templTypeParam->IsUniformType() && argType->IsVaryingType()) {
-            // TODO: report a proper log message, which should be used in case of not matching overload is found.
+            // TODO: report a proper log message, which should be used in case of not matching
+            // overload is found.
             return std::pair<std::string, const Type *>("", nullptr);
         } else if (templTypeParam->IsUniformType() && argType->IsUniformType()) {
             deducedType = argType->GetAsVaryingType();
@@ -8543,7 +8567,8 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
             paramTypes.push_back(ft->GetParameterType(i));
         }
 
-        // This looks like a candidate, so now we need get to instantiation and add it to candidate list.
+        // This looks like a candidate, so now we need get to instantiation and add it to candidate
+        // list.
         if (templateArgs.size() == templateParms->GetCount()) {
             // Easy, we have all template arguments specified explicitly, no deduction is needed.
             Symbol *funcSym = templSym->functionTemplate->LookupInstantiation(templateArgs);
@@ -8572,25 +8597,26 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
 
         bool deductionFailed = false;
 
-        // Deduce template parameters from function arguments. Trying to follow C++ template argument deduction
-        // algorithm.
+        // Deduce template parameters from function arguments. Trying to follow C++ template argument
+        // deduction algorithm.
         for (int i = 0; i < substitutedParamTypes.size(); ++i) {
             const Type *paramType = substitutedParamTypes[i];
             if (paramType->IsDependentType()) {
                 // Try to deduce
 
-                // For the sake of template argument deduction, argument cannot have a reference type, as
-                // "In C++, the type of an expression is always adjusted so that it will not have reference type (C++
-                // [expr]p6)"
+                // For the sake of template argument deduction, argument cannot have a reference
+                // type, as "In C++, the type of an expression is always adjusted so that it will not
+                // have reference type (C++ [expr]p6)"
                 const Type *argType = argTypes[i];
                 if (argType->IsReferenceType()) {
                     argType = CastType<ReferenceType>(argType)->GetReferenceTarget();
                 }
 
-                // Note that in C++ `const T &` is a reference type, but not a constant type. Stripping cv-qualifiers
-                // from this type has no effect, but stripping reference type yields `cosnt T`. ISPC type system treats
-                // `const T &` as both constant and reference type, but stripping either of them keeps the other
-                // property. We need to mimic C++ behavior here.
+                // Note that in C++ `const T &` is a reference type, but not a constant type.
+                // Stripping cv-qualifiers from this type has no effect, but stripping reference type
+                // yields `cosnt T`. ISPC type system treats `const T &` as both constant and
+                // reference type, but stripping either of them keeps the other property. We need to
+                // mimic C++ behavior here.
 
                 if (!paramType->IsReferenceType()) {
                     paramType = paramType->GetAsNonConstType();
@@ -8621,7 +8647,8 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
                     const Type *previousDeductionResult = inst.InstantiateType(deduction.first);
 
                     if (previousDeductionResult == nullptr) {
-                        // This tempalte parameter was deducted for the first time. Add it to the map.
+                        // This tempalte parameter was deducted for the first time. Add it to the
+                        // map.
                         inst.AddArgument(deduction.first, TemplateArg(deduction.second, pos));
                     } else if (!Type::Equal(previousDeductionResult, deduction.second)) {
                         if (previousDeductionResult->IsUniformType() && deduction.second->IsVaryingType() &&
@@ -8636,7 +8663,8 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
                             break;
                         }
                     } else {
-                        // Deducted type is the same as previously deduced one. Do nothing, we are good.
+                        // Deducted type is the same as previously deduced one. Do nothing, we are
+                        // good.
                     }
                 } else {
                     // Deduction failed, skip to the next candidate.
@@ -8658,8 +8686,8 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
             } else {
                 const Type *deducedArg = inst.InstantiateType((*templateParms)[i]->GetName());
                 if (!deducedArg || deducedArg->IsDependentType()) {
-                    // Undeduced template parameter. The deduction is incomplete and we need to skip to another
-                    // candidate.
+                    // Undeduced template parameter. The deduction is incomplete and we need to skip
+                    // to another candidate.
                     deductionFailed = true;
                     break;
                 }
@@ -8670,7 +8698,8 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
             continue;
         }
 
-        // All template arguments were either explicitly specified or deduced, now get the instantiation.
+        // All template arguments were either explicitly specified or deduced, now get the
+        // instantiation.
         Symbol *funcSym = templSym->functionTemplate->LookupInstantiation(deducedArgs);
         if (funcSym == nullptr) {
             funcSym = templSym->functionTemplate->AddInstantiation(deducedArgs, TemplateInstantiationKind::Implicit,
@@ -8751,7 +8780,8 @@ int FunctionSymbolExpr::computeOverloadCost(const FunctionType *ftype, const std
                 if (!Type::Equal(callType->GetReferenceTarget()->GetAsNonConstType(),
                                  fargType->GetReferenceTarget()->GetAsNonConstType())) {
                     // Types under references must be equal completely.
-                    // vd -> vfr or vd -> cvfr are forbidden. (Although clang allows vd -> cvfr case.)
+                    // vd -> vfr or vd -> cvfr are forbidden. (Although clang allows vd -> cvfr
+                    // case.)
                     return -1;
                 }
                 // penalty for equal types under reference (vf -> vfr is worse than vf -> vf)

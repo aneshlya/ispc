@@ -116,8 +116,6 @@ class TemplateArg : public Traceable {
     };
     SourcePos pos;
 
-    uint32_t nonTypeValue;
-
   public:
     TemplateArg(const Type *t, SourcePos pos);
     TemplateArg(const Expr *c, SourcePos pos);
@@ -128,8 +126,6 @@ class TemplateArg : public Traceable {
     const Expr *GetExpr() const;
     // Returns the source position associated with this template argument.
     SourcePos GetPos() const;
-    // Returns int value if this argument is a non-type.
-    uint32_t GetNonTypeValue() const;
     // Produces a string representation of the argument.
     std::string GetString() const;
     // Returns `true` if this argument is a non-type.

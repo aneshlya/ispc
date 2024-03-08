@@ -680,7 +680,6 @@ class ArrayType : public SequentialType {
 class VectorType : public SequentialType {
   public:
     VectorType(const AtomicType *base, int size);
-
     Variability GetVariability() const;
 
     bool IsBoolType() const;

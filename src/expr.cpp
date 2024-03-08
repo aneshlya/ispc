@@ -74,23 +74,11 @@ Symbol *Expr::GetBaseSymbol() const {
 
 bool Expr::HasAmbiguousVariability(std::vector<const Expr *> &warn) const { return false; }
 
-std::string Expr::Mangle() const {
-    const ConstExpr *ce = llvm::dyn_cast<ConstExpr>(this);
-    if (ce == nullptr) {
-        const SymbolExpr *se = llvm::dyn_cast<SymbolExpr>(this);
-        if (se && se->GetBaseSymbol()->constValue != nullptr) {
-            ce = llvm::dyn_cast<ConstExpr>(se->GetBaseSymbol()->constValue);
-        }
-    }
-    if (ce) {
-        unsigned int constValue[1];
-        int count = ce->GetValues(constValue);
-        Assert(count == 1);
-        int nonTypeValue = constValue[0];
-        return std::to_string(nonTypeValue);
-    }
-    return "";
-}
+// Add to all expressions: GetAsConstExpr()
+// Move GetCompiletimeIntConstant to ConstExpr
+ConstExpr *Expr::GetAsConstExpr() const { return nullptr; }
+
+std::string Expr::GetString() const { return ""; }
 
 #if 0
 /** If a conversion from 'fromAtomicType' to 'toAtomicType' may cause lost
@@ -6048,6 +6036,13 @@ int ConstExpr::GetValues(int64_t *toPtr, bool forceVarying) const { CONVERT_SWIT
 
 int ConstExpr::GetValues(uint64_t *toPtr, bool forceVarying) const { CONVERT_SWITCH; }
 
+uint32_t ConstExpr::GetIntValue() const {
+    unsigned int constValue[1];
+    int count = GetValues(constValue);
+    Assert(count == 1);
+    return constValue[0];
+}
+
 int ConstExpr::Count() const { return GetType()->IsVaryingType() ? g->target->getVectorWidth() : 1; }
 
 static std::pair<llvm::Constant *, bool> lGetConstExprConstant(const Type *constType, const ConstExpr *cExpr,
@@ -6186,6 +6181,10 @@ std::pair<llvm::Constant *, bool> ConstExpr::GetStorageConstant(const Type *cons
 std::pair<llvm::Constant *, bool> ConstExpr::GetConstant(const Type *constType) const {
     return lGetConstExprConstant(constType, this, false);
 }
+
+ConstExpr *ConstExpr::GetAsConstExpr() const { return const_cast<ConstExpr *>(this); }
+
+std::string ConstExpr::GetString() const { return std::to_string(GetIntValue()); }
 
 Expr *ConstExpr::Optimize() { return this; }
 
@@ -8211,6 +8210,15 @@ const Type *SymbolExpr::GetLValueType() const {
 }
 
 Symbol *SymbolExpr::GetBaseSymbol() const { return symbol; }
+
+ConstExpr *SymbolExpr::GetAsConstExpr() const {
+    if (symbol->constValue != nullptr) {
+        return llvm::dyn_cast<ConstExpr>(symbol->constValue);
+    }
+    return nullptr;
+}
+
+std::string SymbolExpr::GetString() const { return symbol->name; }
 
 const Type *SymbolExpr::GetType() const { return symbol ? symbol->type : nullptr; }
 

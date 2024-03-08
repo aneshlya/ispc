@@ -18,6 +18,7 @@
 
 namespace ispc {
 
+class ConstExpr;
 /** @brief Expr is the abstract base class that defines the interface that
     all expression types must implement.
  */
@@ -69,6 +70,12 @@ class Expr : public ASTNode {
         value as nullptr. */
     virtual std::pair<llvm::Constant *, bool> GetConstant(const Type *type) const;
 
+    /** Get constant expression if it this type can be converted to it. */
+    virtual ConstExpr *GetAsConstExpr() const;
+
+    /** TODO. */
+    virtual std::string GetString() const;
+
     /** This method should perform early optimizations of the expression
         (constant folding, etc.) and return a pointer to the resulting
         expression.  If an error is encountered during optimization, nullptr
@@ -83,8 +90,6 @@ class Expr : public ASTNode {
     virtual Expr *Instantiate(TemplateInstantiation &templInst) const = 0;
 
     virtual bool HasAmbiguousVariability(std::vector<const Expr *> &warn) const;
-
-    virtual std::string Mangle() const;
 };
 
 /** @brief Unary expression */
@@ -494,7 +499,8 @@ class ConstExpr : public Expr {
     void Print(Indent &indent) const;
     std::pair<llvm::Constant *, bool> GetStorageConstant(const Type *type) const;
     std::pair<llvm::Constant *, bool> GetConstant(const Type *constType) const;
-
+    ConstExpr *GetAsConstExpr() const;
+    std::string GetString() const;
     Expr *TypeCheck();
     Expr *Optimize();
     int EstimateCost() const;
@@ -516,6 +522,8 @@ class ConstExpr : public Expr {
     int GetValues(int64_t *, bool forceVarying = false) const;
     int GetValues(uint64_t *, bool forceVarying = false) const;
     int GetValues(std::vector<llvm::APFloat> &) const;
+
+    uint32_t GetIntValue() const;
 
     /** Return the number of values in the ConstExpr; should be either 1,
         if it has uniform type, or the target's vector width if it's
@@ -724,6 +732,8 @@ class SymbolExpr : public Expr {
     const Type *GetType() const;
     const Type *GetLValueType() const;
     Symbol *GetBaseSymbol() const;
+    ConstExpr *GetAsConstExpr() const;
+    std::string GetString() const;
     Expr *TypeCheck();
     Expr *Optimize();
     void Print(Indent &indent) const;

@@ -11,9 +11,9 @@
 // CHECK: partial_inner_all_outer:
 // CHECK-NEXT:  ret void
 
-// CHECK-LABEL: define i64 @bar4___
-// CHECK: call i64 @foo4___8___
-// CHECK-LABEL: define linkonce_odr i64 @foo4___8___
+// CHECK-LABEL: define i64 @bar3___
+// CHECK: call i64 @foo3___8___
+// CHECK-LABEL: define linkonce_odr i64 @foo3___8___
 // CHECK: ret i64 10
 
 template<typename T, int N>
@@ -41,11 +41,11 @@ int bar2(uniform int x[], uniform int y[]) {
 }
 
 template<int8 N>
-noinline uniform uint64 foo4() {
+noinline uniform uint64 foo3() {
     uniform uint64 t = 2 + N;
     return t;
 }
 
-uniform uint64 bar4(uniform int x[], uniform int y[]) {
-    return foo4<8>();
+uniform uint64 bar3(uniform int x[], uniform int y[]) {
+    return foo3<8>();
 }

@@ -1,0 +1,22 @@
+// Non-type parameters in specializations
+// RUN: %{ispc}  %s --emit-llvm-text --target=host --nostdlib -o - | FileCheck %s
+// CHECK-LABEL: define {{.*}} @printNumber___42___
+// CHECK-LABEL: define {{.*}} @foo___
+// CHECK: call void @printNumber___42___
+// CHECK: call void @printNumber___43___
+// CHECK-LABEL: define linkonce_odr {{.*}} @printNumber___43___
+
+template<int N>
+noinline void printNumber() {
+   print("Not specialized. N = %", N);
+}
+
+template<>
+noinline void printNumber<42>() {
+    print("Specialized for 42");
+}
+
+void foo() {
+    printNumber<42>();
+    printNumber<43>();
+}

@@ -74,7 +74,7 @@ class Expr : public ASTNode {
     virtual ConstExpr *GetAsConstExpr() const;
 
     /** TODO. */
-    virtual std::string GetString() const;
+    virtual std::string Mangle() const;
 
     /** This method should perform early optimizations of the expression
         (constant folding, etc.) and return a pointer to the resulting
@@ -500,7 +500,7 @@ class ConstExpr : public Expr {
     std::pair<llvm::Constant *, bool> GetStorageConstant(const Type *type) const;
     std::pair<llvm::Constant *, bool> GetConstant(const Type *constType) const;
     ConstExpr *GetAsConstExpr() const;
-    std::string GetString() const;
+    std::string Mangle() const;
     Expr *TypeCheck();
     Expr *Optimize();
     int EstimateCost() const;
@@ -733,7 +733,7 @@ class SymbolExpr : public Expr {
     const Type *GetLValueType() const;
     Symbol *GetBaseSymbol() const;
     ConstExpr *GetAsConstExpr() const;
-    std::string GetString() const;
+    std::string Mangle() const;
     Expr *TypeCheck();
     Expr *Optimize();
     void Print(Indent &indent) const;

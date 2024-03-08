@@ -3,13 +3,13 @@
 // RUN: %{ispc}  %s --emit-llvm-text --target=host -O0
 
 // CHECK-LABEL: define {{.*}} @foo___vyfvyfvyf
-// CHECK: call <{{[0-9]*}} x float> @fma___vyf48___vyfvyfvyf
+// CHECK: call <{{[0-9]*}} x float> @fma___vyfCuni4Cuni8___vyfvyfvyf
   
-// CHECK-LABEL: define {{.*}} @fma___vyf48___vyfvyfvyf
-// CHECK: call <{{[0-9]*}} x float> @mul___vyf8___vyfvyf
-// CHECK: call <{{[0-9]*}} x float> @add___vyf4___vyfvyf
-// CHECK-LABEL: define {{.*}} @mul___vyf8___vyfvyf
-// CHECK-LABEL: define {{.*}} @add___vyf4___vyfvyf
+// CHECK-LABEL: define {{.*}} @fma___vyfCuni4Cuni8___vyfvyfvyf
+// CHECK: call <{{[0-9]*}} x float> @mul___vyfCuniM___vyfvyf
+// CHECK: call <{{[0-9]*}} x float> @add___vyfCuniN___vyfvyf
+// CHECK-LABEL: define {{.*}} @mul___vyfCuniM___vyfvyf
+// CHECK-LABEL: define {{.*}} @add___vyfCuniN___vyfvyf
 
 template <typename T, int N> noinline T add(T A, T B) { return A + B + N; }
 template <typename T, int M> noinline T mul(T A, T B) { return A * B + M; }

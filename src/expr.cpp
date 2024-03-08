@@ -78,7 +78,7 @@ bool Expr::HasAmbiguousVariability(std::vector<const Expr *> &warn) const { retu
 // Move GetCompiletimeIntConstant to ConstExpr
 ConstExpr *Expr::GetAsConstExpr() const { return nullptr; }
 
-std::string Expr::GetString() const { return ""; }
+std::string Expr::Mangle() const { return nullptr; }
 
 #if 0
 /** If a conversion from 'fromAtomicType' to 'toAtomicType' may cause lost
@@ -6184,7 +6184,7 @@ std::pair<llvm::Constant *, bool> ConstExpr::GetConstant(const Type *constType) 
 
 ConstExpr *ConstExpr::GetAsConstExpr() const { return const_cast<ConstExpr *>(this); }
 
-std::string ConstExpr::GetString() const { return std::to_string(GetIntValue()); }
+std::string ConstExpr::Mangle() const { return GetType()->Mangle() + std::to_string(GetIntValue()); }
 
 Expr *ConstExpr::Optimize() { return this; }
 
@@ -8218,7 +8218,7 @@ ConstExpr *SymbolExpr::GetAsConstExpr() const {
     return nullptr;
 }
 
-std::string SymbolExpr::GetString() const { return symbol->name; }
+std::string SymbolExpr::Mangle() const { return symbol->type->Mangle() + symbol->name; }
 
 const Type *SymbolExpr::GetType() const { return symbol ? symbol->type : nullptr; }
 
@@ -8255,10 +8255,6 @@ void SymbolExpr::Print(Indent &indent) const {
     indent.Print("SymbolExpr", pos);
 
     printf("[%s] symbol name: %s\n", GetType()->GetString().c_str(), symbol->name.c_str());
-    if (symbol->constValue != nullptr) {
-        printf("[%s] symbol const value type : %s\n", symbol->constValue->GetType()->GetString().c_str(),
-               symbol->name.c_str());
-    }
 
     indent.Done();
 }
@@ -8575,9 +8571,23 @@ FunctionSymbolExpr::getCandidateTemplateFunctions(const std::vector<const Type *
             paramTypes.push_back(ft->GetParameterType(i));
         }
 
-        // This looks like a candidate, so now we need get to instantiation and add it to candidate
-        // list.
+        // This looks like a candidate, so now we need to instantiate and add it to the candidate list.
         if (templateArgs.size() == templateParms->GetCount()) {
+            bool argsMatchingPassed = true;
+            for (int i = 0; i < templateParms->GetCount(); ++i) {
+                if ((*templateParms)[i]->IsNonTypeParam()) {
+                    const Type *argType = templateArgs[i].GetAsType();
+                    const Type *paramType = (*templateParms)[i]->GetNonTypeParam()->type;
+                    if (!CanConvertTypes(argType, paramType)) {
+                        argsMatchingPassed = false;
+                        break;
+                    }
+                }
+            }
+            if (!argsMatchingPassed) {
+                continue;
+            }
+
             // Easy, we have all template arguments specified explicitly, no deduction is needed.
             Symbol *funcSym = templSym->functionTemplate->LookupInstantiation(templateArgs);
             if (funcSym == nullptr) {

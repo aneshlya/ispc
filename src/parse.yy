@@ -2611,13 +2611,18 @@ template_argument_list
     : template_argument
       {
           TemplateArgs *templArgs = new TemplateArgs();
-          templArgs->push_back(*$1);
+          if ($1 != nullptr) {
+            templArgs->push_back(*$1);
+          }
           $$ = templArgs;
+        
       }
     | template_argument_list ',' template_argument
       {
           TemplateArgs *templArgs = (TemplateArgs *) $1;
-          templArgs->push_back(*$3);
+          if ($3 != nullptr) {
+            templArgs->push_back(*$3);
+          }
           $$ = templArgs;
       }
     ;

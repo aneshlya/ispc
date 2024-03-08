@@ -2,8 +2,8 @@
 // RUN: %{ispc}  %s --emit-llvm-text --target=host --nostdlib -o - | FileCheck %s
 
 // CHECK-LABEL: define i64 @foo
-// CHECK: call i64 @sum___88161632326464___
-// CHECK-LABEL: define linkonce_odr i64 @sum___88161632326464___
+// CHECK: call i64 @sum___Cuni8Cuni8Cuni16Cuni16Cuni32Cuni32Cuni64Cuni64___
+// CHECK-LABEL: define linkonce_odr i64 @sum___Cuni8Cuni8Cuni16Cuni16Cuni32Cuni32Cuni64Cuni64___
 // CHECK: ret i64 240
 
 template<int8 x8, uint8 xu8, int16 x16, uint16 xu16, int x32, uint xu32, int64 x64, uint64 xu64>

@@ -895,7 +895,7 @@ std::string TemplateArg::GetString() const {
     case ArgType::Type:
         return type->GetString();
     case ArgType::NonType:
-        return expr->GetString();
+        return expr->Mangle();
     default:
         return "Unknown ArgType";
     }
@@ -912,7 +912,7 @@ bool TemplateArg::operator==(const TemplateArg &other) const {
     case ArgType::Type:
         return Type::Equal(type, other.type);
     case ArgType::NonType:
-        return Type::Equal(GetAsType(), other.GetAsType()) && expr->GetString() == other.expr->GetString();
+        return Type::Equal(GetAsType(), other.GetAsType()) && expr->Mangle() == other.expr->Mangle();
     default:
         return false;
     }
@@ -924,7 +924,7 @@ std::string TemplateArg::Mangle() const {
     case ArgType::Type:
         return type->Mangle();
     case ArgType::NonType:
-        return expr->GetString();
+        return expr->Mangle();
     default:
         return "Unknown ArgType";
     }
@@ -1196,8 +1196,7 @@ Symbol *TemplateInstantiation::InstantiateSymbol(Symbol *sym) {
     if (argsNonTypeMap.find(sym->name) != argsNonTypeMap.end()) {
         const Expr *expr = argsNonTypeMap[sym->name];
         Assert(expr != nullptr);
-        const ConstExpr *ce = expr->GetAsConstExpr();
-        if (ce != nullptr) {
+        if (const ConstExpr *ce = expr->GetAsConstExpr()) {
             // Do a little type cast to the actual template parameter type here and optimize it
             Expr *castExpr = new TypeCastExpr(sym->type, const_cast<ConstExpr *>(ce), sym->pos);
             castExpr = Optimize(castExpr);

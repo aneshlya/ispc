@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
             // bingo, failed
             return 1;
 #else
-            printf("%s: value %d disagrees: returned %f [%a], expected %f [%a]\n", argv[0], i, returned_result[i],
+            printf("%s: value %d disagrees: returned %i [%a], expected %f [%a]\n", argv[0], i, returned_result[i],
                    returned_result[i], expected_result[i], expected_result[i]);
             ++errors;
 #endif // EXPECT_FAILURE

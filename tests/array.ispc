@@ -12,6 +12,10 @@ task void f_fu(uniform float RET[], uniform float aFOO[], uniform float b) {
     if (a >= 2)
         foo(x);
     RET[programIndex] = x[b] + x[9];
+    RET[0] = ISPC_INT_MIN;
+    RET[1] = ISPC_FP_MIN;
+    RET[2] = ISPC_FP16_MIN;
+
 }
 
 task void result(uniform float RET[]) {

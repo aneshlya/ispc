@@ -25,8 +25,10 @@
 #include <algorithm>
 #include <ctype.h>
 #include <fcntl.h>
+#include <float.h>
 #include <fstream>
 #include <iostream>
+#include <limits.h>
 #include <set>
 #include <sstream>
 #include <stdarg.h>
@@ -2973,6 +2975,30 @@ static void lSetPreprocessorOptions(const std::shared_ptr<clang::PreprocessorOpt
             opts->addMacroDef(g->cppArgs[i].substr(2));
         }
     }
+
+    // Add macros for max/min values of various types
+    // For integral types use C++ standard macros
+    opts->addMacroDef("ISPC_INT8_MAX=" + std::to_string(CHAR_MAX));
+    opts->addMacroDef("ISPC_INT8_MIN=" + std::to_string(CHAR_MIN));
+    opts->addMacroDef("ISPC_INT16_MAX=" + std::to_string(SHRT_MAX));
+    opts->addMacroDef("ISPC_INT16_MIN=" + std::to_string(SHRT_MIN));
+    opts->addMacroDef("ISPC_INT_MAX=" + std::to_string(INT_MAX));
+    opts->addMacroDef("ISPC_INT_MIN=" + std::to_string(INT_MIN));
+    opts->addMacroDef("ISPC_INT64_MAX=" + std::to_string(LONG_MAX));
+    opts->addMacroDef("ISPC_INT64_MIN=" + std::to_string(LONG_MIN));
+    opts->addMacroDef("ISPC_UINT8_MAX=" + std::to_string(UCHAR_MAX));
+    opts->addMacroDef("ISPC_UINT16_MAX=" + std::to_string(USHRT_MAX));
+    opts->addMacroDef("ISPC_UINT_MAX=" + std::to_string(UINT_MAX));
+    opts->addMacroDef("ISPC_UINT64_MAX=" + std::to_string(ULONG_MAX));
+
+    // For floating point types encode the values as literals
+    // to avoid precision issues when converting C++ macros to string.
+    opts->addMacroDef("ISPC_FP16_MAX=0X1.ffcp+15F16");
+    opts->addMacroDef("ISPC_FP16_MIN=0x1P-14f16");
+    opts->addMacroDef("ISPC_FP_MAX=0X1.fffffep+127F");
+    opts->addMacroDef("ISPC_FP_MIN=0x1P-126");
+    opts->addMacroDef("ISPC_FP64_MAX=0X1.fffffffffffffp+1023D");
+    opts->addMacroDef("ISPC_FP64_MIN=0x1p-1022d");
 }
 
 static void lSetLangOptions(clang::LangOptions *opts) { opts->LineComment = 1; }

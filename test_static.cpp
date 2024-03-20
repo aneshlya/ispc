@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #if defined ISPC_IS_LINUX || defined ISPC_IS_WASM
 #include <malloc.h>
 #endif
@@ -42,6 +43,11 @@
 #define v32_varying_f_sz f_sz
 #define v64_varying_f_sz f_sz
 #include TEST_HEADER
+#endif
+
+#undef TEST_SIG_DOT4ADD
+#if defined(TEST_SIG) && (TEST_SIG >= 16) && (TEST_SIG <= 32)
+    #define TEST_SIG_DOT4ADD 1
 #endif
 
 // For current tests we need max width multiplied by 4, i.e. 64*4
@@ -62,10 +68,12 @@ extern void CALLINGCONV f_fi_cpu_entry_point(float *result, float *a, int *b);
 extern void CALLINGCONV f_du_cpu_entry_point(float *result, double *a, double b);
 extern void CALLINGCONV f_duf_cpu_entry_point(float *result, double *a, float b);
 extern void CALLINGCONV f_di_cpu_entry_point(float *result, double *a, int *b);
+extern void CALLINGCONV f_dot4add_u8i8_cpu_entry_point(int *a, int *b, int *result);
 extern void CALLINGCONV print_uf_cpu_entry_point(float a);
 extern void CALLINGCONV print_f_cpu_entry_point(float *a);
 extern void CALLINGCONV print_fuf_cpu_entry_point(float *a, float b);
 extern void CALLINGCONV result_cpu_entry_point(float *val);
+extern void CALLINGCONV result_u8i8_cpu_entry_point(uint8_t *a, int8_t *b, int *result);
 extern void CALLINGCONV print_result_cpu_entry_point();
 
 void ISPCLaunch(void **handlePtr, void *f, void *d, int, int, int);
@@ -118,6 +126,26 @@ void *ISPCAlloc(void **handle, int64_t size, int32_t alignment) {
 #define ALIGN __attribute__((aligned(64)))
 #endif
 
+#if TEST_SIG_DOT4ADD
+template <typename T>
+void pack4toint(const std::vector<T>& input, std::vector<int32_t>& packedOutput) {
+    static_assert(std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value,
+                  "Template parameter T must be either uint8_t or int8_t.");
+
+    packedOutput.resize(input.size() / 4);
+
+    for (size_t i = 0; i < input.size(); i += 4) {
+        int32_t packedValue = 0;
+        packedValue = (static_cast<int32_t>(input[i+0]) << 24) |
+           (static_cast<int32_t>(static_cast<uint8_t>(input[i+1])) << 16) |
+           (static_cast<int32_t>(static_cast<uint8_t>(input[i+2])) << 8) |
+           static_cast<int32_t>(static_cast<uint8_t>(input[i+3]));
+        packedOutput[i / 4] = packedValue;
+    }
+}
+
+#endif
+
 int main(int argc, char *argv[]) {
     int w = width();
     assert(w <= 64);
@@ -127,15 +155,38 @@ int main(int argc, char *argv[]) {
     ALIGN double vdouble[ARRAY_SIZE];
     ALIGN int vint[ARRAY_SIZE];
     ALIGN int vint2[ARRAY_SIZE];
-
+#if TEST_SIG_DOT4ADD
+    std::vector<int8_t> dot4add_s_a(ARRAY_SIZE);
+    std::vector<int8_t> dot4add_s_b(ARRAY_SIZE);
+    std::vector<uint8_t> dot4add_u_a(ARRAY_SIZE);
+    std::vector<uint8_t> dot4add_u_b(ARRAY_SIZE);
+    std::vector<int32_t> dot4add_res(ARRAY_SIZE/4);
+    std::vector<int32_t> dot4add_exp(ARRAY_SIZE/4);
+#endif
     for (int i = 0; i < ARRAY_SIZE; ++i) {
         returned_result[i] = -1e20;
         vfloat[i] = i + 1;
         vdouble[i] = i + 1;
         vint[i] = 2 * (i + 1);
         vint2[i] = i + 5;
+#if TEST_SIG_DOT4ADD
+    dot4add_s_a[i] = static_cast<int8_t>(-i);
+    dot4add_s_b[i] = static_cast<int8_t>(-i);
+    dot4add_u_a[i] = static_cast<uint8_t>(i);
+    dot4add_u_b[i] = static_cast<uint8_t>(i);
+#endif
     }
 
+#if TEST_SIG_DOT4ADD
+    for (int i = 0; i < ARRAY_SIZE/4; ++i) {
+        dot4add_res[i] = 0;
+        dot4add_exp[i] = 0;
+    }
+    std::vector<int> dot4add_a_packed;
+    pack4toint<uint8_t>(dot4add_u_a, dot4add_a_packed);
+    std::vector<int> dot4add_b_packed;
+    pack4toint<int8_t>(dot4add_s_b, dot4add_b_packed);
+#endif
     float b = 5.;
 
 #if (TEST_SIG == 0)
@@ -155,6 +206,8 @@ int main(int argc, char *argv[]) {
 #elif (TEST_SIG == 7)
     *returned_result = sizeof(ispc::f_sz);
     w = 1;
+#elif (TEST_SIG == 16)
+    f_dot4add_u8i8_cpu_entry_point(dot4add_a_packed.data(), dot4add_b_packed.data(), dot4add_res.data());
 #elif (TEST_SIG == 32)
     print_uf_cpu_entry_point(static_cast<float>(b));
 #elif (TEST_SIG == 33)
@@ -167,14 +220,30 @@ int main(int argc, char *argv[]) {
 
     float expected_result[ARRAY_SIZE];
     memset(expected_result, 0, ARRAY_SIZE * sizeof(float));
-#if (TEST_SIG < 32)
+#if (TEST_SIG < 32) && (!TEST_SIG_DOT4ADD)
     result_cpu_entry_point(expected_result);
+#elif (TEST_SIG == 16)
+    result_u8i8_cpu_entry_point(dot4add_u_a.data(), dot4add_s_b.data(), dot4add_exp.data());
 #else
     print_result_cpu_entry_point();
     return 0;
 #endif
 
     int errors = 0;
+#if (TEST_SIG_DOT4ADD)
+    for (int i = 0; i < 64; ++i) {
+        //if (dot4add_res[i] != dot4add_exp[i]) {
+#ifdef EXPECT_FAILURE
+            // bingo, failed
+            return 1;
+#else
+            printf("%s: value %d disagrees: returned %d [%d], expected %d [%d]\n", argv[0], i, dot4add_res[i],
+                   dot4add_res[i], dot4add_exp[i], dot4add_exp[i]);
+            ++errors;
+#endif // EXPECT_FAILURE
+        //}
+    }
+#else
     for (int i = 0; i < w; ++i) {
         if (returned_result[i] != expected_result[i]) {
 #ifdef EXPECT_FAILURE
@@ -187,7 +256,7 @@ int main(int argc, char *argv[]) {
 #endif // EXPECT_FAILURE
         }
     }
-
+#endif
 #ifdef EXPECT_FAILURE
     // Don't expect to get here
     return 0;

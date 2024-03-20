@@ -5450,3 +5450,43 @@ __declspec(safe) static inline void assume(uniform bool test) {
     __do_assume_uniform(test);
     return;
 }
+
+///////////////////////////////////////////////////////////////////////////
+// Dot product and accumulate
+// Multiply groups of 4 adjacent pairs of unsigned 8-bit integers in a with corresponding signed
+// 8-bit integers in b, producing 4 intermediate signed 16-bit results.
+// Sum these 4 results with the corresponding 32-bit integer in acc, and return the result.
+varying int32 dot4add_u8i8packed(varying int32 a, varying int32 b, varying int32 acc) {
+    int16 tmp1 = (int16)((uint8)((a >> 24) & 0xFF) * (int16)((int8)((b >> 24) & 0xFF)));
+    int16 tmp2 = (int16)((uint8)((a >> 16) & 0xFF) * (int16)((int8)((b >> 16) & 0xFF)));
+    int16 tmp3 = (int16)((uint8)((a >> 8) & 0xFF) * (int16)((int8)((b >> 8) & 0xFF)));
+    int16 tmp4 = (int16)((uint8)(a & 0xFF) * (int16)((int8)(b & 0xFF)));
+    return (int32)(tmp1 + tmp2 + tmp3 + tmp4) + acc;
+}
+
+varying int32 dot4add_u8i8packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
+    int16 tmp1 = (int16)((uint8)((a >> 24) & 0xFF) * (int16)((int8)((b >> 24) & 0xFF)));
+    int16 tmp2 = (int16)((uint8)((a >> 16) & 0xFF) * (int16)((int8)((b >> 16) & 0xFF)));
+    int16 tmp3 = (int16)((uint8)((a >> 8) & 0xFF) * (int16)((int8)((b >> 8) & 0xFF)));
+    int16 tmp4 = (int16)((uint8)(a & 0xFF) * (int16)((int8)(b & 0xFF)));
+    int32 tmp12 = saturating_add(tmp1, tmp2);
+    int32 tmp123 = saturating_add(tmp12, tmp3);
+    int32 tmp1234 = saturating_add(tmp123, tmp4);
+    return saturating_add(tmp1234, acc);
+}
+
+// Multiply groups of 2 adjacent pairs of signed 16-bit integers in a
+// with corresponding 16-bit integers in b, producing 2 intermediate signed 32-bit results.
+// Sum these 2 results with the corresponding 32-bit integer in src, and return the result
+varying int32 dot4add_i16packed(varying int32 a, varying int32 b, varying int32 acc) {
+    int32 tmp1 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
+    int32 tmp2 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
+    return (int32)(tmp1 + tmp2) + acc;
+}
+
+varying int32 dot4add_i16packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
+    int32 tmp1 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
+    int32 tmp2 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
+    int32 tmp12 = saturating_add(tmp1, tmp2);
+    return saturating_add(tmp12, acc);
+}

@@ -35,15 +35,6 @@ task void f_di(uniform float res[], uniform double a[], uniform int b[]);
 export void f_di_cpu_entry_point(uniform float res[], uniform double a[], uniform int b[]) {
     launch[1] f_di(res, a, b);
 }
-#elif (TEST_SIG == 16)
-task void f_dot4add_u8i8(uniform int res[]);
-export void f_dot4add_u8i8_cpu_entry_point(uniform int res[]){
-    launch[1] f_dot4add_u8i8(res);
-}
-task void result_u8i8(uniform int res[]);
-export void result_u8i8_cpu_entry_point(uniform int res[]) {
-    launch[1] result_u8i8(res);
-}
 #elif (TEST_SIG == 32)
 task void print_uf(uniform float b);
 export void print_uf_cpu_entry_point(uniform float b) { launch[1] print_uf(b); }
@@ -55,10 +46,9 @@ task void print_fuf(uniform float vfloat[], uniform float b);
 export void print_fuf_cpu_entry_point(uniform float vfloat[], uniform float b) { launch[1] print_fuf(vfloat, b); }
 #endif
 
-#if (TEST_SIG < 16)
+#if (TEST_SIG < 32)
 task void result(uniform float res[]);
 export void result_cpu_entry_point(uniform float res[]) { launch[1] result(res); }
-#elif (TEST_SIG >=16) && (TEST_SIG < 17)
 #else
 task void print_result();
 export void print_result_cpu_entry_point() { launch[1] print_result(); }
@@ -74,5 +64,15 @@ void pack4toint(uniform T * uniform input, uniform int * uniform packedOutput, u
                       ((uniform int32)(uniform uint8)input[i+2] << 8) |
                       (uniform int32)(uniform uint8)input[i+3];
         packedOutput[i / 4] = packedValue;
+    }
+}
+
+template <typename T>
+void pack2toint(uniform T * uniform input, uniform int * uniform packedOutput, uniform int inputSize) {
+    for (uniform int i = 0; i < inputSize; i += 4) {
+        uniform int32 packedValue = 0;
+        packedValue = ((uniform int32)input[i] << 16) |
+                      (uniform int32)(uniform uint16)input[i+3];
+        packedOutput[i / 2] = packedValue;
     }
 }

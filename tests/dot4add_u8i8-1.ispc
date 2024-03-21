@@ -15,7 +15,7 @@ void init(uniform uint8 a[], uniform int8 b[]) {
         b[i] = i % 128;
     }
 }
-task void f_dot4add_u8i8(uniform int dst[]) {
+task void f_v(uniform float dst[]) {
     uniform uint8 a[N];
     uniform int8 b[N];
     init(a, b);
@@ -29,7 +29,7 @@ task void f_dot4add_u8i8(uniform int dst[]) {
     }
 }
 
-task void result_u8i8(uniform int dst[]) {
+task void result(uniform float dst[]) {
     uniform int acc = 1;
     uniform uint8 a[N];
     uniform int8 b[N];

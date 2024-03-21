@@ -69,10 +69,10 @@ void pack4toint(uniform T * uniform input, uniform int * uniform packedOutput, u
 
 template <typename T>
 void pack2toint(uniform T * uniform input, uniform int * uniform packedOutput, uniform int inputSize) {
-    for (uniform int i = 0; i < inputSize; i += 4) {
+    for (uniform int i = 0; i < inputSize; i += 2) {
         uniform int32 packedValue = 0;
         packedValue = ((uniform int32)input[i] << 16) |
-                      (uniform int32)(uniform uint16)input[i+3];
+                      (uniform int32)(uniform uint16)input[i+1];
         packedOutput[i / 2] = packedValue;
     }
 }

@@ -65,13 +65,14 @@ export void print_result_cpu_entry_point() { launch[1] print_result(); }
 #endif
 #endif
 
-void pack4toint(uniform int8 input[], uniform int packedOutput[], uniform int size) {
-    for (uniform i = 0; i < size; i += 4) {
+template <typename T>
+void pack4toint(uniform T * uniform input, uniform int * uniform packedOutput, uniform int inputSize) {
+    for (uniform int i = 0; i < inputSize; i += 4) {
         uniform int32 packedValue = 0;
-        packedValue = (int32)((uint8)(input[i+0]) << 24) |
-           ((int32)(uint8)(input[i+1]) << 16) |
-           ((int32)(uint8)(input[i+2]) << 8) |
-           (int32)(uint8)(input[i+3]);
+        packedValue = ((uniform int32)input[i] << 24) |
+                      ((uniform int32)(uniform uint8)input[i+1] << 16) |
+                      ((uniform int32)(uniform uint8)input[i+2] << 8) |
+                      (uniform int32)(uniform uint8)input[i+3];
         packedOutput[i / 4] = packedValue;
     }
 }

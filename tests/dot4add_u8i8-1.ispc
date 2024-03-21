@@ -58,12 +58,12 @@ task void f_dot4add_u8i8(uniform int a[], uniform int b[], uniform int dst[]) {
     int acc = 2147483645;
     foreach (i = 0 ... N) {
         dst[i] = test_sat(a[i], b[i], acc);
-    }    
+    }
 }
 
 task void result_u8i8(uniform uint8 a[], uniform int8 b[], uniform int dst[]) {
     uniform int acc = 2147483645;
-    for (uniform int i = 0; i < N*4; i += 4) {
+    /*for (uniform int i = 0; i < N*4; i += 4) {
         uniform int result = 0;
         for (uniform int j = 0; j < 4; ++j) {
             uniform int16 product = (uniform int16)(uniform uint16)(a[i + j]) * (uniform int16)(b[i + j]);
@@ -71,5 +71,12 @@ task void result_u8i8(uniform uint8 a[], uniform int8 b[], uniform int dst[]) {
         }
         //dst[i / 4] = result + acc; // result + i /4
         dst[i / 4] = saturating_add(result, acc);
+    }*/
+    uniform int a_packed[N];
+    pack4toint<uniform uint8>(a, a_packed, 256);
+    uniform int b_packed[N];
+    pack4toint<uniform int8>(b, b_packed, 256);
+    foreach (i = 0 ... N) {
+        dst[i] = test(a_packed[i], b_packed[i], acc);
     }
 }

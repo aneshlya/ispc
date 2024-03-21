@@ -326,6 +326,8 @@ class Target {
 
     int getMaskBitCount() const { return m_maskBitCount; }
 
+    bool hasDotProductVNNI() const { return m_hasDotProductVNNI; }
+
     bool hasHalfConverts() const { return m_hasHalfConverts; }
 
     bool hasHalfFullSupport() const { return m_hasHalfFullSupport; }
@@ -435,6 +437,9 @@ class Target {
     /** How many bits are used to store each element of the mask: e.g. this
         is 32 on SSE/AVX, since that matches the HW better. */
     int m_maskBitCount;
+
+    /** Indicates whether the target has native support for VNNI dot product. */
+    bool m_hasDotProductVNNI;
 
     /** Indicates whether the target has native support for float/half conversions. */
     bool m_hasHalfConverts;

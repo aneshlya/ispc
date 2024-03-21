@@ -1224,6 +1224,11 @@ void ispc::DefineStdlib(SymbolTable *symbolTable, llvm::LLVMContext *ctx, llvm::
     lDefineConstantInt("__have_native_rsqrtd", g->target->hasRsqrtd(), module, symbolTable, debug_symbols);
     lDefineConstantInt("__have_native_rcpd", g->target->hasRcpd(), module, symbolTable, debug_symbols);
     lDefineConstantInt("__have_saturating_arithmetic", g->target->hasSatArith(), module, symbolTable, debug_symbols);
+    lDefineConstantInt("__have_dot_product_vnni", g->target->hasDotProductVNNI(), module, symbolTable, debug_symbols);
+    // TODO: add support of AVX_VNNI_INT8 and AVX_VNNI_INT16 extensions.
+    // It should also match dp4a on Xe targets
+    // lDefineConstantInt("__have_dot_product_i8", g->target->hasDotProductI8(), module, symbolTable, debug_symbols);
+    // lDefineConstantInt("__have_dot_product_i16", g->target->hasDotProductI16(), module, symbolTable, debug_symbols);
 #ifdef ISPC_XE_ENABLED
     lDefineConstantInt("__have_xe_prefetch", g->target->hasXePrefetch(), module, symbolTable, debug_symbols);
 #else

@@ -10,9 +10,9 @@ varying int32 test(varying int32 a, varying int32 b, varying int32 acc) {
 }
 
 void init(uniform uint8 a[], uniform int8 b[]) {
-    for (int i = 0; i < N; i++) {
-        a[i] = i % 128;
-        b[i] = i % 128;
+    for (uniform int i = 0; i < N; i++) {
+        a[i] = (uniform uint8)i;
+        b[i] = (uniform int8)i;
     }
 }
 task void f_dot4add_u8i8(uniform int dst[]) {
@@ -25,7 +25,7 @@ task void f_dot4add_u8i8(uniform int dst[]) {
     pack4toint<uniform int8>(b, b_packed, N);
 
     foreach (i = 0 ... N) {
-        dst[i] = test(a_packed[i], b_packed[i], i);
+        dst[i] = test(a_packed[i], b_packed[i], -i);
     }
 }
 
@@ -40,6 +40,6 @@ task void result_u8i8(uniform int dst[]) {
             uniform int16 product = (uniform int16)(uniform uint16)(a[i + j]) * (uniform int16)(b[i + j]);
             result += (uniform int32)(product);
         }
-        dst[i / 4] = result + i /4;
+        dst[i / 4] = result + (-i /4);
     }
 }

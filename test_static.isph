@@ -36,13 +36,13 @@ export void f_di_cpu_entry_point(uniform float res[], uniform double a[], unifor
     launch[1] f_di(res, a, b);
 }
 #elif (TEST_SIG == 16)
-task void f_dot4add_u8i8(uniform int a[], uniform int b[], uniform int res[]);
-export void f_dot4add_u8i8_cpu_entry_point(uniform int a[], uniform int b[], uniform int res[]){
-    launch[1] f_dot4add_u8i8(a, b, res);
+task void f_dot4add_u8i8(uniform int res[]);
+export void f_dot4add_u8i8_cpu_entry_point(uniform int res[]){
+    launch[1] f_dot4add_u8i8(res);
 }
-task void result_u8i8(uniform uint8 a[], uniform int8 b[], uniform int res[]);
-export void result_u8i8_cpu_entry_point(uniform uint8 a[], uniform int8 b[], uniform int res[]) {
-    launch[1] result_u8i8(a, b, res);
+task void result_u8i8(uniform int res[]);
+export void result_u8i8_cpu_entry_point(uniform int res[]) {
+    launch[1] result_u8i8(res);
 }
 #elif (TEST_SIG == 32)
 task void print_uf(uniform float b);
@@ -55,7 +55,7 @@ task void print_fuf(uniform float vfloat[], uniform float b);
 export void print_fuf_cpu_entry_point(uniform float vfloat[], uniform float b) { launch[1] print_fuf(vfloat, b); }
 #endif
 
-#if (TEST_SIG < 32) && (TEST_SIG > 17)
+#if (TEST_SIG < 16)
 task void result(uniform float res[]);
 export void result_cpu_entry_point(uniform float res[]) { launch[1] result(res); }
 #elif (TEST_SIG >=16) && (TEST_SIG < 17)

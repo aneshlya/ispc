@@ -1,18 +1,21 @@
 #include "../test_static.isph"
 #define N 256
 
-varying int32 test(varying int32 a, varying int32 b, varying int32 acc) {
+varying int32 dot4add_u8i8packed2(varying int32 a, varying int32 b, varying int32 acc) {
     int16 tmp1 = (int16)((uint16)(((uint8)((a >> 24) & 0xFF))) * (int16)((int8)((b >> 24) & 0xFF)));
     int16 tmp2 = (int16)((uint16)(((uint8)((a >> 16) & 0xFF))) * (int16)((int8)((b >> 16) & 0xFF)));
     int16 tmp3 = (int16)((uint16)(((uint8)((a >> 8) & 0xFF))) * (int16)((int8)((b >> 8) & 0xFF)));
     int16 tmp4 = (int16)((uint16)(((uint8)(a & 0xFF))) * (int16)((int8)(b & 0xFF)));
-    return (int32)tmp1 + (int32)tmp2 + (int32)tmp3 + (int32)tmp4 + acc;
+    int32 tmp12 = saturating_add((int32)tmp1, (int32)tmp2);
+    int32 tmp123 = saturating_add((int32)tmp12, (int32)tmp3);
+    int32 tmp1234 = saturating_add((int32)tmp123, (int32)tmp4);
+    return saturating_add(tmp1234, acc);
 }
 
 void init(uniform uint8 a[], uniform int8 b[]) {
-    for (int i = 0; i < N; i++) {
-        a[i] = i % 128;
-        b[i] = i % 128;
+    for (uniform int i = 0; i < N; i++) {
+        a[i] = (uniform uint8)i;
+        b[i] = (uniform int8)i;
     }
 }
 task void f_dot4add_u8i8(uniform int dst[]) {
@@ -24,13 +27,14 @@ task void f_dot4add_u8i8(uniform int dst[]) {
     uniform int b_packed[N/4];
     pack4toint<uniform int8>(b, b_packed, N);
 
+    int acc = 0x7FFFFFFF -1;
     foreach (i = 0 ... N) {
-        dst[i] = test(a_packed[i], b_packed[i], i);
+        dst[i] = dot4add_u8i8packed2(a_packed[i], b_packed[i], acc);
     }
 }
 
 task void result_u8i8(uniform int dst[]) {
-    uniform int acc = 1;
+    uniform int acc = 0x7FFFFFFF-1;
     uniform uint8 a[N];
     uniform int8 b[N];
     init(a, b);
@@ -40,6 +44,6 @@ task void result_u8i8(uniform int dst[]) {
             uniform int16 product = (uniform int16)(uniform uint16)(a[i + j]) * (uniform int16)(b[i + j]);
             result += (uniform int32)(product);
         }
-        dst[i / 4] = result + i /4;
+        dst[i / 4] = saturating_add(result, acc);
     }
 }

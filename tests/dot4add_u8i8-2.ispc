@@ -10,9 +10,10 @@ varying int32 test(varying int32 a, varying int32 b, varying int32 acc) {
 }
 
 void init(uniform uint8 a[], uniform int8 b[]) {
-    for (int i = 0; i < N; i++) {
-        a[i] = i % 128;
-        b[i] = i % 128;
+    for (uniform int i = N-1; i >= 0; i--) {
+        a[i] = (uniform uint8)i%128;
+        b[i] = (uniform int8)-i%128;
+        //print("% % \n", (uint8)i, (int8)i);
     }
 }
 task void f_dot4add_u8i8(uniform int dst[]) {

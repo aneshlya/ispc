@@ -68,12 +68,12 @@ extern void CALLINGCONV f_fi_cpu_entry_point(float *result, float *a, int *b);
 extern void CALLINGCONV f_du_cpu_entry_point(float *result, double *a, double b);
 extern void CALLINGCONV f_duf_cpu_entry_point(float *result, double *a, float b);
 extern void CALLINGCONV f_di_cpu_entry_point(float *result, double *a, int *b);
-extern void CALLINGCONV f_dot4add_u8i8_cpu_entry_point(int *a, int *b, int *result);
+extern void CALLINGCONV f_dot4add_u8i8_cpu_entry_point(int *result);
 extern void CALLINGCONV print_uf_cpu_entry_point(float a);
 extern void CALLINGCONV print_f_cpu_entry_point(float *a);
 extern void CALLINGCONV print_fuf_cpu_entry_point(float *a, float b);
 extern void CALLINGCONV result_cpu_entry_point(float *val);
-extern void CALLINGCONV result_u8i8_cpu_entry_point(uint8_t *a, int8_t *b, int *result);
+extern void CALLINGCONV result_u8i8_cpu_entry_point(int *result);
 extern void CALLINGCONV print_result_cpu_entry_point();
 
 void ISPCLaunch(void **handlePtr, void *f, void *d, int, int, int);
@@ -155,38 +155,17 @@ int main(int argc, char *argv[]) {
     ALIGN double vdouble[ARRAY_SIZE];
     ALIGN int vint[ARRAY_SIZE];
     ALIGN int vint2[ARRAY_SIZE];
-#if TEST_SIG_DOT4ADD
-    std::vector<int8_t> dot4add_s_a(ARRAY_SIZE);
-    std::vector<int8_t> dot4add_s_b(ARRAY_SIZE);
-    std::vector<uint8_t> dot4add_u_a(ARRAY_SIZE);
-    std::vector<uint8_t> dot4add_u_b(ARRAY_SIZE);
-    std::vector<int32_t> dot4add_res(ARRAY_SIZE/4);
-    std::vector<int32_t> dot4add_exp(ARRAY_SIZE/4);
-#endif
+    ALIGN int dot4add_res[ARRAY_SIZE];
+
     for (int i = 0; i < ARRAY_SIZE; ++i) {
         returned_result[i] = -1e20;
         vfloat[i] = i + 1;
         vdouble[i] = i + 1;
         vint[i] = 2 * (i + 1);
         vint2[i] = i + 5;
-#if TEST_SIG_DOT4ADD
-    dot4add_s_a[i] = static_cast<int8_t>(-i);
-    dot4add_s_b[i] = static_cast<int8_t>(-i);
-    dot4add_u_a[i] = static_cast<uint8_t>(i);
-    dot4add_u_b[i] = static_cast<uint8_t>(i);
-#endif
+        dot4add_res[i] = 0;
     }
 
-#if TEST_SIG_DOT4ADD
-    for (int i = 0; i < ARRAY_SIZE/4; ++i) {
-        dot4add_res[i] = 0;
-        dot4add_exp[i] = 0;
-    }
-    std::vector<int> dot4add_a_packed;
-    pack4toint<uint8_t>(dot4add_u_a, dot4add_a_packed);
-    std::vector<int> dot4add_b_packed;
-    pack4toint<int8_t>(dot4add_s_b, dot4add_b_packed);
-#endif
     float b = 5.;
 
 #if (TEST_SIG == 0)
@@ -207,7 +186,7 @@ int main(int argc, char *argv[]) {
     *returned_result = sizeof(ispc::f_sz);
     w = 1;
 #elif (TEST_SIG == 16)
-    f_dot4add_u8i8_cpu_entry_point(dot4add_a_packed.data(), dot4add_b_packed.data(), dot4add_res.data());
+    f_dot4add_u8i8_cpu_entry_point(dot4add_res);
 #elif (TEST_SIG == 32)
     print_uf_cpu_entry_point(static_cast<float>(b));
 #elif (TEST_SIG == 33)
@@ -223,7 +202,9 @@ int main(int argc, char *argv[]) {
 #if (TEST_SIG < 32) && (!TEST_SIG_DOT4ADD)
     result_cpu_entry_point(expected_result);
 #elif (TEST_SIG == 16)
-    result_u8i8_cpu_entry_point(dot4add_u_a.data(), dot4add_s_b.data(), dot4add_exp.data());
+    int dot4add_exp[ARRAY_SIZE];
+    memset(dot4add_exp, 0, ARRAY_SIZE * sizeof(int));
+    result_u8i8_cpu_entry_point(dot4add_exp);
 #else
     print_result_cpu_entry_point();
     return 0;

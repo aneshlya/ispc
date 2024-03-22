@@ -126,7 +126,7 @@ static bool __os_has_avx512_support() {
 }
 #endif // ISPC_HOST_IS_X86
 
-static bool __has_vnni_support() {
+/*static bool __has_vnni_support() {
     int info[4];
     // Call cpuid with eax=7, ecx=0
     __cpuidex(info, 7, 0);
@@ -138,7 +138,7 @@ static bool __has_vnni_support() {
         __cpuidex(info2, 7, 1);
     bool avx_vnni = (info2[0] & (1 << 4)) != 0;
     return avx512_vnni || avx_vnni;
-}
+}*/
 
 static ISPCTarget lGetSystemISA() {
 #if defined(ISPC_HOST_IS_ARM)

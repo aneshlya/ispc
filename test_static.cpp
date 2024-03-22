@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     int errors = 0;
-    for (int i = 0; i < 64; ++i) {
+    for (int i = 0; i < w; ++i) {
         if (returned_result[i] != expected_result[i]) {
 #ifdef EXPECT_FAILURE
             // bingo, failed

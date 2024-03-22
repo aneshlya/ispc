@@ -10,7 +10,7 @@ varying int32 test(varying int32 a, varying int32 b, varying int32 acc) {
 }
 
 void init(uniform uint8 a[], uniform int8 b[]) {
-    for (int i = 0; i < N; i++) {
+    for (uniform int i = 0; i < N; i++) {
         a[i] = i % 128;
         b[i] = i % 128;
     }
@@ -25,7 +25,7 @@ task void f_v(uniform float dst[]) {
     pack4toint<uniform int8>(b, b_packed, N);
 
     foreach (i = 0 ... N) {
-        dst[i] = test(a_packed[i], b_packed[i], i);
+        dst[i] = dot4add_u8i8packed(a_packed[i], b_packed[i], i);
     }
 }
 

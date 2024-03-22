@@ -5456,104 +5456,52 @@ __declspec(safe) static inline void assume(uniform bool test) {
 // Multiply groups of 4 adjacent pairs of unsigned 8-bit integers in a with corresponding signed
 // 8-bit integers in b, producing 4 intermediate signed 16-bit results.
 // Sum these 4 results with the corresponding 32-bit integer in acc, and return the result.
-varying int32 dot4add_u8i8packed(varying int32 a, varying int32 b, varying int32 acc) {
-    uint8 u_a[4];
-    u_a[0] = (uint8)((a >> 24) & 0xFF); // Extract the first i8 value
-    u_a[1] = (uint8)((a >> 16) & 0xFF); // Extract the second i8 value
-    u_a[2] = (uint8)((a >> 8) & 0xFF);  // Extract the third i8 value
-    u_a[3] = (uint8)(a & 0xFF);         // Extract the fourth i8 value
-    int8 u_b[4];
-    u_b[0] = (int8)((b >> 24) & 0xFF); // Extract the first i8 value
-    u_b[1] = (int8)((b >> 16) & 0xFF); // Extract the second i8 value
-    u_b[2] = (int8)((b >> 8) & 0xFF);  // Extract the third i8 value
-    u_b[3] = (int8)(b & 0xFF);         // Extract the fourth i8 value
-    int32 u_ab[4];
-    u_ab[0] = (int32)((int16)(uint16)u_a[0] * (int16)u_b[0]);
-    u_ab[1] = (int32)((int16)(uint16)u_a[1] * (int16)u_b[1]);
-    u_ab[2] = (int32)((int16)(uint16)u_a[2] * (int16)u_b[2]);
-    u_ab[3] = (int32)((int16)(uint16)u_a[3] * (int16)u_b[3]);
-    return u_ab[0] + u_ab[1] + u_ab[2] + u_ab[3] + src;
+__declspec(safe) static inline varying int32 dot4add_u8i8packed(varying int32 a, varying int32 b, varying int32 acc) {
+    if (__have_dot_product_vnni) {
+        return __dot4add_u8i8packed(a, b, acc);
+    } else {
+        int16 tmp1 = (int16)((uint16)(((uint8)((a >> 24) & 0xFF))) * (int16)((int8)((b >> 24) & 0xFF)));
+        int16 tmp2 = (int16)((uint16)(((uint8)((a >> 16) & 0xFF))) * (int16)((int8)((b >> 16) & 0xFF)));
+        int16 tmp3 = (int16)((uint16)(((uint8)((a >> 8) & 0xFF))) * (int16)((int8)((b >> 8) & 0xFF)));
+        int16 tmp4 = (int16)((uint16)(((uint8)(a & 0xFF))) * (int16)((int8)(b & 0xFF)));
+        return (int32)tmp1 + (int32)tmp2 + (int32)tmp3 + (int32)tmp4 + acc;
+    }
 }
 
-varying int32 dot4add_u8i8packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
-    uint8 u_a[4];
-    u_a[0] = (uint8)((a >> 24) & 0xFF); // Extract the first i8 value
-    u_a[1] = (uint8)((a >> 16) & 0xFF); // Extract the second i8 value
-    u_a[2] = (uint8)((a >> 8) & 0xFF);  // Extract the third i8 value
-    u_a[3] = (uint8)(a & 0xFF);         // Extract the fourth i8 value
-    int8 u_b[4];
-    u_b[0] = (int8)((b >> 24) & 0xFF); // Extract the first i8 value
-    u_b[1] = (int8)((b >> 16) & 0xFF); // Extract the second i8 value
-    u_b[2] = (int8)((b >> 8) & 0xFF);  // Extract the third i8 value
-    u_b[3] = (int8)(b & 0xFF);         // Extract the fourth i8 value
-    int32 u_ab[4];
-    u_ab[0] = (int32)((int16)(uint16)u_a[0] * (int16)u_b[0]);
-    u_ab[1] = (int32)((int16)(uint16)u_a[1] * (int16)u_b[1]);
-    u_ab[2] = (int32)((int16)(uint16)u_a[2] * (int16)u_b[2]);
-    u_ab[3] = (int32)((int16)(uint16)u_a[3] * (int16)u_b[3]);
-    int32 tmp01 = saturating_add(u_ab[0], u_ab[1]);
-    int32 tmp012 = saturating_add(tmp01, u_ab[2]);
-    int32 tmp0123 = saturating_add(tmp012, u_ab[3]);
-    return saturating_add(tmp0123, acc);
+__declspec(safe) static inline varying int32 dot4add_u8i8packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
+    if (__have_dot_product_vnni) {
+        return __dot4add_u8i8packed_sat(a, b, acc);
+    } else {
+        int16 tmp1 = (int16)((uint16)(((uint8)((a >> 24) & 0xFF))) * (int16)((int8)((b >> 24) & 0xFF)));
+        int16 tmp2 = (int16)((uint16)(((uint8)((a >> 16) & 0xFF))) * (int16)((int8)((b >> 16) & 0xFF)));
+        int16 tmp3 = (int16)((uint16)(((uint8)((a >> 8) & 0xFF))) * (int16)((int8)((b >> 8) & 0xFF)));
+        int16 tmp4 = (int16)((uint16)(((uint8)(a & 0xFF))) * (int16)((int8)(b & 0xFF)));
+        int32 tmp12 = saturating_add((int32)tmp1, (int32)tmp2);
+        int32 tmp123 = saturating_add((int32)tmp12, (int32)tmp3);
+        int32 tmp1234 = saturating_add((int32)tmp123, (int32)tmp4);
+        return saturating_add(tmp1234, acc);
+    }
 }
 
 // Multiply groups of 2 adjacent pairs of signed 16-bit integers in a
 // with corresponding 16-bit integers in b, producing 2 intermediate signed 32-bit results.
 // Sum these 2 results with the corresponding 32-bit integer in src, and return the result
-varying int32 dot4add_i16packed(varying int32 a, varying int32 b, varying int32 acc) {
-    int32 tmp1 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
-    int32 tmp2 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
-    return (int32)(tmp1 + tmp2) + acc;
+__declspec(safe) static inline varying int32 dot4add_i16packed(varying int32 a, varying int32 b, varying int32 acc) {
+    if (__have_dot_product_vnni) {
+        return __dot4add_i16packed(a, b, acc);
+    } else {
+        int32 tmp1 = (int32)((int16)((a >> 16) & 0xFFFF) * (int16)((b >> 16) & 0xFFFF));
+        int32 tmp2 = (int32)((int16)(a & 0xFFFF) * (int16)(b & 0xFFFF));
+        return tmp1 + tmp2 + acc;
+    }
 }
 
-varying int32 dot4add_i16packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
-    int32 tmp1 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
-    int32 tmp2 = (int32)((int16)((a >> 16) & 0xFF) * (int32)((int16)((b >> 16) & 0xFF)));
-    int32 tmp12 = saturating_add(tmp1, tmp2);
-    return saturating_add(tmp12, acc);
-}
-
-varying int32 test(varying int32 a, varying int32 b, varying int32 src) {
-    uint8 u_a[4];
-    u_a[0] = (uint8)((a >> 24) & 0xFF); // Extract the first i8 value
-    u_a[1] = (uint8)((a >> 16) & 0xFF); // Extract the second i8 value
-    u_a[2] = (uint8)((a >> 8) & 0xFF);  // Extract the third i8 value
-    u_a[3] = (uint8)(a & 0xFF);         // Extract the fourth i8 value
-    //print("ISPC unpacked a: % % % % \n", u_a[0], u_a[1], u_a[2], u_a[3]);
-    int8 u_b[4];
-    u_b[0] = (int8)((b >> 24) & 0xFF); // Extract the first i8 value
-    u_b[1] = (int8)((b >> 16) & 0xFF); // Extract the second i8 value
-    u_b[2] = (int8)((b >> 8) & 0xFF);  // Extract the third i8 value
-    u_b[3] = (int8)(b & 0xFF);         // Extract the fourth i8 value
-    //print("ISPC unpacked b: % % % % \n", u_b[0], u_b[1], u_b[2], u_b[3]);
-    int16 u_ab[4];
-    u_ab[0] = (int16)((int16)(uint16)u_a[0] * (int16)u_b[0]);
-    u_ab[1] = (int16)((int16)(uint16)u_a[1] * (int16)u_b[1]);
-    u_ab[2] = (int16)((int16)(uint16)u_a[2] * (int16)u_b[2]);
-    u_ab[3] = (int16)((int16)(uint16)u_a[3] * (int16)u_b[3]);
-    //int32 tmp_32 = (int32)(u_ab[0] + u_ab[1] + u_ab[2] + u_ab[3]);
-    //print("tmp_32 % \n", tmp_32);
-    return (int32)u_ab[0] + (int32)u_ab[1] + (int32)u_ab[2] + (int32)u_ab[3] + src;
-}
-
-varying int32 test_sat(varying int32 a, varying int32 b, varying int32 acc) {
-    uint8 u_a[4];
-    u_a[0] = (uint8)((a >> 24) & 0xFF); // Extract the first i8 value
-    u_a[1] = (uint8)((a >> 16) & 0xFF); // Extract the second i8 value
-    u_a[2] = (uint8)((a >> 8) & 0xFF);  // Extract the third i8 value
-    u_a[3] = (uint8)(a & 0xFF);         // Extract the fourth i8 value
-    int8 u_b[4];
-    u_b[0] = (int8)((b >> 24) & 0xFF); // Extract the first i8 value
-    u_b[1] = (int8)((b >> 16) & 0xFF); // Extract the second i8 value
-    u_b[2] = (int8)((b >> 8) & 0xFF);  // Extract the third i8 value
-    u_b[3] = (int8)(b & 0xFF);         // Extract the fourth i8 value
-    int16 u_ab[4];
-    u_ab[0] = (int16)((int16)(uint16)u_a[0] * (int16)u_b[0]);
-    u_ab[1] = (int16)((int16)(uint16)u_a[1] * (int16)u_b[1]);
-    u_ab[2] = (int16)((int16)(uint16)u_a[2] * (int16)u_b[2]);
-    u_ab[3] = (int16)((int16)(uint16)u_a[3] * (int16)u_b[3]);
-    int32 tmp01 = saturating_add(u_ab[0], u_ab[1]);
-    int32 tmp012 = saturating_add(tmp01, u_ab[2]);
-    int32 tmp0123 = saturating_add(tmp012, u_ab[3]);
-    return saturating_add(tmp0123, acc);
+__declspec(safe) static inline varying int32 dot4add_i16packed_sat(varying int32 a, varying int32 b, varying int32 acc) {
+    if (__have_dot_product_vnni) {
+        return __dot4add_i16packed_sat(a, b, acc);
+    } else {
+        int32 tmp1 = (int32)((int16)((a >> 16) & 0xFFFF) * (int16)((b >> 16) & 0xFFFF));
+        int32 tmp2 = (int32)((int16)(a & 0xFFFF) * (int16)(b & 0xFFFF));
+        return saturating_add(saturating_add(tmp1, tmp2), acc);
+    }
 }

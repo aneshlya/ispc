@@ -598,3 +598,6 @@ rcph_rsqrth_decl
 transcendetals_decl()
 trigonometry_decl()
 saturation_arithmetic()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+dot_product_vnni_decl()

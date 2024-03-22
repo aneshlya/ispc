@@ -1092,7 +1092,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 16;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1111,7 +1110,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 4;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1131,7 +1129,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 8;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1151,7 +1148,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 16;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1180,7 +1176,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 64;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1202,7 +1197,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 32;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasRand = true;
         this->m_hasGather = this->m_hasScatter = true;
@@ -1221,7 +1215,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 4;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasHalfFullSupport = true;
         this->m_hasRand = true;
@@ -1243,7 +1236,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 8;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasHalfFullSupport = true;
         this->m_hasRand = true;
@@ -1265,7 +1257,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 16;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasHalfFullSupport = true;
         this->m_hasRand = true;
@@ -1292,7 +1283,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 64;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasHalfFullSupport = true;
         this->m_hasRand = true;
@@ -1312,7 +1302,6 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_vectorWidth = 32;
         this->m_maskingIsFree = true;
         this->m_maskBitCount = 1;
-        this->m_hasDotProductVNNI = true;
         this->m_hasHalfConverts = true;
         this->m_hasHalfFullSupport = true;
         this->m_hasRand = true;
@@ -1652,7 +1641,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
 
     if (CPUID == CPU_None) {
         cpu = a.GetDefaultNameFromType(CPUfromISA).c_str();
-        m_hasDotProductVNNI = __has_vnni_support();
+        //m_hasDotProductVNNI = __has_vnni_support();
     } else {
         if ((CPUfromISA != CPU_None) && !a.BackwardCompatible(CPUID, CPUfromISA)) {
             std::string target_string = ISPCTargetToString(m_ispc_target);
@@ -1663,10 +1652,11 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
             return;
         }
         cpu = a.GetDefaultNameFromType(CPUID).c_str();
-        if ((CPUFeatures[a.GetTypeFromName(cpu)].count("avx_vnni") != 0) ||
-            (CPUFeatures[a.GetTypeFromName(cpu)].count("avx512_vnni") != 0)) {
-            m_hasDotProductVNNI = true;
-        }
+    }
+
+    if ((CPUFeatures[a.GetTypeFromName(cpu)].count("avx_vnni") != 0) ||
+        (CPUFeatures[a.GetTypeFromName(cpu)].count("avx512_vnni") != 0)) {
+        m_hasDotProductVNNI = true;
     }
     this->m_cpu = cpu;
 

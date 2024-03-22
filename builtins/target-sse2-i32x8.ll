@@ -652,3 +652,6 @@ rcph_rsqrth_decl
 
 transcendetals_decl()
 trigonometry_decl()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+dot_product_vnni_decl()

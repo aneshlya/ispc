@@ -1118,3 +1118,26 @@ declare <16 x double> @__log_varying_double(<16 x double> %a) nounwind readnone 
 
 ;; Trigonometry
 trigonometry_decl()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+declare <16 x i32> @llvm.x86.avx512.vpdpbusd.512(<16 x i32>, <16 x i32>, <16 x i32>)
+define <16 x i32> @__dot4add_u8i8packed(<16 x i32> %a, <16 x i32> %b, <16 x i32> %acc) nounwind readnone {
+  %ret = call <16 x i32> @llvm.x86.avx512.vpdpbusd.512(<16 x i32> %acc, <16 x i32> %a, <16 x i32> %b)
+  ret <16 x i32> %ret
+}
+declare <16 x i32> @llvm.x86.avx512.vpdpbusds.512(<16 x i32>, <16 x i32>, <16 x i32>)
+define <16 x i32> @__dot4add_u8i8packed_sat(<16 x i32> %a, <16 x i32> %b, <16 x i32> %acc) nounwind readnone {
+  %ret = call <16 x i32> @llvm.x86.avx512.vpdpbusds.512(<16 x i32> %acc, <16 x i32> %a, <16 x i32> %b)
+  ret <16 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.avx512.vpdpwssd.512(<16 x i32>, <16 x i32>, <16 x i32>)
+define <16 x i32> @__dot4add_i16packed(<16 x i32> %a, <16 x i32> %b, <16 x i32> %acc) nounwind readnone {
+  %ret = call <16 x i32> @llvm.x86.avx512.vpdpwssd.512(<16 x i32> %acc, <16 x i32> %a, <16 x i32> %b)
+  ret <16 x i32> %ret
+}
+declare <16 x i32> @llvm.x86.avx512.vpdpwssds.512(<16 x i32>, <16 x i32>, <16 x i32>)
+define <16 x i32> @__dot4add_i16packed_sat(<16 x i32> %a, <16 x i32> %b, <16 x i32> %acc) nounwind readnone {
+  %ret = call <16 x i32> @llvm.x86.avx512.vpdpwssds.512(<16 x i32> %acc, <16 x i32> %a, <16 x i32> %b)
+  ret <16 x i32> %ret
+}

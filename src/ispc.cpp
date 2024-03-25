@@ -1675,7 +1675,10 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
 
     m_hasDotProductVNNI &= ((CPUFeatures[a.GetTypeFromName(cpu)].count("avx_vnni") != 0) ||
                             (CPUFeatures[a.GetTypeFromName(cpu)].count("avx512_vnni") != 0));
-
+    if (m_hasDotProductVNNI) {
+        this->m_funcAttributes.push_back(
+                    std::make_pair("target-features", "+avx512vnni"));
+    }
     this->m_cpu = cpu;
 
     if (!error) {

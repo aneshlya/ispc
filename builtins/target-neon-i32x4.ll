@@ -3,7 +3,7 @@
 ;;
 ;;  Copyright(c) 2012-2013 Matt Pharr
 ;;  Copyright(c) 2013, 2015 Google, Inc.
-;;  Copyright(c) 2019-2024 Intel
+;;  Copyright(c) 2019-2023 Intel
 ;;
 ;;  SPDX-License-Identifier: BSD-3-Clause
 
@@ -740,7 +740,3 @@ rcph_rsqrth_decl
 
 transcendetals_decl()
 trigonometry_decl()
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; dot product
-dot_product_vnni_decl()

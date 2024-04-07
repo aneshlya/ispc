@@ -144,6 +144,9 @@ static const char *lGetSystemISA() {
         bool avx512_fp16 =         (info2[3] & (1 << 23)) != 0;
         // clang-format on
 
+        if (avx_vnni) {
+            return "ADL (codename Alder Lake)";
+        }
         // Knights Landing:          KNL = F + PF + ER + CD
         // Skylake server:           SKX = F + DQ + CD + BW + VL
         // Cascade Lake server:      CLX = SKX + VNNI

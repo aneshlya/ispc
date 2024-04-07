@@ -62,3 +62,7 @@ gen_gather_factored(i32)
 gen_gather_factored(float)
 gen_gather_factored(i64)
 gen_gather_factored(double)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; dot product
+dot_product_vnni_decl()

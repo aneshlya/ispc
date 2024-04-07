@@ -1,28 +1,7 @@
 // Test checks emitted code for VNNI dot product instructions.
-// RUN: %{ispc} %s --target=avx1-i64x4 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-// RUN: %{ispc} %s --target=avx2-i32x4 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-// RUN: %{ispc} %s --target=avx2-i64x4 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-
-// RUN: %{ispc} %s --target=avx1-i32x16 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX2
-// RUN: %{ispc} %s --target=avx2-i32x16 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX2
-// RUN: %{ispc} %s --target=avx2-i16x16 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX2
-
-// RUN: %{ispc} %s --target=avx2-i8x32 --cpu=adl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX4
-
-// RUN: %{ispc} %s --target=avx512skx-x4 --cpu=icl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-// RUN: %{ispc} %s --target=avx512skx-x4 --cpu=icx --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-// RUN: %{ispc} %s --target=avx512skx-x4 --cpu=tgl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-// RUN: %{ispc} %s --target=avx512spr-x4 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
-
-// RUN: %{ispc} %s --target=avx512skx-x8 --cpu=icl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
-// RUN: %{ispc} %s --target=avx512skx-x8 --cpu=icx --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
-// RUN: %{ispc} %s --target=avx512skx-x8 --cpu=tgl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
-// RUN: %{ispc} %s --target=avx512spr-x8 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
-
-// RUN: %{ispc} %s --target=avx512skx-x16 --cpu=icl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
-// RUN: %{ispc} %s --target=avx512skx-x16 --cpu=icx --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
-// RUN: %{ispc} %s --target=avx512skx-x16 --cpu=tgl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
-// RUN: %{ispc} %s --target=avx512spr-x16 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
+// RUN: %{ispc} %s --target=avx2vnni-i32x4 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
+// RUN: %{ispc} %s --target=avx2vnni-i32x8 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
+// RUN: %{ispc} %s --target=avx2vnni-i32x16 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX2
 
 // REQUIRES: X86_ENABLED && !MACOS_HOST
 

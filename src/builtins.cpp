@@ -187,6 +187,22 @@ static bool lCreateISPCSymbol(llvm::Function *func, SymbolTable *symbolTable) {
         return true;
     }
 
+    // Special case for dot functions which have mix of signed and unsigned types.
+    if (name.find("__dot") != std::string::npos) {
+        const Type *returnType = AtomicType::VaryingInt32;
+        llvm::SmallVector<const Type *, 8> argTypes;
+        argTypes.push_back(AtomicType::VaryingUInt32); // packed value
+        argTypes.push_back(AtomicType::VaryingUInt32); // packed value
+        argTypes.push_back(AtomicType::VaryingInt32);
+
+        FunctionType *funcType = new FunctionType(returnType, argTypes, noPos);
+
+        Symbol *sym = new Symbol(name, noPos, funcType);
+        sym->function = func;
+        symbolTable->AddFunction(sym);
+        return true;
+    }
+
     // If the function has any parameters with integer types, we'll make
     // two Symbols for two overloaded versions of the function, one with
     // all of the integer types treated as signed integers and one with all

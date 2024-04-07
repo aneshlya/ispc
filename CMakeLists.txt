@@ -328,6 +328,7 @@ if (X86_ENABLED)
         avx1-i32x8 avx1-i32x16 avx1-i64x4
         avx2-i8x32 avx2-i16x16
         avx2-i32x4 avx2-i32x8 avx2-i32x16 avx2-i64x4
+        avx2vnni-i32x4 avx2vnni-i32x8 avx2vnni-i32x16
         avx512knl-x16
         avx512skx-x4 avx512skx-x8 avx512skx-x16
         avx512skx-x32 avx512skx-x64)

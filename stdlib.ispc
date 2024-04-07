@@ -5456,6 +5456,7 @@ __declspec(safe) static inline void assume(uniform bool test) {
 // Multiply groups of 4 adjacent pairs of unsigned 8-bit integers in a with corresponding signed
 // 8-bit integers in b, producing 4 intermediate signed 16-bit results.
 // Sum these 4 results with the corresponding 32-bit integer in acc, and return the result.
+
 __declspec(safe) static inline varying int32 dot4add_u8i8packed(varying uint32 a, varying uint32 b, varying int32 acc) {
     if (__have_dot_product_vnni) {
         return __dot4add_u8i8packed(a, b, acc);

@@ -126,6 +126,9 @@ int32_t __get_system_isa() {
         _Bool avx512_amx_tile =     (info2[3] & (1 << 24)) != 0;
         _Bool avx512_amx_int8 =     (info2[3] & (1 << 25)) != 0;
         _Bool avx512_fp16 =         (info2[3] & (1 << 23)) != 0;
+        if (avx_vnni) {
+            return 5; // ADL
+        }
 #endif // !SPR && !MACOS
        // clang-format on
 
@@ -147,13 +150,13 @@ int32_t __get_system_isa() {
         _Bool spr =
             icl && avx512_bf16 && avx512_amx_bf16 && avx512_amx_tile && avx512_amx_int8 && avx_vnni && avx512_fp16;
         if (spr) {
-            return 7; // SPR
+            return 8; // SPR
         }
 #endif // !SPR && !MACOS
         if (skx) {
-            return 6; // SKX
+            return 7; // SKX
         } else if (knl) {
-            return 5; // KNL
+            return 6; // KNL
         }
         // If it's unknown AVX512 target, fall through and use AVX2
         // or whatever is available in the machine.

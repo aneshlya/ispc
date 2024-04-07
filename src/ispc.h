@@ -186,9 +186,10 @@ class Target {
         // Not supported anymore. Use either AVX or AVX2.
         // AVX11 = 4,
         AVX2 = 4,
-        KNL_AVX512 = 5,
-        SKX_AVX512 = 6,
-        SPR_AVX512 = 7,
+        AVX2VNNI = 5,
+        KNL_AVX512 = 6,
+        SKX_AVX512 = 7,
+        SPR_AVX512 = 8,
 #ifdef ISPC_ARM_ENABLED
         NEON,
 #endif
@@ -230,9 +231,6 @@ class Target {
 
     /** Check if LLVM intrinsic is supported for the current target. */
     bool checkIntrinsticSupport(llvm::StringRef name, SourcePos pos);
-
-    /** Check if the feature supported by the current target. */
-    bool IsFeatureSupported(const std::string &featureName);
 
     /** Returns a comma-delimited string giving the names of the currently
         supported CPUs. */

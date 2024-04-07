@@ -169,6 +169,8 @@ static const char *lGetSystemISA() {
             } else {
                 return "SPR (AMX off)";
             }
+        } else if (icl) {
+            return "ICL";
         } else if (skx) {
             return "SKX";
         } else if (knl) {

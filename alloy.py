@@ -383,11 +383,13 @@ def check_targets():
       ("AVX2VNNI", [["avx2vnni-i32x4", "avx2vnni-i32x8",  "avx2vnni-i32x16"],
                  ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "AVX2VNNI"], "-adl", False]),
       ("KNL",    [["avx512knl-x16"],
-                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "KNL"], "-knl", False]),
+                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "AVX2VNNI", "KNL"], "-knl", False]),
       ("SKX",    [["avx512skx-x16", "avx512skx-x8", "avx512skx-x4", "avx512skx-x64", "avx512skx-x32"],
-                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "SKX"], "-skx", False]),
+                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "AVX2VNNI", "SKX"], "-skx", False]),
+      ("AVX512VNNI",    [["avx512vnni-x16", "avx512vnni-x8", "avx512vnni-x4", "avx512vnni-x64", "avx512vnni-x32"],
+                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "AVX2VNNI", "SKX", "AVX512VNNI"], "-skx", False]),
       ("SPR",    [["avx512spr-x16", "avx512spr-x8", "avx512spr-x4", "avx512spr-x64", "avx512spr-x32"],
-                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "SKX", "SPR"], "-spr", False])
+                 ["SSE2", "SSE4.1", "SSE4.2", "AVX", "AVX1.1", "AVX2", "AVX2VNNI", "SKX", "AVX512VNNI", "SPR"], "-spr", False])
     ])
 
     hw_arch = take_lines(check_isa, "first").split()[1]

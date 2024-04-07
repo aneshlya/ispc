@@ -1,13 +1,9 @@
 // Test checks emitted code for VNNI dot product instructions.
 
-// RUN: %{ispc} %s --target=avx512skx-x32 --cpu=icl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX2
-// RUN: %{ispc} %s --target=avx512skx-x32 --cpu=icx --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX2
-// RUN: %{ispc} %s --target=avx512skx-x32 --cpu=tgl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX2
+// RUN: %{ispc} %s --target=avx512vnni-x32 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX2
 // RUN: %{ispc} %s --target=avx512spr-x32 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX2
 
-// RUN: %{ispc} %s --target=avx512skx-x64 --cpu=icl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX4
-// RUN: %{ispc} %s --target=avx512skx-x64 --cpu=icx --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX4
-// RUN: %{ispc} %s --target=avx512skx-x64 --cpu=tgl --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX4
+// RUN: %{ispc} %s --target=avx512vnni-x64 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX4
 // RUN: %{ispc} %s --target=avx512spr-x64 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMMX4
 
 // REQUIRES: X86_ENABLED && !MACOS_HOST

@@ -3,6 +3,15 @@
 // RUN: %{ispc} %s --target=avx2vnni-i32x8 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
 // RUN: %{ispc} %s --target=avx2vnni-i32x16 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMMX2
 
+// RUN: %{ispc} %s --target=avx512vnni-x4 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
+// RUN: %{ispc} %s --target=avx512spr-x4 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_XMM
+
+// RUN: %{ispc} %s --target=avx512vnni-x8 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
+// RUN: %{ispc} %s --target=avx512spr-x8 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_YMM
+
+// RUN: %{ispc} %s --target=avx512vnni-x16 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
+// RUN: %{ispc} %s --target=avx512spr-x16 --emit-asm -o - | FileCheck %s -check-prefixes=CHECK_ALL,CHECK_ZMM
+
 // REQUIRES: X86_ENABLED && !MACOS_HOST
 
 // CHECK_ALL-LABEL: dot4add_u8i8

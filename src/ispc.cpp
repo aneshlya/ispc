@@ -204,6 +204,8 @@ static ISPCTarget lGetSystemISA() {
         if (spr) {
             // We don't care if AMX is enabled or not here, as AMX support is not implemented yet.
             return ISPCTarget::avx512spr_x16;
+        } else if (icl) {
+            return ISPCTarget::avx512vnni_x16;
         } else if (skx) {
             return ISPCTarget::avx512skx_x16;
         } else if (knl) {
@@ -1098,7 +1100,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         CPUfromISA = CPU_KNL;
         break;
     case ISPCTarget::avx512skx_x4:
-        this->m_isa = Target::SKX_AVX512;
+    case ISPCTarget::avx512vnni_x4:
+        this->m_isa = (m_ispc_target == ISPCTarget::avx512vnni_x4) ? Target::VNNI_AVX512 : Target::SKX_AVX512;
         this->m_nativeVectorWidth = 16;
         this->m_nativeVectorAlignment = 64;
         this->m_dataTypeWidth = 32;
@@ -1112,12 +1115,14 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_hasTrigonometry = false;
         this->m_hasRsqrtd = this->m_hasRcpd = true;
         this->m_hasVecPrefetch = false;
-        CPUfromISA = CPU_SKX;
+        this->m_hasDotProductVNNI = (m_ispc_target == ISPCTarget::avx512vnni_x4) ? true : false;
+        CPUfromISA = (m_ispc_target == ISPCTarget::avx512vnni_x4) ? CPU_ICL : CPU_SKX;
         this->m_funcAttributes.push_back(std::make_pair("prefer-vector-width", "256"));
         this->m_funcAttributes.push_back(std::make_pair("min-legal-vector-width", "256"));
         break;
     case ISPCTarget::avx512skx_x8:
-        this->m_isa = Target::SKX_AVX512;
+    case ISPCTarget::avx512vnni_x8:
+        this->m_isa = (m_ispc_target == ISPCTarget::avx512vnni_x8) ? Target::VNNI_AVX512 : Target::SKX_AVX512;
         this->m_nativeVectorWidth = 16;
         this->m_nativeVectorAlignment = 64;
         this->m_dataTypeWidth = 32;
@@ -1131,12 +1136,14 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_hasTrigonometry = false;
         this->m_hasRsqrtd = this->m_hasRcpd = true;
         this->m_hasVecPrefetch = false;
-        CPUfromISA = CPU_SKX;
+        this->m_hasDotProductVNNI = (m_ispc_target == ISPCTarget::avx512vnni_x8) ? true : false;
+        CPUfromISA = (m_ispc_target == ISPCTarget::avx512vnni_x8) ? CPU_ICL : CPU_SKX;
         this->m_funcAttributes.push_back(std::make_pair("prefer-vector-width", "256"));
         this->m_funcAttributes.push_back(std::make_pair("min-legal-vector-width", "256"));
         break;
     case ISPCTarget::avx512skx_x16:
-        this->m_isa = Target::SKX_AVX512;
+    case ISPCTarget::avx512vnni_x16:
+        this->m_isa = (m_ispc_target == ISPCTarget::avx512vnni_x16) ? Target::VNNI_AVX512 : Target::SKX_AVX512;
         this->m_nativeVectorWidth = 16;
         this->m_nativeVectorAlignment = 64;
         this->m_dataTypeWidth = 32;
@@ -1150,7 +1157,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_hasTrigonometry = false;
         this->m_hasRsqrtd = this->m_hasRcpd = true;
         this->m_hasVecPrefetch = false;
-        CPUfromISA = CPU_SKX;
+        this->m_hasDotProductVNNI = (m_ispc_target == ISPCTarget::avx512vnni_x16) ? true : false;
+        CPUfromISA = (m_ispc_target == ISPCTarget::avx512vnni_x16) ? CPU_ICL : CPU_SKX;
         if (g->opt.disableZMM) {
             this->m_funcAttributes.push_back(std::make_pair("prefer-vector-width", "256"));
             this->m_funcAttributes.push_back(std::make_pair("min-legal-vector-width", "256"));
@@ -1160,11 +1168,12 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         }
         break;
     case ISPCTarget::avx512skx_x64:
+    case ISPCTarget::avx512vnni_x64:
         // This target is enabled only for LLVM 10.0 and later
         // because LLVM requires a number of fixes, which are
         // committed to LLVM 11.0 and can be applied to 10.0, but not
         // earlier versions.
-        this->m_isa = Target::SKX_AVX512;
+        this->m_isa = (m_ispc_target == ISPCTarget::avx512vnni_x64) ? Target::VNNI_AVX512 : Target::SKX_AVX512;
         this->m_nativeVectorWidth = 64;
         this->m_nativeVectorAlignment = 64;
         this->m_dataTypeWidth = 8;
@@ -1178,14 +1187,16 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_hasTrigonometry = false;
         this->m_hasRsqrtd = this->m_hasRcpd = false;
         this->m_hasVecPrefetch = false;
-        CPUfromISA = CPU_SKX;
+        this->m_hasDotProductVNNI = (m_ispc_target == ISPCTarget::avx512vnni_x64) ? true : false;
+        CPUfromISA = (m_ispc_target == ISPCTarget::avx512vnni_x64) ? CPU_ICL : CPU_SKX;
         break;
     case ISPCTarget::avx512skx_x32:
+    case ISPCTarget::avx512vnni_x32:
         // This target is enabled only for LLVM 10.0 and later
         // because LLVM requires a number of fixes, which are
         // committed to LLVM 11.0 and can be applied to 10.0, but not
         // earlier versions.
-        this->m_isa = Target::SKX_AVX512;
+        this->m_isa = (m_ispc_target == ISPCTarget::avx512vnni_x32) ? Target::VNNI_AVX512 : Target::SKX_AVX512;
         this->m_nativeVectorWidth = 64;
         this->m_nativeVectorAlignment = 64;
         this->m_dataTypeWidth = 16;
@@ -1199,7 +1210,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         this->m_hasTrigonometry = false;
         this->m_hasRsqrtd = this->m_hasRcpd = false;
         this->m_hasVecPrefetch = false;
-        CPUfromISA = CPU_SKX;
+        this->m_hasDotProductVNNI = (m_ispc_target == ISPCTarget::avx512vnni_x32) ? true : false;
+        CPUfromISA = (m_ispc_target == ISPCTarget::avx512vnni_x32) ? CPU_ICL : CPU_SKX;
         break;
 #if ISPC_LLVM_VERSION >= ISPC_LLVM_14_0
     case ISPCTarget::avx512spr_x4:
@@ -1613,6 +1625,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, bool pic, MCM
         break;
     case Target::KNL_AVX512:
     case Target::SKX_AVX512:
+    case Target::VNNI_AVX512:
     case Target::SPR_AVX512:
         this->setWarning(PerfWarningType::DIVModInt);
         break;
@@ -2050,6 +2063,8 @@ const char *Target::ISAToString(ISA isa) {
         return "avx512knl";
     case Target::SKX_AVX512:
         return "avx512skx";
+    case Target::VNNI_AVX512:
+        return "avx512vnni";
     case Target::SPR_AVX512:
         return "avx512spr";
 #ifdef ISPC_XE_ENABLED
@@ -2113,6 +2128,8 @@ const char *Target::ISAToTargetString(ISA isa) {
         return "avx512knl-x16";
     case Target::SKX_AVX512:
         return "avx512skx-x16";
+    case Target::VNNI_AVX512:
+        return "avx512vnni-x16";
     case Target::SPR_AVX512:
         return "avx512spr-x16";
     default:

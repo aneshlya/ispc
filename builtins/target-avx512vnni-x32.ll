@@ -1,8 +1,8 @@
-;;  Copyright (c) 2020-2024, Intel Corporation
+;;  Copyright (c) 2024, Intel Corporation
 ;;
 ;;  SPDX-License-Identifier: BSD-3-Clause
 
-define(`WIDTH',`64')
+define(`WIDTH',`32')
 define(`MASK',`i1')
 define(`HAVE_GATHER',`1')
 define(`HAVE_SCATTER',`1')
@@ -23,34 +23,35 @@ rcph_rsqrth_decl
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stub for mask conversion. LLVM's intrinsics want i1 mask, but we use i8
 
-define i64 @__cast_mask_to_i64 (<WIDTH x MASK> %mask) alwaysinline {
-  %mask_i64 = bitcast <WIDTH x i1> %mask to i64
-  ret i64 %mask_i64
+define i32 @__cast_mask_to_i32 (<WIDTH x MASK> %mask) alwaysinline {
+  %mask_i32 = bitcast <WIDTH x i1> %mask to i32
+  ret i32 %mask_i32
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; reductions
 
 define i64 @__movmsk(<WIDTH x MASK> %mask) nounwind readnone alwaysinline {
-  %res = call i64 @__cast_mask_to_i64 (<WIDTH x MASK> %mask)
+  %res32 = call i32 @__cast_mask_to_i32 (<WIDTH x MASK> %mask)
+  %res = zext i32 %res32 to i64
   ret i64 %res
 }
 
 define i1 @__any(<WIDTH x MASK> %mask) nounwind readnone alwaysinline {
-  %intmask = call i64 @__cast_mask_to_i64 (<WIDTH x MASK> %mask)
-  %res = icmp ne i64 %intmask, 0
+  %intmask = call i32 @__cast_mask_to_i32 (<WIDTH x MASK> %mask)
+  %res = icmp ne i32 %intmask, 0
   ret i1 %res
 }
 
 define i1 @__all(<WIDTH x MASK> %mask) nounwind readnone alwaysinline {
-  %intmask = call i64 @__cast_mask_to_i64 (<WIDTH x MASK> %mask)
-  %res = icmp eq i64 %intmask, -1
+  %intmask = call i32 @__cast_mask_to_i32 (<WIDTH x MASK> %mask)
+  %res = icmp eq i32 %intmask, -1
   ret i1 %res
 }
 
 define i1 @__none(<WIDTH x MASK> %mask) nounwind readnone alwaysinline {
-  %intmask = call i64 @__cast_mask_to_i64 (<WIDTH x MASK> %mask)
-  %res = icmp eq i64 %intmask, 0
+  %intmask = call i32 @__cast_mask_to_i32 (<WIDTH x MASK> %mask)
+  %res = icmp eq i32 %intmask, 0
   ret i1 %res
 }
 
@@ -97,24 +98,20 @@ define i16 @__float_to_half_uniform(float %v) nounwind readnone alwaysinline {
 declare <16 x float> @llvm.x86.avx512.mask.vcvtph2ps.512(<16 x i16> %source, <16 x float> %write_through, i16 %mask, i32) nounwind readonly
 declare <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float> %source, i32, <16 x i16> %write_through, i16 %mask) nounwind readonly
 
-define <64 x float> @__half_to_float_varying(<64 x i16> %v) nounwind readnone alwaysinline {
-  v64tov16(i16, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__half_to_float_varying(<32 x i16> %v) nounwind readnone alwaysinline {
+  v32tov16(i16, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.x86.avx512.mask.vcvtph2ps.512(<16 x i16> %v0, <16 x float> undef, i16 -1, i32 4)
   %r1 = call <16 x float> @llvm.x86.avx512.mask.vcvtph2ps.512(<16 x i16> %v1, <16 x float> undef, i16 -1, i32 4)
-  %r2 = call <16 x float> @llvm.x86.avx512.mask.vcvtph2ps.512(<16 x i16> %v2, <16 x float> undef, i16 -1, i32 4)
-  %r3 = call <16 x float> @llvm.x86.avx512.mask.vcvtph2ps.512(<16 x i16> %v3, <16 x float> undef, i16 -1, i32 4)
-  v16tov64(float, %r0, %r1, %r2, %r3, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0, %r1, %r)
+  ret <32 x float> %r
 }
 
-define <64 x i16> @__float_to_half_varying(<64 x float> %v) nounwind readnone alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x i16> @__float_to_half_varying(<32 x float> %v) nounwind readnone alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float> %v0, i32 0, <16 x i16> undef, i16 -1)
   %r1 = call <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float> %v1, i32 0, <16 x i16> undef, i16 -1)
-  %r2 = call <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float> %v2, i32 0, <16 x i16> undef, i16 -1)
-  %r3 = call <16 x i16> @llvm.x86.avx512.mask.vcvtps2ph.512(<16 x float> %v3, i32 0, <16 x i16> undef, i16 -1)
-  v16tov64(i16, %r0, %r1, %r2, %r3, %r)
-  ret <64 x i16> %r
+  v16tov32(i16, %r0, %r1, %r)
+  ret <32 x i16> %r
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -209,80 +206,62 @@ declare <16 x float> @llvm.nearbyint.v16f32(<16 x float> %p)
 declare <16 x float> @llvm.floor.v16f32(<16 x float> %p)
 declare <16 x float> @llvm.ceil.v16f32(<16 x float> %p)
 
-define <64 x float> @__round_varying_float(<64 x float> %v) nounwind readonly alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__round_varying_float(<32 x float> %v) nounwind readonly alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> %v0)
   %r1 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> %v1)
-  %r2 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> %v2)
-  %r3 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> %v3)
-  v16tov64(float, %r0, %r1, %r2, %r3, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0, %r1, %r)
+  ret <32 x float> %r
 }
 
-define <64 x float> @__floor_varying_float(<64 x float> %v) nounwind readonly alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__floor_varying_float(<32 x float> %v) nounwind readonly alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.floor.v16f32(<16 x float> %v0)
   %r1 = call <16 x float> @llvm.floor.v16f32(<16 x float> %v1)
-  %r2 = call <16 x float> @llvm.floor.v16f32(<16 x float> %v2)
-  %r3 = call <16 x float> @llvm.floor.v16f32(<16 x float> %v3)
-  v16tov64(float, %r0, %r1, %r2, %r3, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0, %r1, %r)
+  ret <32 x float> %r
 }
 
-define <64 x float> @__ceil_varying_float(<64 x float> %v) nounwind readonly alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__ceil_varying_float(<32 x float> %v) nounwind readonly alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.ceil.v16f32(<16 x float> %v0)
   %r1 = call <16 x float> @llvm.ceil.v16f32(<16 x float> %v1)
-  %r2 = call <16 x float> @llvm.ceil.v16f32(<16 x float> %v2)
-  %r3 = call <16 x float> @llvm.ceil.v16f32(<16 x float> %v3)
-  v16tov64(float, %r0, %r1, %r2, %r3, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0, %r1, %r)
+  ret <32 x float> %r
 }
 
 declare <8 x double> @llvm.nearbyint.v8f64(<8 x double> %p)
 declare <8 x double> @llvm.floor.v8f64(<8 x double> %p)
 declare <8 x double> @llvm.ceil.v8f64(<8 x double> %p)
 
-define <64 x double> @__round_varying_double(<64 x double> %v) nounwind readonly alwaysinline {
-  v64tov8(double, %v, %v0, %v1, %v2, %v3, %v4, %v5, %v6, %v7)
+define <32 x double> @__round_varying_double(<32 x double> %v) nounwind readonly alwaysinline {
+  v32tov8(double, %v, %v0, %v1, %v2, %v3)
   %r0 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v0)
   %r1 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v1)
   %r2 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v2)
   %r3 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v3)
-  %r4 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v4)
-  %r5 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v5)
-  %r6 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v6)
-  %r7 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> %v7)
-  v8tov64(double, %r0, %r1, %r2, %r3, %r4, %r5, %r6, %r7, %r)
-  ret <64 x double> %r
+  v8tov32(double, %r0, %r1, %r2, %r3, %r)
+  ret <32 x double> %r
 }
 
-define <64 x double> @__floor_varying_double(<64 x double> %v) nounwind readonly alwaysinline {
-  v64tov8(double, %v, %v0, %v1, %v2, %v3, %v4, %v5, %v6, %v7)
+define <32 x double> @__floor_varying_double(<32 x double> %v) nounwind readonly alwaysinline {
+  v32tov8(double, %v, %v0, %v1, %v2, %v3)
   %r0 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v0)
   %r1 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v1)
   %r2 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v2)
   %r3 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v3)
-  %r4 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v4)
-  %r5 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v5)
-  %r6 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v6)
-  %r7 = call <8 x double> @llvm.floor.v8f64(<8 x double> %v7)
-  v8tov64(double, %r0, %r1, %r2, %r3, %r4, %r5, %r6, %r7, %r)
-  ret <64 x double> %r
+  v8tov32(double, %r0, %r1, %r2, %r3, %r)
+  ret <32 x double> %r
 }
 
-define <64 x double> @__ceil_varying_double(<64 x double> %v) nounwind readonly alwaysinline {
-  v64tov8(double, %v, %v0, %v1, %v2, %v3, %v4, %v5, %v6, %v7)
+define <32 x double> @__ceil_varying_double(<32 x double> %v) nounwind readonly alwaysinline {
+  v32tov8(double, %v, %v0, %v1, %v2, %v3)
   %r0 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v0)
   %r1 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v1)
   %r2 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v2)
   %r3 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v3)
-  %r4 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v4)
-  %r5 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v5)
-  %r6 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v6)
-  %r7 = call <8 x double> @llvm.ceil.v8f64(<8 x double> %v7)
-  v8tov64(double, %r0, %r1, %r2, %r3, %r4, %r5, %r6, %r7, %r)
-  ret <64 x double> %r
+  v8tov32(double, %r0, %r1, %r2, %r3, %r)
+  ret <32 x double> %r
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -462,14 +441,12 @@ define float @__sqrt_uniform_float(float) nounwind readonly alwaysinline {
 }
 
 declare <16 x float> @llvm.sqrt.v16f32(<16 x float> %Val)
-define <64 x float> @__sqrt_varying_float(<64 x float> %v) nounwind readnone alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__sqrt_varying_float(<32 x float> %v) nounwind readnone alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v0)
   %r1 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v1)
-  %r2 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v2)
-  %r3 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v3)
-  v16tov64(float, %r0, %r1, %r2, %r3, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0, %r1, %r)
+  ret <32 x float> %r
 }
 
 declare double @llvm.sqrt.f64(double %Val)
@@ -479,14 +456,12 @@ define double @__sqrt_uniform_double(double) nounwind readonly alwaysinline {
 }
 
 declare <16 x double> @llvm.sqrt.v16f64(<16 x double> %Val)
-define <64 x double> @__sqrt_varying_double(<64 x double> %v) nounwind readnone alwaysinline {
-  v64tov16(double, %v, %v0, %v1, %v2, %v3)
+define <32 x double> @__sqrt_varying_double(<32 x double> %v) nounwind readnone alwaysinline {
+  v32tov16(double, %v, %v0, %v1)
   %r0 = call <16 x double> @llvm.sqrt.v16f64(<16 x double> %v0)
   %r1 = call <16 x double> @llvm.sqrt.v16f64(<16 x double> %v1)
-  %r2 = call <16 x double> @llvm.sqrt.v16f64(<16 x double> %v2)
-  %r3 = call <16 x double> @llvm.sqrt.v16f64(<16 x double> %v3)
-  v16tov64(double, %r0, %r1, %r2, %r3, %r)
-  ret <64 x double> %r
+  v16tov32(double, %r0, %r1, %r)
+  ret <32 x double> %r
 }
 
 ;; TODO: need to use intrinsics and N-R approximation.
@@ -496,18 +471,14 @@ define float @__rsqrt_uniform_float(float) nounwind readonly alwaysinline {
   ret float %ret
 }
 
-define <64 x float> @__rsqrt_varying_float(<64 x float> %v) nounwind readnone alwaysinline {
-  v64tov16(float, %v, %v0, %v1, %v2, %v3)
+define <32 x float> @__rsqrt_varying_float(<32 x float> %v) nounwind readnone alwaysinline {
+  v32tov16(float, %v, %v0, %v1)
   %r0 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v0)
   %r0r = fdiv <16 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.>, %r0
   %r1 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v1)
   %r1r = fdiv <16 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.>, %r1
-  %r2 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v2)
-  %r2r = fdiv <16 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.>, %r2
-  %r3 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> %v3)
-  %r3r = fdiv <16 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.>, %r3
-  v16tov64(float, %r0r, %r1r, %r2r, %r3r, %r)
-  ret <64 x float> %r
+  v16tov32(float, %r0r, %r1r, %r)
+  ret <32 x float> %r
 }
 
 ;; TODO: need to use intrinsics
@@ -516,9 +487,9 @@ define float @__rsqrt_fast_uniform_float(float) nounwind readonly alwaysinline {
   ret float %ret
 }
 
-define <64 x float> @__rsqrt_fast_varying_float(<64 x float> %v) nounwind readnone alwaysinline {
-  %ret = call <64 x float> @__rsqrt_varying_float(<64 x float> %v)
-  ret <64 x float> %ret
+define <32 x float> @__rsqrt_fast_varying_float(<32 x float> %v) nounwind readnone alwaysinline {
+  %ret = call <32 x float> @__rsqrt_varying_float(<32 x float> %v)
+  ret <32 x float> %ret
 }
 
 ;; TODO: need to use intrinsics and N-R approximation.
@@ -527,13 +498,11 @@ define float @__rcp_uniform_float(float) nounwind readonly alwaysinline {
   ret float %ret
 }
 
-define <64 x float> @__rcp_varying_float(<64 x float> %v) nounwind readnone alwaysinline {
-  %ret = fdiv <64 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.,
-                            float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.,
-                            float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.,
+define <32 x float> @__rcp_varying_float(<32 x float> %v) nounwind readnone alwaysinline {
+  %ret = fdiv <32 x float> <float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.,
                             float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1., float 1.>,
                             %v
-  ret <64 x float> %ret
+  ret <32 x float> %ret
 }
 
 ;; TODO: need to use intrinsics
@@ -542,9 +511,9 @@ define float @__rcp_fast_uniform_float(float) nounwind readonly alwaysinline {
   ret float %ret
 }
 
-define <64 x float> @__rcp_fast_varying_float(<64 x float> %v) nounwind readnone alwaysinline {
-  %ret = call <64 x float> @__rcp_varying_float(<64 x float> %v)
-  ret <64 x float> %ret
+define <32 x float> @__rcp_fast_varying_float(<32 x float> %v) nounwind readnone alwaysinline {
+  %ret = call <32 x float> @__rcp_varying_float(<32 x float> %v)
+  ret <32 x float> %ret
 }
 
 
@@ -605,36 +574,28 @@ svml(ISA)
 ;declare i64 @__reduce_max_uint64(<WIDTH x i64>) nounwind readnone
 
 ;; 8 bit
-declare <8 x i64> @llvm.x86.avx512.psad.bw.512(<64 x i8>, <64 x i8>) nounwind readnone
+declare <4 x i64> @llvm.x86.avx2.psad.bw(<32 x i8>, <32 x i8>) nounwind readnone
 
-define i16 @__reduce_add_int8(<64 x i8>) nounwind readnone alwaysinline {
-  %rv = call <8 x i64> @llvm.x86.avx512.psad.bw.512(<64 x i8> %0,
-                                                    <64 x i8> zeroinitializer)
-  %r0 = extractelement <8 x i64> %rv, i32 0
-  %r1 = extractelement <8 x i64> %rv, i32 1
-  %r2 = extractelement <8 x i64> %rv, i32 2
-  %r3 = extractelement <8 x i64> %rv, i32 3
-  %r4 = extractelement <8 x i64> %rv, i32 4
-  %r5 = extractelement <8 x i64> %rv, i32 5
-  %r6 = extractelement <8 x i64> %rv, i32 6
-  %r7 = extractelement <8 x i64> %rv, i32 7
+define i16 @__reduce_add_int8(<32 x i8>) nounwind readnone alwaysinline {
+  %rv = call <4 x i64> @llvm.x86.avx2.psad.bw(<32 x i8> %0,
+                                                    <32 x i8> zeroinitializer)
+  %r0 = extractelement <4 x i64> %rv, i32 0
+  %r1 = extractelement <4 x i64> %rv, i32 1
+  %r2 = extractelement <4 x i64> %rv, i32 2
+  %r3 = extractelement <4 x i64> %rv, i32 3
   %r01 = add i64 %r0, %r1
   %r23 = add i64 %r2, %r3
-  %r45 = add i64 %r4, %r5
-  %r67 = add i64 %r6, %r7
-  %r0123 = add i64 %r01, %r23
-  %r4567 = add i64 %r45, %r67
-  %r = add i64 %r0123, %r4567
+  %r = add i64 %r01, %r23
   %r16 = trunc i64 %r to i16
   ret i16 %r16
 }
 
 ;; 16 bit
 ;; TODO: why returning i16?
-define internal <64 x i16> @__add_varying_i16(<64 x i16>,
-                                              <64 x i16>) nounwind readnone alwaysinline {
-  %r = add <64 x i16> %0, %1
-  ret <64 x i16> %r
+define internal <32 x i16> @__add_varying_i16(<32 x i16>,
+                                              <32 x i16>) nounwind readnone alwaysinline {
+  %r = add <32 x i16> %0, %1
+  ret <32 x i16> %r
 }
 
 define internal i16 @__add_uniform_i16(i16, i16) nounwind readnone alwaysinline {
@@ -642,16 +603,16 @@ define internal i16 @__add_uniform_i16(i16, i16) nounwind readnone alwaysinline 
   ret i16 %r
 }
 
-define i16 @__reduce_add_int16(<64 x i16>) nounwind readnone alwaysinline {
-  reduce64(i16, @__add_varying_i16, @__add_uniform_i16)
+define i16 @__reduce_add_int16(<32 x i16>) nounwind readnone alwaysinline {
+  reduce32(i16, @__add_varying_i16, @__add_uniform_i16)
 }
 
 ;; 32 bit
 ;; TODO: why returning i32?
-define internal <64 x i32> @__add_varying_int32(<64 x i32>,
-                                                <64 x i32>) nounwind readnone alwaysinline {
-  %s = add <64 x i32> %0, %1
-  ret <64 x i32> %s
+define internal <32 x i32> @__add_varying_int32(<32 x i32>,
+                                                <32 x i32>) nounwind readnone alwaysinline {
+  %s = add <32 x i32> %0, %1
+  ret <32 x i32> %s
 }
 
 define internal i32 @__add_uniform_int32(i32, i32) nounwind readnone alwaysinline {
@@ -659,16 +620,16 @@ define internal i32 @__add_uniform_int32(i32, i32) nounwind readnone alwaysinlin
   ret i32 %s
 }
 
-define i32 @__reduce_add_int32(<64 x i32>) nounwind readnone alwaysinline {
-  reduce64(i32, @__add_varying_int32, @__add_uniform_int32)
+define i32 @__reduce_add_int32(<32 x i32>) nounwind readnone alwaysinline {
+  reduce32(i32, @__add_varying_int32, @__add_uniform_int32)
 }
 
 ;; float
 ;; TODO: __reduce_add_float may use hadd
-define internal <64 x float> @__add_varying_float(<64 x float>,
-                                                  <64 x float>) nounwind readnone alwaysinline {
-  %s = fadd <64 x float> %0, %1
-  ret <64 x float> %s
+define internal <32 x float> @__add_varying_float(<32 x float>,
+                                                  <32 x float>) nounwind readnone alwaysinline {
+  %s = fadd <32 x float> %0, %1
+  ret <32 x float> %s
 }
 
 define internal float @__add_uniform_float(float, float) nounwind readnone alwaysinline {
@@ -676,42 +637,42 @@ define internal float @__add_uniform_float(float, float) nounwind readnone alway
   ret float %s
 }
 
-define float @__reduce_add_float(<64 x float>) nounwind readonly alwaysinline {
-  reduce64(float, @__add_varying_float, @__add_uniform_float)
+define float @__reduce_add_float(<32 x float>) nounwind readonly alwaysinline {
+  reduce32(float, @__add_varying_float, @__add_uniform_float)
 }
 
-define float @__reduce_min_float(<64 x float>) nounwind readnone alwaysinline {
-  reduce64(float, @__min_varying_float, @__min_uniform_float)
+define float @__reduce_min_float(<32 x float>) nounwind readnone alwaysinline {
+  reduce32(float, @__min_varying_float, @__min_uniform_float)
 }
 
-define float @__reduce_max_float(<64 x float>) nounwind readnone alwaysinline {
-  reduce64(float, @__max_varying_float, @__max_uniform_float)
+define float @__reduce_max_float(<32 x float>) nounwind readnone alwaysinline {
+  reduce32(float, @__max_varying_float, @__max_uniform_float)
 }
 
 ;; 32 bit min/max
-define i32 @__reduce_min_int32(<64 x i32>) nounwind readnone alwaysinline {
-  reduce64(i32, @__min_varying_int32, @__min_uniform_int32)
+define i32 @__reduce_min_int32(<32 x i32>) nounwind readnone alwaysinline {
+  reduce32(i32, @__min_varying_int32, @__min_uniform_int32)
 }
 
-define i32 @__reduce_max_int32(<64 x i32>) nounwind readnone alwaysinline {
-  reduce64(i32, @__max_varying_int32, @__max_uniform_int32)
+define i32 @__reduce_max_int32(<32 x i32>) nounwind readnone alwaysinline {
+  reduce32(i32, @__max_varying_int32, @__max_uniform_int32)
 }
 
 
-define i32 @__reduce_min_uint32(<64 x i32>) nounwind readnone alwaysinline {
-  reduce64(i32, @__min_varying_uint32, @__min_uniform_uint32)
+define i32 @__reduce_min_uint32(<32 x i32>) nounwind readnone alwaysinline {
+  reduce32(i32, @__min_varying_uint32, @__min_uniform_uint32)
 }
 
-define i32 @__reduce_max_uint32(<64 x i32>) nounwind readnone alwaysinline {
-  reduce64(i32, @__max_varying_uint32, @__max_uniform_uint32)
+define i32 @__reduce_max_uint32(<32 x i32>) nounwind readnone alwaysinline {
+  reduce32(i32, @__max_varying_uint32, @__max_uniform_uint32)
 }
 
 ;; double
 
-define internal <64 x double> @__add_varying_double(<64 x double>,
-                                                   <64 x double>) nounwind readnone alwaysinline {
-  %s = fadd <64 x double> %0, %1
-  ret <64 x double> %s
+define internal <32 x double> @__add_varying_double(<32 x double>,
+                                                   <32 x double>) nounwind readnone alwaysinline {
+  %s = fadd <32 x double> %0, %1
+  ret <32 x double> %s
 }
 
 define internal double @__add_uniform_double(double, double) nounwind readnone alwaysinline {
@@ -719,24 +680,24 @@ define internal double @__add_uniform_double(double, double) nounwind readnone a
   ret double %s
 }
 
-define double @__reduce_add_double(<64 x double>) nounwind readonly alwaysinline {
-  reduce64(double, @__add_varying_double, @__add_uniform_double)
+define double @__reduce_add_double(<32 x double>) nounwind readonly alwaysinline {
+  reduce32(double, @__add_varying_double, @__add_uniform_double)
 }
 
-define double @__reduce_min_double(<64 x double>) nounwind readnone alwaysinline {
-  reduce64(double, @__min_varying_double, @__min_uniform_double)
+define double @__reduce_min_double(<32 x double>) nounwind readnone alwaysinline {
+  reduce32(double, @__min_varying_double, @__min_uniform_double)
 }
 
-define double @__reduce_max_double(<64 x double>) nounwind readnone alwaysinline {
-  reduce64(double, @__max_varying_double, @__max_uniform_double)
+define double @__reduce_max_double(<32 x double>) nounwind readnone alwaysinline {
+  reduce32(double, @__max_varying_double, @__max_uniform_double)
 }
 
 ;; int64
 
-define internal <64 x i64> @__add_varying_int64(<64 x i64>,
-                                                <64 x i64>) nounwind readnone alwaysinline {
-  %s = add <64 x i64> %0, %1
-  ret <64 x i64> %s
+define internal <32 x i64> @__add_varying_int64(<32 x i64>,
+                                                <32 x i64>) nounwind readnone alwaysinline {
+  %s = add <32 x i64> %0, %1
+  ret <32 x i64> %s
 }
 
 define internal i64 @__add_uniform_int64(i64, i64) nounwind readnone alwaysinline {
@@ -744,24 +705,24 @@ define internal i64 @__add_uniform_int64(i64, i64) nounwind readnone alwaysinlin
   ret i64 %s
 }
 
-define i64 @__reduce_add_int64(<64 x i64>) nounwind readnone alwaysinline {
-  reduce64(i64, @__add_varying_int64, @__add_uniform_int64)
+define i64 @__reduce_add_int64(<32 x i64>) nounwind readnone alwaysinline {
+  reduce32(i64, @__add_varying_int64, @__add_uniform_int64)
 }
 
-define i64 @__reduce_min_int64(<64 x i64>) nounwind readnone alwaysinline {
-  reduce64(i64, @__min_varying_int64, @__min_uniform_int64)
+define i64 @__reduce_min_int64(<32 x i64>) nounwind readnone alwaysinline {
+  reduce32(i64, @__min_varying_int64, @__min_uniform_int64)
 }
 
-define i64 @__reduce_max_int64(<64 x i64>) nounwind readnone alwaysinline {
-  reduce64(i64, @__max_varying_int64, @__max_uniform_int64)
+define i64 @__reduce_max_int64(<32 x i64>) nounwind readnone alwaysinline {
+  reduce32(i64, @__max_varying_int64, @__max_uniform_int64)
 }
 
-define i64 @__reduce_min_uint64(<64 x i64>) nounwind readnone alwaysinline {
-  reduce64(i64, @__min_varying_uint64, @__min_uniform_uint64)
+define i64 @__reduce_min_uint64(<32 x i64>) nounwind readnone alwaysinline {
+  reduce32(i64, @__min_varying_uint64, @__min_uniform_uint64)
 }
 
-define i64 @__reduce_max_uint64(<64 x i64>) nounwind readnone alwaysinline {
-  reduce64(i64, @__max_varying_uint64, @__max_uniform_uint64)
+define i64 @__reduce_max_uint64(<32 x i64>) nounwind readnone alwaysinline {
+  reduce32(i64, @__max_varying_uint64, @__max_uniform_uint64)
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -903,5 +864,47 @@ trigonometry_decl()
 saturation_arithmetic_novec()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; dot product
-dot_product_vnni_decl()
+;; dot product 
+declare <16 x i32> @llvm.x86.avx512.vpdpbusd.512(<16 x i32>, <16 x i32>, <16 x i32>) nounwind readnone
+define <32 x i32> @__dot4add_u8i8packed(<32 x i32> %a, <32 x i32> %b, <32 x i32> %acc) nounwind readnone alwaysinline {
+  v32tov16(i32, %a, %a0, %a1)
+  v32tov16(i32, %b, %b0, %b1)
+  v32tov16(i32, %acc, %acc0, %acc1)
+  %ret0 = call <16 x i32> @llvm.x86.avx512.vpdpbusd.512(<16 x i32> %acc0, <16 x i32> %a0, <16 x i32> %b0)
+  %ret1 = call <16 x i32> @llvm.x86.avx512.vpdpbusd.512(<16 x i32> %acc1, <16 x i32> %a1, <16 x i32> %b1)
+  v16tov32(i32, %ret0, %ret1, %ret)
+  ret <32 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.avx512.vpdpbusds.512(<16 x i32>, <16 x i32>, <16 x i32>) nounwind readnone
+define <32 x i32> @__dot4add_u8i8packed_sat(<32 x i32> %a, <32 x i32> %b, <32 x i32> %acc) nounwind readnone alwaysinline {
+  v32tov16(i32, %a, %a0, %a1)
+  v32tov16(i32, %b, %b0, %b1)
+  v32tov16(i32, %acc, %acc0, %acc1)
+  %ret0 = call <16 x i32> @llvm.x86.avx512.vpdpbusds.512(<16 x i32> %acc0, <16 x i32> %a0, <16 x i32> %b0)
+  %ret1 = call <16 x i32> @llvm.x86.avx512.vpdpbusds.512(<16 x i32> %acc1, <16 x i32> %a1, <16 x i32> %b1)
+  v16tov32(i32, %ret0, %ret1, %ret)
+  ret <32 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.avx512.vpdpwssd.512(<16 x i32>, <16 x i32>, <16 x i32>) nounwind readnone
+define <32 x i32> @__dot2add_i16packed(<32 x i32> %a, <32 x i32> %b, <32 x i32> %acc) nounwind readnone alwaysinline {
+  v32tov16(i32, %a, %a0, %a1)
+  v32tov16(i32, %b, %b0, %b1)
+  v32tov16(i32, %acc, %acc0, %acc1)
+  %ret0 = call <16 x i32> @llvm.x86.avx512.vpdpwssd.512(<16 x i32> %acc0, <16 x i32> %a0, <16 x i32> %b0)
+  %ret1 = call <16 x i32> @llvm.x86.avx512.vpdpwssd.512(<16 x i32> %acc1, <16 x i32> %a1, <16 x i32> %b1)
+  v16tov32(i32, %ret0, %ret1, %ret)
+  ret <32 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.avx512.vpdpwssds.512(<16 x i32>, <16 x i32>, <16 x i32>) nounwind readnone
+define <32 x i32> @__dot2add_i16packed_sat(<32 x i32> %a, <32 x i32> %b, <32 x i32> %acc) nounwind readnone alwaysinline {
+  v32tov16(i32, %a, %a0, %a1)
+  v32tov16(i32, %b, %b0, %b1)
+  v32tov16(i32, %acc, %acc0, %acc1)
+  %ret0 = call <16 x i32> @llvm.x86.avx512.vpdpwssds.512(<16 x i32> %acc0, <16 x i32> %a0, <16 x i32> %b0)
+  %ret1 = call <16 x i32> @llvm.x86.avx512.vpdpwssds.512(<16 x i32> %acc1, <16 x i32> %a1, <16 x i32> %b1)
+  v16tov32(i32, %ret0, %ret1, %ret)
+  ret <32 x i32> %ret
+}

@@ -331,7 +331,9 @@ if (X86_ENABLED)
         avx2vnni-i32x4 avx2vnni-i32x8 avx2vnni-i32x16
         avx512knl-x16
         avx512skx-x4 avx512skx-x8 avx512skx-x16
-        avx512skx-x32 avx512skx-x64)
+        avx512skx-x32 avx512skx-x64
+        avx512vnni-x4 avx512vnni-x8 avx512vnni-x16
+        avx512vnni-x32 avx512vnni-x64)
     if (${LLVM_VERSION_NUMBER} VERSION_GREATER_EQUAL "14.0.0")
         list(APPEND ISPC_TARGETS
             avx512spr-x4 avx512spr-x8 avx512spr-x16 avx512spr-x32 avx512spr-x64)

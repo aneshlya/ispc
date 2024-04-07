@@ -189,7 +189,8 @@ class Target {
         AVX2VNNI = 5,
         KNL_AVX512 = 6,
         SKX_AVX512 = 7,
-        SPR_AVX512 = 8,
+        VNNI_AVX512 = 8,
+        SPR_AVX512 = 9,
 #ifdef ISPC_ARM_ENABLED
         NEON,
 #endif

@@ -150,10 +150,12 @@ int32_t __get_system_isa() {
         _Bool spr =
             icl && avx512_bf16 && avx512_amx_bf16 && avx512_amx_tile && avx512_amx_int8 && avx_vnni && avx512_fp16;
         if (spr) {
-            return 8; // SPR
+            return 9; // SPR
         }
 #endif // !SPR && !MACOS
-        if (skx) {
+        if (icl) {
+            return 8; // ICL
+        } else if (skx) {
             return 7; // SKX
         } else if (knl) {
             return 6; // KNL

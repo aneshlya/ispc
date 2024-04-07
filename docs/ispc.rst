@@ -920,7 +920,8 @@ x86 targets:
 ``avx2-i16x16``, ``avx2-i32x4``, ``avx2-i32x8``, ``avx2-i32x16``, ``avx2-i64x4``,
 ``avx2vnni-i32x4``, ``avx2vnni-i32x8``, ``avx2vnni-i32x16``,
 ``avx512knl-x16``, ``avx512skx-x4``, ``avx512skx-x8``, ``avx512skx-x16``, ``avx512skx-x32``,
-``avx512skx-x64``, ``avx512spr-x4``, ``avx512spr-x8``, ``avx512spr-x16``, ``avx512spr-x32``,
+``avx512skx-x64``, ``avx512vnni-x4``, ``avx512vnni-x8``, ``avx512vnni-x16``, ``avx512vnni-x32``,
+``avx512vnni-x64``, ``avx512spr-x4``, ``avx512spr-x8``, ``avx512spr-x16``, ``avx512spr-x32``,
 ``avx512spr-x64``.
 
 Neon targets:
@@ -4355,7 +4356,9 @@ Dot product
 
 ISPC supports dot product operations for unsigned and signed ``int8`` and ``int16`` data types,
 leveraging the AVX-VNNI and AVX512-VNNI instruction sets. The ISPC targets that support
-native VNNI instruction sets are: ``avx2vnni-i32x4``, ``avx2vnni-i32x8``, and avx2vnni-i32x16.
+native VNNI instruction sets are: ``avx2vnni-i32x4``, ``avx2vnni-i32x8``, ``avx2vnni-i32x16``,
+``avx512vnni-x4``, ``avx512vnni-x8``, ``avx512vnni-x16``, ``avx512vnni-x32``, and
+``avx512vnni-x64``.
 These dot product operations are specifically designed to operate on *packed* input vectors,
 necessitating proper packing of input vectors by the programmer before use.
 

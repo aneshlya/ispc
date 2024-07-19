@@ -2014,7 +2014,7 @@ divert`'dnl
 ;; target's vector width
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-define(`shuffles', `
+define(`vec_permutations', `
 define <WIDTH x $1> @__broadcast_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinline {
   %v = extractelement <WIDTH x $1> %0, i32 %1
   %broadcast_init = insertelement <WIDTH x $1> undef, $1 %v, i32 0
@@ -2071,8 +2071,9 @@ define <WIDTH x $1> @__shift_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinlin
   %result = load PTR_OP_ARGS(`<WIDTH x $1> ')  %load_ptr_vec, align $2
   ret <WIDTH x $1> %result
 }
+')
 
-
+define(`shuffles', `
 define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
 forloop(i, 0, eval(WIDTH-1), `
   %index_`'i = extractelement <WIDTH x i32> %1, i32 i')
@@ -2125,6 +2126,16 @@ forloop(i, 1, eval(WIDTH-1), `
 
   ret <WIDTH x $1> %result_`'eval(WIDTH-1)
 }
+')
+
+define(`define_vec_permutations',`
+vec_permutations(i8, 1)
+vec_permutations(i16, 2)
+vec_permutations(half, 2)
+vec_permutations(float, 4)
+vec_permutations(i32, 4)
+vec_permutations(double, 8)
+vec_permutations(i64, 8)
 ')
 
 define(`define_shuffles',`

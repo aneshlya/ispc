@@ -1244,7 +1244,7 @@ define <WIDTH x double> @__trunc_varying_double(<WIDTH x double> %val) {
 ;; target's vector width
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-define(`shuffles', `
+define(`vec_permutations', `
 define <WIDTH x $1> @__broadcast_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinline {
   %v = extractelement <WIDTH x $1> %0, i32 %1
   %broadcast_init = insertelement <WIDTH x $1> undef, $1 %v, i32 0
@@ -1253,7 +1253,6 @@ define <WIDTH x $1> @__broadcast_$1(<WIDTH x $1>, i32) nounwind readnone alwaysi
 }
 
 define <WIDTH x $1> @__rotate_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinline {
-  %ptr = alloca <WIDTH x $1>, i32 2
   %isc = call i1 @__is_compile_time_constant_uniform_int32(i32 %1)
   br i1 %isc, label %is_const, label %not_const
 
@@ -1271,6 +1270,7 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 
 not_const:
   ; store two instances of the vector into memory
+  %ptr = alloca <WIDTH x $1>, i32 2
   %ptr0 = getelementptr PTR_OP_ARGS(`<WIDTH x $1>') %ptr, i32 0
   store <WIDTH x $1> %0, <WIDTH x $1> * %ptr0
   %ptr1 = getelementptr PTR_OP_ARGS(`<WIDTH x $1>') %ptr, i32 1
@@ -1301,8 +1301,9 @@ define <WIDTH x $1> @__shift_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinlin
   %result = load PTR_OP_ARGS(`<WIDTH x $1> ')  %load_ptr_vec, align $2
   ret <WIDTH x $1> %result
 }
+')
 
-
+define(`shuffles', `
 define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
 forloop(i, 0, eval(WIDTH-1), `
   %index_`'i = extractelement <WIDTH x i32> %1, i32 i')
@@ -1316,7 +1317,6 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 }
 
 define <WIDTH x $1> @__shuffle2_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %ptr = alloca <eval(2*WIDTH) x $1>
   %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
       forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
   >
@@ -1340,6 +1340,7 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 not_const:
   ; otherwise store the two vectors onto the stack and then use the given
   ; permutation vector to get indices into that array...
+  %ptr = alloca <eval(2*WIDTH) x $1>
   store <eval(2*WIDTH) x $1> %v2, <eval(2*WIDTH) x $1> * %ptr
   %baseptr = bitcast <eval(2*WIDTH) x $1> * %ptr to $1 *
 
@@ -1355,6 +1356,16 @@ forloop(i, 1, eval(WIDTH-1), `
 
   ret <WIDTH x $1> %result_`'eval(WIDTH-1)
 }
+')
+
+define(`define_vec_permutations',`
+vec_permutations(i8, 1)
+vec_permutations(i16, 2)
+vec_permutations(half, 2)
+vec_permutations(float, 4)
+vec_permutations(i32, 4)
+vec_permutations(double, 8)
+vec_permutations(i64, 8)
 ')
 
 define(`define_shuffles',`

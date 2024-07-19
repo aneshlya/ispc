@@ -8,6 +8,7 @@
 ctlztz()
 popcnt()
 define_prefetches()
+define_vec_permutations()
 define_shuffles()
 aossoa()
 rdrand_decls()

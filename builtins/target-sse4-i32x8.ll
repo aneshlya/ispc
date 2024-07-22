@@ -19,6 +19,7 @@ packed_load_and_store(FALSE)
 scans()
 int64minmax()
 saturation_arithmetic()
+define_non_const_shuffles()
 
 include(`target-sse4-common.ll')
 

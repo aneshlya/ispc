@@ -9,11 +9,6 @@ define(`HAVE_SCATTER',`1')
 include(`target-avx512-utils.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; shuffle
-
-define_shuffles()
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stub for mask conversion. LLVM's intrinsics want i1 mask, but we use i8
 
 define i8 @__cast_mask_to_i8 (<WIDTH x MASK> %mask) alwaysinline {
@@ -821,3 +816,23 @@ define_avgs()
 ;; Trigonometry
 transcendetals_decl()
 trigonometry_decl()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Shuffle operations
+
+shuffle_non_const(i8, 1)
+shuffle_non_const(i16, 2)
+shuffle_non_const(half, 2)
+shuffle_non_const(i32, 4)
+
+
+declare <4 x float> @llvm.x86.avx512.vpermi2var.ps.128(<4 x float>, <4 x i32>, <4 x float>)
+define <4 x float> @__shuffle_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %r1 = call <4 x float> @llvm.x86.avx512.vpermi2var.ps.128(<4 x float> %0, <4 x i32> %2, <4 x float> %1)
+  ret <WIDTH x float> %r1
+}
+
+shuffle_non_const(double, 8)
+shuffle_non_const(i64, 8)
+
+define_shuffles()

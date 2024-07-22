@@ -15,6 +15,24 @@ scans()
 int64minmax()
 saturation_arithmetic()
 
+shuffle_non_const(i8, 1)
+shuffle_non_const(i16, 2)
+shuffle_non_const(half, 2)
+
+shuffle_non_const(i32, 4)
+shuffle_non_const(double, 8)
+shuffle_non_const(i64, 8)
+
+declare <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float>, <4 x i32>)
+define <4 x float> @__shuffle_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %r1 = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %0, <4 x i32> %2)
+  %shuf2 = sub <4 x i32> %2, <i32 4, i32 4, i32 4, i32 4>
+  %r2 = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %1, <4 x i32> %shuf2)
+  %mask = icmp slt <WIDTH x i32> %shuf2, <i32 0, i32 0, i32 0, i32 0>
+  %res = select <WIDTH x i1> %mask, <4 x float> %r1, <4 x float> %r2  
+  ret <WIDTH x float> %res
+}
+
 include(`target-sse4-common.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

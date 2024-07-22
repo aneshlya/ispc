@@ -2073,6 +2073,32 @@ define <WIDTH x $1> @__shift_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinlin
 }
 ')
 
+define(`shuffle_non_const', `
+define <WIDTH x $1> @__shuffle_non_const_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
+      forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
+  >
+  forloop(i, 0, eval(WIDTH-1), `
+  %index_`'i = extractelement <WIDTH x i32> %2, i32 i')
+  
+  %ptr = alloca <eval(2*WIDTH) x $1>
+  store <eval(2*WIDTH) x $1> %v2, <eval(2*WIDTH) x $1> * %ptr
+  %baseptr = bitcast <eval(2*WIDTH) x $1> * %ptr to $1 *
+
+  %ptr_0 = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_0
+  %val_0 = load PTR_OP_ARGS(`$1 ')  %ptr_0
+  %result_0 = insertelement <WIDTH x $1> undef, $1 %val_0, i32 0
+
+forloop(i, 1, eval(WIDTH-1), `
+  %ptr_`'i = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_`'i
+  %val_`'i = load PTR_OP_ARGS(`$1 ')  %ptr_`'i
+  %result_`'i = insertelement <WIDTH x $1> %result_`'eval(i-1), $1 %val_`'i, i32 i
+')
+
+  ret <WIDTH x $1> %result_`'eval(WIDTH-1)
+  }
+')
+
 define(`shuffles', `
 define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
 forloop(i, 0, eval(WIDTH-1), `
@@ -2110,21 +2136,8 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 not_const:
   ; otherwise store the two vectors onto the stack and then use the given
   ; permutation vector to get indices into that array...
-  %ptr = alloca <eval(2*WIDTH) x $1>
-  store <eval(2*WIDTH) x $1> %v2, <eval(2*WIDTH) x $1> * %ptr
-  %baseptr = bitcast <eval(2*WIDTH) x $1> * %ptr to $1 *
-
-  %ptr_0 = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_0
-  %val_0 = load PTR_OP_ARGS(`$1 ')  %ptr_0
-  %result_0 = insertelement <WIDTH x $1> undef, $1 %val_0, i32 0
-
-forloop(i, 1, eval(WIDTH-1), `
-  %ptr_`'i = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_`'i
-  %val_`'i = load PTR_OP_ARGS(`$1 ')  %ptr_`'i
-  %result_`'i = insertelement <WIDTH x $1> %result_`'eval(i-1), $1 %val_`'i, i32 i
-')
-
-  ret <WIDTH x $1> %result_`'eval(WIDTH-1)
+  %res = call <WIDTH x $1> @__shuffle_non_const_$1(<WIDTH x $1> %0, <WIDTH x $1> %1, <WIDTH x i32> %2)
+  ret <WIDTH x $1> %res
 }
 ')
 
@@ -2136,6 +2149,16 @@ vec_permutations(float, 4)
 vec_permutations(i32, 4)
 vec_permutations(double, 8)
 vec_permutations(i64, 8)
+')
+
+define(`define_non_const_shuffles',`
+shuffle_non_const(i8, 1)
+shuffle_non_const(i16, 2)
+shuffle_non_const(half, 2)
+shuffle_non_const(float, 4)
+shuffle_non_const(i32, 4)
+shuffle_non_const(double, 8)
+shuffle_non_const(i64, 8)
 ')
 
 define(`define_shuffles',`

@@ -8,6 +8,35 @@ define(`ISA',`AVX512SKX')
 include(`target-avx512-common-16.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; broadcast/rotate/shuffle
+
+shuffle2_permute(i8)
+shuffle2_permute(half)
+shuffle2_permute(i64)
+shuffle2_permute(double)
+
+declare <WIDTH x i16> @llvm.x86.avx512.vpermi2var.hi.256(<WIDTH x i16>, <WIDTH x i16>, <WIDTH x i16>)
+define internal <WIDTH x i16> @__shuffle2_permute_i16(<WIDTH x i16>, <WIDTH x i16>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %ind = trunc <WIDTH x i32> %2 to <WIDTH x i16>
+  %res = call <WIDTH x i16> @llvm.x86.avx512.vpermi2var.hi.256(<WIDTH x i16> %0, <WIDTH x i16> %ind, <WIDTH x i16> %1)
+  ret <WIDTH x i16> %res
+}
+
+declare <WIDTH x i32> @llvm.x86.avx512.vpermi2var.d.512(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>)
+define internal <WIDTH x i32> @__shuffle2_permute_i32(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %res = call <WIDTH x i32> @llvm.x86.avx512.vpermi2var.d.512(<WIDTH x i32> %0, <WIDTH x i32> %2, <WIDTH x i32> %1)
+  ret <WIDTH x i32> %res
+}
+
+declare <WIDTH x float> @llvm.x86.avx512.vpermi2var.ps.512(<WIDTH x float>, <WIDTH x i32>, <WIDTH x float>)
+define internal <WIDTH x float> @__shuffle2_permute_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %res = call <WIDTH x float> @llvm.x86.avx512.vpermi2var.ps.512(<WIDTH x float> %0, <WIDTH x i32> %2, <WIDTH x float> %1)
+  ret <WIDTH x float> %res
+}
+
+define_shuffles_no_shuffle2_perm()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half
 rcph_rsqrth_decl
 

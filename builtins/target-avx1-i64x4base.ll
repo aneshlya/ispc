@@ -15,6 +15,9 @@ scans()
 int64minmax()
 saturation_arithmetic()
 
+define_non_const_shuffles()
+define_shuffles()
+
 include(`target-avx-utils.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

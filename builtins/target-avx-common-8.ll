@@ -14,6 +14,32 @@ packed_load_and_store(FALSE)
 scans()
 int64minmax()
 
+shuffle_non_const(i8, 1)
+shuffle_non_const(i16, 2)
+shuffle_non_const(half, 2)
+shuffle_non_const(double, 8)
+shuffle_non_const(i64, 8)
+
+declare <8 x float> @llvm.x86.avx.vpermilvar.ps.256(<8 x float>, <8 x i32>)
+define internal <8 x float> @__shuffle_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %r1 = call <8 x float> @llvm.x86.avx.vpermilvar.ps.256(<8 x float> %0, <8 x i32> %2)
+  %shuf2 = sub <8 x i32> %2, <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+  %r2 = call <8 x float> @llvm.x86.avx.vpermilvar.ps.256(<8 x float> %1, <8 x i32> %shuf2)
+  %perm2 = icmp slt <8 x i32> %2, <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+  %res = select <8 x i1> %perm2, <8 x float> %r1, <8 x float> %r2
+  ret <WIDTH x float> %res
+}
+
+define internal <8 x i32> @__shuffle_non_const_i32(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v1 = bitcast <8 x i32> %0 to <8 x float>
+  %v2 = bitcast <8 x i32> %1 to <8 x float>
+  %r = call <8 x float> @__shuffle_non_const_float(<8 x float> %v1, <8 x float> %v2, <8 x i32> %2)
+  %res = bitcast <8 x float> %r to <8 x i32>
+  ret <WIDTH x i32> %res
+}
+
+define_shuffles()
+
 include(`target-avx-utils.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

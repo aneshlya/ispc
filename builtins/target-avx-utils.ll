@@ -12,8 +12,6 @@ ctlztz()
 popcnt()
 define_prefetches()
 define_vec_permutations()
-define_non_const_shuffles()
-define_shuffles()
 aossoa()
 halfTypeGenericImplementation()
 

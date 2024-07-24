@@ -19,18 +19,44 @@ shuffle_non_const(i8, 1)
 shuffle_non_const(i16, 2)
 shuffle_non_const(half, 2)
 
-shuffle_non_const(i32, 4)
-shuffle_non_const(double, 8)
-shuffle_non_const(i64, 8)
-
 declare <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float>, <4 x i32>)
-define <4 x float> @__shuffle_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define internal <4 x float> @__shuffle_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %r1 = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %0, <4 x i32> %2)
   %shuf2 = sub <4 x i32> %2, <i32 4, i32 4, i32 4, i32 4>
   %r2 = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %1, <4 x i32> %shuf2)
   %mask = icmp slt <WIDTH x i32> %shuf2, <i32 0, i32 0, i32 0, i32 0>
   %res = select <WIDTH x i1> %mask, <4 x float> %r1, <4 x float> %r2  
   ret <WIDTH x float> %res
+}
+
+define internal <4 x i32> @__shuffle_non_const_i32(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v1 = bitcast <4 x i32> %0 to <4 x float>
+  %v2 = bitcast <4 x i32> %1 to <4 x float>
+  %r = call <4 x float> @__shuffle_non_const_float(<4 x float> %v1, <4 x float> %v2, <4 x i32> %2)
+  %res = bitcast <4 x float> %r to <4 x i32>
+  ret <WIDTH x i32> %res
+}
+
+declare <4 x double> @llvm.x86.avx.vpermilvar.pd.256(<4 x double>, <4 x i64>)
+
+define internal <4 x double> @__shuffle_non_const_double(<4 x double> %0, <4 x double> %1, <4 x i32> %2) nounwind readnone alwaysinline {
+entry:
+  %perm = zext <4 x i32> %2 to <4 x i64>
+  %r1 = call <4 x double> @llvm.x86.avx.vpermilvar.pd.256(<4 x double> %0, <4 x i64> %perm)
+  %shuf2 = sub <4 x i32> %2, <i32 4, i32 4, i32 4, i32 4>
+  %perm2 = zext <4 x i32> %shuf2 to <4 x i64>
+  %r2 = call <4 x double> @llvm.x86.avx.vpermilvar.pd.256(<4 x double> %1, <4 x i64> %perm2)
+  %mask = icmp slt <4 x i32> %shuf2, <i32 0, i32 0, i32 0, i32 0>
+  %res = select <4 x i1> %mask, <4 x double> %r1, <4 x double> %r2  
+  ret <4 x double> %res
+}
+
+define internal <4 x i64> @__shuffle_non_const_i64(<WIDTH x i64>, <WIDTH x i64>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v1 = bitcast <4 x i64> %0 to <4 x double>
+  %v2 = bitcast <4 x i64> %1 to <4 x double>
+  %r = call <4 x double> @__shuffle_non_const_double(<4 x double> %v1, <4 x double> %v2, <4 x i32> %2)
+  %res = bitcast <4 x double> %r to <4 x i64>
+  ret <WIDTH x i64> %res
 }
 
 include(`target-sse4-common.ll')

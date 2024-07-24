@@ -18,6 +18,54 @@ saturation_arithmetic()
 include(`target-avx-utils.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; optimized shuf version
+
+shuffle1(i8)
+shuffle1(i16)
+shuffle1(half)
+shuffle1(double)
+shuffle1(i64)
+
+declare <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float>, <4 x i32>)
+define internal <4 x i32> @__shuffle_i32(<4 x i32>, <4 x i32>) nounwind readnone alwaysinline {
+  %vec = bitcast <4 x i32> %0 to <4 x float>
+  %res = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %vec, <4 x i32> %1)
+  %res_casted = bitcast <4 x float> %res to <4 x i32>
+  ret <4 x i32> %res_casted
+}
+
+define internal <4 x float> @__shuffle_float(<4 x float>, <4 x i32>) nounwind readnone alwaysinline {
+  %res = call <4 x float> @llvm.x86.avx.vpermilvar.ps(<4 x float> %0, <4 x i32> %1)
+  ret <4 x float> %res
+}
+
+shuffle2_non_const(i8)
+shuffle2_non_const(i16)
+shuffle2_non_const(half)
+shuffle2_non_const(double)
+shuffle2_non_const(i64)
+
+define internal <4 x i32> @__shuffle2_non_const_i32(<4 x i32>, <4 x i32>, <4 x i32>) nounwind readnone alwaysinline {
+  %v1 = call <4 x i32> @__shuffle_i32(<4 x i32> %0, <WIDTH x i32> %2)
+  %perm2 = sub <4 x i32> %2, const_vector(i32, 4)
+  %v2 = call <4 x i32> @__shuffle_i32(<4 x i32> %1, <4 x i32> %perm2)
+  %mask = icmp slt <4 x i32> %2, const_vector(i32, 4)
+  %res = select <4 x i1> %mask, <4 x i32> %v1, <4 x i32> %v2
+  ret <4 x i32> %res
+}
+
+define internal <4 x float> @__shuffle2_non_const_float(<4 x float>, <4 x float>, <4 x i32>) nounwind readnone alwaysinline {
+  %v1 = call <4 x float> @__shuffle_float(<4 x float> %0, <4 x i32> %2)
+  %perm2 = sub <4 x i32> %2, const_vector(i32, 4)
+  %v2 = call <4 x float> @__shuffle_float(<4 x float> %1, <4 x i32> %perm2)
+  %mask = icmp slt <4 x i32> %2, const_vector(i32, 4)
+  %res = select <4 x i1> %mask, <4 x float> %v1, <4 x float> %v2
+  ret <4 x float> %res
+}
+
+define_shuffle2()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp
 
 ;; sse intrinsic

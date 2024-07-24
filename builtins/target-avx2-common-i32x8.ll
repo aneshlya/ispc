@@ -11,6 +11,53 @@ rdrand_definition()
 saturation_arithmetic()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; optimized shuf version
+
+shuffle1(i8)
+shuffle1(i16)
+shuffle1(half)
+shuffle1(double)
+shuffle1(i64)
+
+declare <8 x i32> @llvm.x86.avx2.permd(<8 x i32>, <8 x i32>)
+define internal <8 x i32> @__shuffle_i32(<8 x i32>, <8 x i32>) nounwind readnone alwaysinline {
+  %res = call <8 x i32> @llvm.x86.avx2.permd(<8 x i32> %0, <8 x i32> %1)
+  ret <8 x i32> %res
+}
+
+declare <8 x float> @llvm.x86.avx2.permps(<8 x float>, <8 x i32>)
+define internal <8 x float> @__shuffle_float(<8 x float>, <8 x i32>) nounwind readnone alwaysinline {
+  %res = call <8 x float> @llvm.x86.avx2.permps(<8 x float> %0, <8 x i32> %1)
+  ret <8 x float> %res
+}
+
+shuffle2_non_const(i8)
+shuffle2_non_const(i16)
+shuffle2_non_const(half)
+shuffle2_non_const(double)
+shuffle2_non_const(i64)
+
+define internal <8 x i32> @__shuffle2_non_const_i32(<8 x i32>, <8 x i32>, <8 x i32>) nounwind readnone alwaysinline {
+  %v1 = call <8 x i32> @__shuffle_i32(<8 x i32> %0, <WIDTH x i32> %2)
+  %perm2 = sub <8 x i32> %2, const_vector(i32, 8)
+  %v2 = call <8 x i32> @__shuffle_i32(<8 x i32> %1, <8 x i32> %perm2)
+  %mask = icmp slt <8 x i32> %2, const_vector(i32, 8)
+  %res = select <8 x i1> %mask, <8 x i32> %v1, <8 x i32> %v2
+  ret <8 x i32> %res
+}
+
+define internal <8 x float> @__shuffle2_non_const_float(<8 x float>, <8 x float>, <8 x i32>) nounwind readnone alwaysinline {
+  %v1 = call <8 x float> @__shuffle_float(<8 x float> %0, <8 x i32> %2)
+  %perm2 = sub <8 x i32> %2, const_vector(i32, 8)
+  %v2 = call <8 x float> @__shuffle_float(<8 x float> %1, <8 x i32> %perm2)
+  %mask = icmp slt <8 x i32> %2, const_vector(i32, 8)
+  %res = select <8 x i1> %mask, <8 x float> %v1, <8 x float> %v2
+  ret <8 x float> %res
+}
+
+define_shuffle2()
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; svml
 
 include(`svml.m4')

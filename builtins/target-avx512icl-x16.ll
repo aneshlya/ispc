@@ -8,6 +8,23 @@ define(`ISA',`AVX512SKX')
 include(`target-avx512-common-16.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shuffles
+
+declare <WIDTH x i8> @llvm.x86.avx512.mask.permvar.qi.128(<WIDTH x i8>, <WIDTH x i8>, <WIDTH x i8>, i16)
+define <WIDTH x i8> @__shuffle_i8(<WIDTH x i8>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %ind = trunc <WIDTH x i32> %1 to <WIDTH x i8>
+  %res = call <WIDTH x i8> @llvm.x86.avx512.mask.permvar.qi.128(<WIDTH x i8> %0, <WIDTH x i8> %ind, <WIDTH x i8> zeroinitializer, i16 -1)
+  ret <WIDTH x i8> %res
+}
+
+declare <WIDTH x i8> @llvm.x86.avx512.vpermi2var.qi.128(<WIDTH x i8>, <WIDTH x i8>, <WIDTH x i8>)
+define internal <WIDTH x i8> @__shuffle2_non_const_i8(<WIDTH x i8>, <WIDTH x i8>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %ind = trunc <WIDTH x i32> %2 to <WIDTH x i8>
+  %res = call <WIDTH x i8> @llvm.x86.avx512.vpermi2var.qi.128(<WIDTH x i8> %0, <WIDTH x i8> %ind, <WIDTH x i8> %1)
+  ret <WIDTH x i8> %res
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half
 rcph_rsqrth_decl
 

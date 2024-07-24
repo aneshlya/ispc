@@ -8,7 +8,6 @@
 ctlztz()
 popcnt()
 define_prefetches()
-define_shuffles()
 aossoa()
 rdrand_decls()
 halfTypeGenericImplementation()
@@ -287,3 +286,47 @@ end_bb_$1:
   %$1 = phi <$3 x $4> [ %$1_1, %on_one_$1 ], [ %$1_2, %on_two_$1 ], [ %$1_4, %on_four_$1 ], [ %$1_8, %on_eight_$1 ]
 '
 )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LLVM backend generates a pretty good code for this IR across SSE4-AVX x4 targets.
+;; since it maps to target specific shuffle instructions.
+;; $1: type
+
+define(`shuffle2_permute_sse4', `
+define internal <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v1 = call <WIDTH x $1> @__shuffle_$1(<WIDTH x $1> %0, <WIDTH x i32> %2)
+  %perm2 = sub <WIDTH x i32> %2, const_vector(i32, WIDTH)
+  %v2 = call <WIDTH x $1> @__shuffle_$1(<WIDTH x $1> %1, <WIDTH x i32> %perm2)
+  %mask = icmp slt <WIDTH x i32> %2, const_vector(i32, WIDTH)
+  %res = select <WIDTH x i1> %mask, <WIDTH x $1> %v1, <WIDTH x $1> %v2
+  ret <WIDTH x $1> %res
+}
+'
+)
+
+define(`define_shuffles_sse4',
+`ifelse(
+          WIDTH,  `4', `
+  define_shuffle_permute()
+  shuffle2_permute(i8)
+  shuffle2_permute(i16)
+  shuffle2_permute(half)
+  shuffle2_permute(double)
+  shuffle2_permute(i64)
+  shuffle2_permute_sse4(i32)
+  shuffle2_permute_sse4(float)
+
+  define_shuffles_no_shuffle2_perm()
+  ',
+          WIDTH,  `8', `
+  define_shuffles()
+  ',
+          WIDTH, `16', `
+  define_shuffles()
+  ',
+          WIDTH, `32', `
+  define_shuffles()
+  ',
+  `errprint(`ERROR:  () macro called with unsupported width = 'WIDTH)
+')
+')

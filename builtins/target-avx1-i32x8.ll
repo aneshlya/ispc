@@ -3,8 +3,10 @@
 ;;  SPDX-License-Identifier: BSD-3-Clause
 
 define(`ISA',`AVX1')
+
 include(`target-avx-common-8.ll')
 
+define_shuffles_avx()
 rdrand_decls()
 saturation_arithmetic()
 

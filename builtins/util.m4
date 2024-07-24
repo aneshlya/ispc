@@ -2014,6 +2014,32 @@ divert`'dnl
 ;; target's vector width
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+define(`shuffle2_permute', `
+define internal <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
+      forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
+  >
+  forloop(i, 0, eval(WIDTH-1), `
+  %index_`'i = extractelement <WIDTH x i32> %2, i32 i')
+
+  %ptr = alloca <eval(2*WIDTH) x $1>
+  store <eval(2*WIDTH) x $1> %v2, <eval(2*WIDTH) x $1> * %ptr
+  %baseptr = bitcast <eval(2*WIDTH) x $1> * %ptr to $1 *
+
+  %ptr_0 = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_0
+  %val_0 = load PTR_OP_ARGS(`$1 ')  %ptr_0
+  %result_0 = insertelement <WIDTH x $1> undef, $1 %val_0, i32 0
+
+forloop(i, 1, eval(WIDTH-1), `
+  %ptr_`'i = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_`'i
+  %val_`'i = load PTR_OP_ARGS(`$1 ')  %ptr_`'i
+  %result_`'i = insertelement <WIDTH x $1> %result_`'eval(i-1), $1 %val_`'i, i32 i
+')
+
+  ret <WIDTH x $1> %result_`'eval(WIDTH-1)
+  }
+')
+
 define(`shuffles', `
 define <WIDTH x $1> @__broadcast_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinline {
   %v = extractelement <WIDTH x $1> %0, i32 %1
@@ -2072,7 +2098,6 @@ define <WIDTH x $1> @__shift_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinlin
   ret <WIDTH x $1> %result
 }
 
-
 define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
 forloop(i, 0, eval(WIDTH-1), `
   %index_`'i = extractelement <WIDTH x i32> %1, i32 i')
@@ -2109,25 +2134,25 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 not_const:
   ; otherwise store the two vectors onto the stack and then use the given
   ; permutation vector to get indices into that array...
-  %ptr = alloca <eval(2*WIDTH) x $1>
-  store <eval(2*WIDTH) x $1> %v2, <eval(2*WIDTH) x $1> * %ptr
-  %baseptr = bitcast <eval(2*WIDTH) x $1> * %ptr to $1 *
-
-  %ptr_0 = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_0
-  %val_0 = load PTR_OP_ARGS(`$1 ')  %ptr_0
-  %result_0 = insertelement <WIDTH x $1> undef, $1 %val_0, i32 0
-
-forloop(i, 1, eval(WIDTH-1), `
-  %ptr_`'i = getelementptr PTR_OP_ARGS(`$1') %baseptr, i32 %index_`'i
-  %val_`'i = load PTR_OP_ARGS(`$1 ')  %ptr_`'i
-  %result_`'i = insertelement <WIDTH x $1> %result_`'eval(i-1), $1 %val_`'i, i32 i
-')
-
-  ret <WIDTH x $1> %result_`'eval(WIDTH-1)
+  %res = call <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1> %0, <WIDTH x $1> %1, <WIDTH x i32> %2)
+  ret <WIDTH x $1> %res
 }
 ')
 
-define(`define_shuffles',`
+;; Implementation of vector permutations with non-const indexes is
+;; extracted to separate function because can be implemented efficiently
+;; on some targets.
+define(`define_shuffle2_permute',`
+shuffle2_permute(i8)
+shuffle2_permute(i16)
+shuffle2_permute(half)
+shuffle2_permute(float)
+shuffle2_permute(i32)
+shuffle2_permute(double)
+shuffle2_permute(i64)
+')
+
+define(`define_shuffles_no_shuffle2_perm',`
 shuffles(i8, 1)
 shuffles(i16, 2)
 shuffles(half, 2)
@@ -2135,6 +2160,11 @@ shuffles(float, 4)
 shuffles(i32, 4)
 shuffles(double, 8)
 shuffles(i64, 8)
+')
+
+define(`define_shuffles',`
+define_shuffle2_permute()
+define_shuffles_no_shuffle2_perm()
 ')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -8628,4 +8658,3 @@ define(`dot_product_vnni_decl',`
     declare <WIDTH x i32> @__dot2add_i16packed(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone
     declare <WIDTH x i32> @__dot2add_i16packed_sat(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone
 ')
-

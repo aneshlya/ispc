@@ -17,6 +17,8 @@ saturation_arithmetic()
 
 include(`target-avx-utils.ll')
 
+define_shuffles_avx2()
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp
 

@@ -10,6 +10,27 @@ include(`target-avx512-common-4.ll')
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; broadcast/rotate/shuffle
 
+shuffle_permute(i8)
+shuffle_permute(i16)
+shuffle_permute(half)
+shuffle_permute(i32)
+shuffle_permute(float)
+
+declare <4 x i64> @llvm.x86.avx512.mask.permvar.di.256(<4 x i64>, <4 x i64>, <4 x i64>, i8)
+define <4 x i64> @__shuffle_i64(<4 x i64>, <4 x i32>) nounwind readnone alwaysinline {
+  %ind = zext <4 x i32> %1 to <4 x i64>
+  %res = call <4 x i64> @llvm.x86.avx512.mask.permvar.di.256(<4 x i64> %0, <4 x i64> %ind, <4 x i64> zeroinitializer, i8 -1)
+  ret <4 x i64> %res
+}
+
+declare <4 x double> @llvm.x86.avx512.mask.permvar.df.256(<4 x double>, <4 x i64>, <4 x double>, i8)
+define <4 x double> @__shuffle_double(<4 x double>, <4 x i32>) nounwind readnone alwaysinline {
+  %ind = zext <4 x i32> %1 to <4 x i64>
+  %res = call <4 x double> @llvm.x86.avx512.mask.permvar.df.256(<4 x double> %0, <4 x i64> %ind, <4 x double> zeroinitializer, i8 -1)
+  ret <4 x double> %res
+}
+
+
 shuffle2_permute(i8)
 shuffle2_permute(i16)
 shuffle2_permute(half)

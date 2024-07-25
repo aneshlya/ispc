@@ -2014,6 +2014,20 @@ divert`'dnl
 ;; target's vector width
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+define(`shuffle_permute', `
+define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+forloop(i, 0, eval(WIDTH-1), `
+  %index_`'i = extractelement <WIDTH x i32> %1, i32 i')
+forloop(i, 0, eval(WIDTH-1), `
+  %v_`'i = extractelement <WIDTH x $1> %0, i32 %index_`'i')
+
+  %ret_0 = insertelement <WIDTH x $1> undef, $1 %v_0, i32 0
+forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eval(i-1), $1 %v_`'i, i32 i
+')
+  ret <WIDTH x $1> %ret_`'eval(WIDTH-1)
+}
+')
+
 define(`shuffle2_permute', `
 define internal <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
@@ -2098,18 +2112,6 @@ define <WIDTH x $1> @__shift_$1(<WIDTH x $1>, i32) nounwind readnone alwaysinlin
   ret <WIDTH x $1> %result
 }
 
-define <WIDTH x $1> @__shuffle_$1(<WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
-forloop(i, 0, eval(WIDTH-1), `
-  %index_`'i = extractelement <WIDTH x i32> %1, i32 i')
-forloop(i, 0, eval(WIDTH-1), `
-  %v_`'i = extractelement <WIDTH x $1> %0, i32 %index_`'i')
-
-  %ret_0 = insertelement <WIDTH x $1> undef, $1 %v_0, i32 0
-forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eval(i-1), $1 %v_`'i, i32 i
-')
-  ret <WIDTH x $1> %ret_`'eval(WIDTH-1)
-}
-
 define <WIDTH x $1> @__shuffle2_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
       forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
@@ -2142,6 +2144,16 @@ not_const:
 ;; Implementation of vector permutations with non-const indexes is
 ;; extracted to separate function because can be implemented efficiently
 ;; on some targets.
+define(`define_shuffle_permute',`
+shuffle_permute(i8)
+shuffle_permute(i16)
+shuffle_permute(half)
+shuffle_permute(float)
+shuffle_permute(i32)
+shuffle_permute(double)
+shuffle_permute(i64)
+')
+
 define(`define_shuffle2_permute',`
 shuffle2_permute(i8)
 shuffle2_permute(i16)
@@ -2163,6 +2175,7 @@ shuffles(i64, 8)
 ')
 
 define(`define_shuffles',`
+define_shuffle_permute()
 define_shuffle2_permute()
 define_shuffles_no_shuffle2_perm()
 ')

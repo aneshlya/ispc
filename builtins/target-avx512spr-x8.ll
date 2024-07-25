@@ -10,6 +10,30 @@ include(`target-avx512-common-8.ll')
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; broadcast/rotate/shuffle
 
+shuffle_permute(i8)
+shuffle_permute(half)
+shuffle_permute(double)
+shuffle_permute(i64)
+
+declare <8 x i16> @llvm.x86.avx512.mask.permvar.hi.128(<8 x i16>, <8 x i16>, <8 x i16>, i8)
+define <8 x i16> @__shuffle_i16(<8 x i16>, <8 x i32>) nounwind readnone alwaysinline {
+  %ind = trunc <WIDTH x i32> %1 to <WIDTH x i16>
+  %res = call <8 x i16> @llvm.x86.avx512.mask.permvar.hi.128(<8 x i16> %0, <8 x i16> %ind, <8 x i16> zeroinitializer, i8 -1)
+  ret <8 x i16> %res
+}
+
+declare <8 x i32> @llvm.x86.avx512.mask.permvar.si.256(<8 x i32>, <8 x i32>, <8 x i32>, i8)
+define <8 x i32> @__shuffle_i32(<8 x i32>, <8 x i32>) nounwind readnone alwaysinline {
+  %res = call <8 x i32>@llvm.x86.avx512.mask.permvar.si.256(<8 x i32> %0, <8 x i32> %1, <8 x i32> zeroinitializer, i8 -1)
+  ret <8 x i32> %res
+}
+
+declare <8 x float> @llvm.x86.avx512.mask.permvar.sf.256(<8 x float>, <8 x i32>, <8 x float>, i8)
+define <8 x float> @__shuffle_float(<8 x float>, <8 x i32>) nounwind readnone alwaysinline {
+  %res = call <8 x float> @llvm.x86.avx512.mask.permvar.sf.256(<8 x float> %0, <8 x i32> %1, <8 x float> zeroinitializer, i8 -1)
+  ret <8 x float> %res
+}
+
 shuffle2_permute(i8)
 shuffle2_permute(half)
 shuffle2_permute(double)

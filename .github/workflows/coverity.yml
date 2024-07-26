@@ -31,8 +31,6 @@ jobs:
       LLVM_VERSION: "17.0"
       LLVM_TAR: llvm-17.0.6-ubuntu22.04-Release+Asserts-x86.arm.wasm.tar.xz
 
-    # Disabling this workflow for non ispc/ispc repo, since number of build submissions is limited.
-    if: github.repository == 'ispc/ispc'
 
     steps:
       - name: Clone the git repo

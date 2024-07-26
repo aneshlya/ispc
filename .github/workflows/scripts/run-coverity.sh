@@ -82,7 +82,6 @@ response=$(curl \
   --silent --write-out "\n%{http_code}\n" \
   --form project="$COVERITY_SCAN_PROJECT_NAME" \
   --form token="$COVERITY_SCAN_TOKEN" \
-  --form email="$COVERITY_SCAN_NOTIFICATION_EMAIL" \
   --form file=@"$COVERITY_RESULTS_ARCHIVE" \
   --form version="$SHA" \
   --form description="Github Action build" \

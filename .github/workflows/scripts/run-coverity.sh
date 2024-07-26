@@ -25,14 +25,6 @@ COVERITY_SCAN_URL="https://scan.coverity.com"
 COVERITY_RESULTS_DIR="cov-int"
 COVERITY_RESULTS_ARCHIVE="analysis-results.tgz"
 
-# Check if the current branch matches the Coverity scan branch pattern
-if [[ "$GITHUB_REF_NAME" =~ ^$COVERITY_SCAN_BRANCH_PATTERN$ ]]; then
-  echo -e "Coverity Scan configured to run on branch ${GITHUB_REF_NAME}"
-else
-  echo -e "Coverity Scan is NOT configured to run on branch ${GITHUB_REF_NAME}"
-  exit 1
-fi
-
 # Verify upload is permitted. See https://scan.coverity.com/faq#frequency
 AUTH_RES=$(curl -s --form project="$COVERITY_SCAN_PROJECT_NAME" --form token="$COVERITY_SCAN_TOKEN" "$COVERITY_SCAN_URL/api/upload_permitted")
 if [ "$AUTH_RES" = "Access denied" ]; then

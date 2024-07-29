@@ -15,6 +15,7 @@ rdrand_definition()
 popcnt()
 ctlztz()
 halfTypeGenericImplementation()
+define_vector_permutations()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; aos/soa

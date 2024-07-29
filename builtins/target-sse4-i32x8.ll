@@ -19,9 +19,10 @@ packed_load_and_store(FALSE)
 scans()
 int64minmax()
 saturation_arithmetic()
-define_shuffles()
 
 include(`target-sse4-common.ll')
+
+define_shuffles_sse4()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; half conversion routines

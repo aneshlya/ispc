@@ -8,12 +8,12 @@ define(`ISA',`AVX512SKX')
 include(`target-avx512-common-16.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; broadcast/rotate/shuffle
+;; shuffles
 
-shuffle_permute(i8)
-shuffle_permute(half)
-shuffle_permute(double)
-shuffle_permute(i64)
+shuffle1(i8)
+shuffle1(half)
+shuffle1(double)
+shuffle1(i64)
 
 declare <16 x i16> @llvm.x86.avx512.mask.permvar.hi.256(<16 x i16>, <16 x i16>, <16 x i16>, i16)
 define <16 x i16> @__shuffle_i16(<16 x i16>, <16 x i32>) nounwind readnone alwaysinline {
@@ -34,31 +34,31 @@ define <16 x float> @__shuffle_float(<16 x float>, <16 x i32>) nounwind readnone
   ret <16 x float> %res
 }
 
-shuffle2_permute(i8)
-shuffle2_permute(half)
-shuffle2_permute(i64)
-shuffle2_permute(double)
+shuffle2_non_const(i8)
+shuffle2_non_const(half)
+shuffle2_non_const(i64)
+shuffle2_non_const(double)
 
 declare <WIDTH x i16> @llvm.x86.avx512.vpermi2var.hi.256(<WIDTH x i16>, <WIDTH x i16>, <WIDTH x i16>)
-define internal <WIDTH x i16> @__shuffle2_permute_i16(<WIDTH x i16>, <WIDTH x i16>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define internal <WIDTH x i16> @__shuffle2_non_const_i16(<WIDTH x i16>, <WIDTH x i16>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %ind = trunc <WIDTH x i32> %2 to <WIDTH x i16>
   %res = call <WIDTH x i16> @llvm.x86.avx512.vpermi2var.hi.256(<WIDTH x i16> %0, <WIDTH x i16> %ind, <WIDTH x i16> %1)
   ret <WIDTH x i16> %res
 }
 
 declare <WIDTH x i32> @llvm.x86.avx512.vpermi2var.d.512(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>)
-define internal <WIDTH x i32> @__shuffle2_permute_i32(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define internal <WIDTH x i32> @__shuffle2_non_const_i32(<WIDTH x i32>, <WIDTH x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %res = call <WIDTH x i32> @llvm.x86.avx512.vpermi2var.d.512(<WIDTH x i32> %0, <WIDTH x i32> %2, <WIDTH x i32> %1)
   ret <WIDTH x i32> %res
 }
 
 declare <WIDTH x float> @llvm.x86.avx512.vpermi2var.ps.512(<WIDTH x float>, <WIDTH x i32>, <WIDTH x float>)
-define internal <WIDTH x float> @__shuffle2_permute_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define internal <WIDTH x float> @__shuffle2_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %res = call <WIDTH x float> @llvm.x86.avx512.vpermi2var.ps.512(<WIDTH x float> %0, <WIDTH x i32> %2, <WIDTH x float> %1)
   ret <WIDTH x float> %res
 }
 
-define_shuffles_no_shuffle2_perm()
+define_shuffle2()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half

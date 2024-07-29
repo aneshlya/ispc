@@ -292,8 +292,8 @@ end_bb_$1:
 ;; since it maps to target specific shuffle instructions.
 ;; $1: type
 
-define(`shuffle2_permute_sse4', `
-define internal <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define(`shuffle2_non_const_sse4', `
+define internal <WIDTH x $1> @__shuffle2_non_const_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
   %v1 = call <WIDTH x $1> @__shuffle_$1(<WIDTH x $1> %0, <WIDTH x i32> %2)
   %perm2 = sub <WIDTH x i32> %2, const_vector(i32, WIDTH)
   %v2 = call <WIDTH x $1> @__shuffle_$1(<WIDTH x $1> %1, <WIDTH x i32> %perm2)
@@ -306,27 +306,29 @@ define internal <WIDTH x $1> @__shuffle2_permute_$1(<WIDTH x $1>, <WIDTH x $1>, 
 
 define(`define_shuffles_sse4',
 `ifelse(
-          WIDTH,  `4', `
-  define_shuffle_permute()
-  shuffle2_permute(i8)
-  shuffle2_permute(i16)
-  shuffle2_permute(half)
-  shuffle2_permute(double)
-  shuffle2_permute(i64)
-  shuffle2_permute_sse4(i32)
-  shuffle2_permute_sse4(float)
+WIDTH,  `4', `
+  define_shuffle1()
+  shuffle2_non_const(i8)
+  shuffle2_non_const(i16)
+  shuffle2_non_const(half)
+  shuffle2_non_const(double)
+  shuffle2_non_const(i64)
+  shuffle2_non_const_sse4(i32)
+  shuffle2_non_const_sse4(float)
 
-  define_shuffles_no_shuffle2_perm()
+  define_shuffle2()
   ',
-          WIDTH,  `8', `
+WIDTH,  `8', `
   define_shuffles()
   ',
-          WIDTH, `16', `
+WIDTH, `16', `
   define_shuffles()
   ',
-          WIDTH, `32', `
+WIDTH, `32', `
   define_shuffles()
   ',
   `errprint(`ERROR:  () macro called with unsupported width = 'WIDTH)
 ')
 ')
+
+define_vector_permutations()

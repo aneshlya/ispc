@@ -13,11 +13,11 @@ saturation_arithmetic()
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; optimized shuf version
 
-shuffle_permute(i8)
-shuffle_permute(i16)
-shuffle_permute(half)
-shuffle_permute(double)
-shuffle_permute(i64)
+shuffle1(i8)
+shuffle1(i16)
+shuffle1(half)
+shuffle1(double)
+shuffle1(i64)
 
 declare <8 x i32> @llvm.x86.avx2.permd(<8 x i32>, <8 x i32>)
 define internal <8 x i32> @__shuffle_i32(<8 x i32>, <8 x i32>) nounwind readnone alwaysinline {

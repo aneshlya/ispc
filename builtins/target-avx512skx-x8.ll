@@ -8,59 +8,6 @@ define(`ISA',`AVX512SKX')
 include(`target-avx512-common-8.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; shuffles
-
-shuffle1(i8)
-shuffle1(half)
-shuffle1(double)
-shuffle1(i64)
-
-declare <8 x i16> @llvm.x86.avx512.mask.permvar.hi.128(<8 x i16>, <8 x i16>, <8 x i16>, i8)
-define <8 x i16> @__shuffle_i16(<8 x i16>, <8 x i32>) nounwind readnone alwaysinline {
-  %ind = trunc <WIDTH x i32> %1 to <WIDTH x i16>
-  %res = call <8 x i16> @llvm.x86.avx512.mask.permvar.hi.128(<8 x i16> %0, <8 x i16> %ind, <8 x i16> zeroinitializer, i8 -1)
-  ret <8 x i16> %res
-}
-
-declare <8 x i32> @llvm.x86.avx512.mask.permvar.si.256(<8 x i32>, <8 x i32>, <8 x i32>, i8)
-define <8 x i32> @__shuffle_i32(<8 x i32>, <8 x i32>) nounwind readnone alwaysinline {
-  %res = call <8 x i32>@llvm.x86.avx512.mask.permvar.si.256(<8 x i32> %0, <8 x i32> %1, <8 x i32> zeroinitializer, i8 -1)
-  ret <8 x i32> %res
-}
-
-declare <8 x float> @llvm.x86.avx512.mask.permvar.sf.256(<8 x float>, <8 x i32>, <8 x float>, i8)
-define <8 x float> @__shuffle_float(<8 x float>, <8 x i32>) nounwind readnone alwaysinline {
-  %res = call <8 x float> @llvm.x86.avx512.mask.permvar.sf.256(<8 x float> %0, <8 x i32> %1, <8 x float> zeroinitializer, i8 -1)
-  ret <8 x float> %res
-}
-
-shuffle2_non_const(i8)
-shuffle2_non_const(half)
-shuffle2_non_const(double)
-shuffle2_non_const(i64)
-
-declare <8 x i16> @llvm.x86.avx512.vpermi2var.hi.128(<8 x i16>, <8 x i16>, <8 x i16>)
-define internal <WIDTH x i16> @__shuffle2_non_const_i16(<8 x i16>, <8 x i16>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %ind = trunc <WIDTH x i32> %2 to <8 x i16>
-  %res = call <8 x i16> @llvm.x86.avx512.vpermi2var.hi.128(<8 x i16> %0, <8 x i16> %ind, <8 x i16> %1)
-  ret <WIDTH x i16> %res
-}
-
-declare <8 x i32> @llvm.x86.avx512.vpermi2var.d.256(<8 x i32>, <8 x i32>, <8 x i32>)
-define internal <WIDTH x i32> @__shuffle2_non_const_i32(<8 x i32>, <8 x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %res = call <8 x i32> @llvm.x86.avx512.vpermi2var.d.256(<8 x i32> %0, <8 x i32> %2, <8 x i32> %1)
-  ret <WIDTH x i32> %res
-}
-
-declare <8 x float> @llvm.x86.avx512.vpermi2var.ps.256(<8 x float>, <8 x i32>, <8 x float>)
-define internal <WIDTH x float> @__shuffle2_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %res = call <8 x float> @llvm.x86.avx512.vpermi2var.ps.256(<8 x float> %0, <8 x i32> %2, <8 x float> %1)
-  ret <WIDTH x float> %res
-}
-
-define_shuffle2()
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half
 rcph_rsqrth_decl
 

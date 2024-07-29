@@ -8,61 +8,6 @@ define(`ISA',`AVX512SKX')
 include(`target-avx512-common-4.ll')
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; shuffles
-
-shuffle1(i8)
-shuffle1(i16)
-shuffle1(half)
-shuffle1(i32)
-shuffle1(float)
-
-declare <4 x i64> @llvm.x86.avx512.mask.permvar.di.256(<4 x i64>, <4 x i64>, <4 x i64>, i8)
-define <4 x i64> @__shuffle_i64(<4 x i64>, <4 x i32>) nounwind readnone alwaysinline {
-  %ind = zext <4 x i32> %1 to <4 x i64>
-  %res = call <4 x i64> @llvm.x86.avx512.mask.permvar.di.256(<4 x i64> %0, <4 x i64> %ind, <4 x i64> zeroinitializer, i8 -1)
-  ret <4 x i64> %res
-}
-
-declare <4 x double> @llvm.x86.avx512.mask.permvar.df.256(<4 x double>, <4 x i64>, <4 x double>, i8)
-define <4 x double> @__shuffle_double(<4 x double>, <4 x i32>) nounwind readnone alwaysinline {
-  %ind = zext <4 x i32> %1 to <4 x i64>
-  %res = call <4 x double> @llvm.x86.avx512.mask.permvar.df.256(<4 x double> %0, <4 x i64> %ind, <4 x double> zeroinitializer, i8 -1)
-  ret <4 x double> %res
-}
-
-
-shuffle2_non_const(i8)
-shuffle2_non_const(i16)
-shuffle2_non_const(half)
-
-declare <4 x i32> @llvm.x86.avx512.vpermi2var.d.128(<4 x i32>, <4 x i32>, <4 x i32>)
-define internal <4 x i32> @__shuffle2_non_const_i32(<4 x i32>, <4 x i32>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %res = call <4 x i32> @llvm.x86.avx512.vpermi2var.d.128(<4 x i32> %0, <4 x i32> %2, <4 x i32> %1)
-  ret <4 x i32> %res
-}
-
-declare <4 x float> @llvm.x86.avx512.vpermi2var.ps.128(<4 x float>, <4 x i32>, <4 x float>)
-define internal <WIDTH x float> @__shuffle2_non_const_float(<WIDTH x float>, <WIDTH x float>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %res = call <4 x float> @llvm.x86.avx512.vpermi2var.ps.128(<4 x float> %0, <4 x i32> %2, <4 x float> %1)
-  ret <WIDTH x float> %res
-}
-
-declare <4 x i64> @llvm.x86.avx512.vpermi2var.q.256(<4 x i64>, <4 x i64>, <4 x i64>)
-define internal <WIDTH x i64> @__shuffle2_non_const_i64(<WIDTH x i64>, <WIDTH x i64>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %ind = zext <WIDTH x i32> %2 to <WIDTH x i64>
-  %res = call <4 x i64> @llvm.x86.avx512.vpermi2var.q.256(<4 x i64> %0, <4 x i64> %ind, <4 x i64> %1)
-  ret <WIDTH x i64> %res
-}
-
-declare <4 x double> @llvm.x86.avx512.vpermi2var.pd.256(<4 x double>, <4 x i64>, <4 x double>)
-define internal <WIDTH x double> @__shuffle2_non_const_double(<WIDTH x double>, <WIDTH x double>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %ind = zext <WIDTH x i32> %2 to <WIDTH x i64>
-  %res = call <4 x double> @llvm.x86.avx512.vpermi2var.pd.256(<4 x double> %0, <4 x i64> %ind, <4 x double> %1)
-  ret <WIDTH x double> %res
-}
-define_shuffle2()
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half
 rcph_rsqrth_decl
 

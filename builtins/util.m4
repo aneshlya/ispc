@@ -2080,7 +2080,7 @@ forloop(i, 0, eval(WIDTH-1), `
 
 is_const:
   ; extract from the requested lanes and insert into the result; LLVM turns
-  ; this into good code in the end
+  ; this into simple shufflevector during InstCombine pass.
 forloop(i, 0, eval(WIDTH-1), `
   %v_`'i = extractelement <eval(2*WIDTH) x $1> %v2, i32 %index_`'i')
 

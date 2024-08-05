@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2023-2024, Intel Corporation
+
+  SPDX-License-Identifier: BSD-3-Clause
+*/
+
 #include <benchmark/benchmark.h>
 #include <bitset>
 #include <cstdint>

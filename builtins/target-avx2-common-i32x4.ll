@@ -39,14 +39,24 @@ define internal <4 x float> @__shuffle_float(<4 x float>, <4 x i32>) nounwind re
   ret <4 x float> %res
 }
 
-shuffle2_non_const(i8)
-shuffle2_non_const(i16)
-shuffle2_non_const(half)
-shuffle2_non_const(double)
-shuffle2_non_const(i64)
+define_shuffle2_const()
 
-define internal <4 x i32> @__shuffle2_non_const_i32(<4 x i32>, <4 x i32>, <4 x i32>) nounwind readnone alwaysinline {
-  %v1 = call <4 x i32> @__shuffle_i32(<4 x i32> %0, <WIDTH x i32> %2)
+shuffle2(i8)
+shuffle2(i16)
+shuffle2(half)
+shuffle2(double)
+shuffle2(i64)
+
+define <4 x i32> @__shuffle2_i32(<4 x i32>, <4 x i32>, <4 x i32>) nounwind readnone alwaysinline {
+  %isc = call i1 @__is_compile_time_constant_varying_int32(<4 x i32> %2)
+  br i1 %isc, label %is_const, label %not_const
+
+is_const:
+  %res_const = tail call <4 x i32> @__shuffle2_const_i32(<4 x i32> %0, <4 x i32> %1, <4 x i32> %2)
+  ret <4 x i32> %res_const
+
+not_const:
+  %v1 = call <4 x i32> @__shuffle_i32(<4 x i32> %0, <4 x i32> %2)
   %perm2 = sub <4 x i32> %2, const_vector(i32, 4)
   %v2 = call <4 x i32> @__shuffle_i32(<4 x i32> %1, <4 x i32> %perm2)
   %mask = icmp slt <4 x i32> %2, const_vector(i32, 4)
@@ -54,7 +64,15 @@ define internal <4 x i32> @__shuffle2_non_const_i32(<4 x i32>, <4 x i32>, <4 x i
   ret <4 x i32> %res
 }
 
-define internal <4 x float> @__shuffle2_non_const_float(<4 x float>, <4 x float>, <4 x i32>) nounwind readnone alwaysinline {
+define <4 x float> @__shuffle2_float(<4 x float>, <4 x float>, <4 x i32>) nounwind readnone alwaysinline {
+  %isc = call i1 @__is_compile_time_constant_varying_int32(<4 x i32> %2)
+  br i1 %isc, label %is_const, label %not_const
+
+is_const:
+  %res_const = tail call <4 x float> @__shuffle2_const_float(<4 x float> %0, <4 x float> %1, <4 x i32> %2)
+  ret <4 x float> %res_const
+
+not_const:
   %v1 = call <4 x float> @__shuffle_float(<4 x float> %0, <4 x i32> %2)
   %perm2 = sub <4 x i32> %2, const_vector(i32, 4)
   %v2 = call <4 x float> @__shuffle_float(<4 x float> %1, <4 x i32> %perm2)
@@ -62,8 +80,6 @@ define internal <4 x float> @__shuffle2_non_const_float(<4 x float>, <4 x float>
   %res = select <4 x i1> %mask, <4 x float> %v1, <4 x float> %v2
   ret <4 x float> %res
 }
-
-define_shuffle2()
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; float/half conversions

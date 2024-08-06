@@ -2034,13 +2034,44 @@ forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eva
 }
 ')
 
-;; Helper internal function for shuffles2 with non constant index.
-;; It is extracted to separate function since it can be implemented efficiently
-;; on some targets.
+;; Helper internal function for shuffles2 with constant index.
 ;; $1: type
 
-define(`shuffle2_non_const', `
-define internal <WIDTH x $1> @__shuffle2_non_const_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+define(`shuffle2_const', `
+define internal <WIDTH x $1> @__shuffle2_const_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
+      forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
+  >
+forloop(i, 0, eval(WIDTH-1), `
+  %index_`'i = extractelement <WIDTH x i32> %2, i32 i')
+
+  ; extract from the requested lanes and insert into the result; LLVM turns
+  ; this into simple shufflevector during InstCombine pass.
+forloop(i, 0, eval(WIDTH-1), `
+  %v_`'i = extractelement <eval(2*WIDTH) x $1> %v2, i32 %index_`'i')
+
+  %ret_0 = insertelement <WIDTH x $1> undef, $1 %v_0, i32 0
+forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eval(i-1), $1 %v_`'i, i32 i
+')
+  ret <WIDTH x $1> %ret_`'eval(WIDTH-1)
+  }
+')
+
+;; shuffle2 macro matches stdlib shuffle2(T, T, int)
+;; $1: type
+
+define(`shuffle2', `
+define <WIDTH x $1> @__shuffle2_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
+  %isc = call i1 @__is_compile_time_constant_varying_int32(<WIDTH x i32> %2)
+  br i1 %isc, label %is_const, label %not_const
+
+is_const:
+  %res = tail call <WIDTH x $1> @__shuffle2_const_$1(<WIDTH x $1> %0, <WIDTH x $1> %1, <WIDTH x i32> %2)
+  ret <WIDTH x $1> %res
+
+not_const:
+  ; otherwise store the two vectors onto the stack and then use the given
+  ; permutation vector to get indices into that array...
   %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
       forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
   >
@@ -2061,39 +2092,6 @@ forloop(i, 1, eval(WIDTH-1), `
   %result_`'i = insertelement <WIDTH x $1> %result_`'eval(i-1), $1 %val_`'i, i32 i
 ')
   ret <WIDTH x $1> %result_`'eval(WIDTH-1)
-  }
-')
-
-;; shuffle2 macro matches stdlib shuffle2(T, T, int)
-;; $1: type
-
-define(`shuffle2', `
-define <WIDTH x $1> @__shuffle2_$1(<WIDTH x $1>, <WIDTH x $1>, <WIDTH x i32>) nounwind readnone alwaysinline {
-  %v2 = shufflevector <WIDTH x $1> %0, <WIDTH x $1> %1, <eval(2*WIDTH) x i32> <
-      forloop(i, 0, eval(2*WIDTH-2), `i32 i, ') i32 eval(2*WIDTH-1)
-  >
-forloop(i, 0, eval(WIDTH-1), `
-  %index_`'i = extractelement <WIDTH x i32> %2, i32 i')
-
-  %isc = call i1 @__is_compile_time_constant_varying_int32(<WIDTH x i32> %2)
-  br i1 %isc, label %is_const, label %not_const
-
-is_const:
-  ; extract from the requested lanes and insert into the result; LLVM turns
-  ; this into simple shufflevector during InstCombine pass.
-forloop(i, 0, eval(WIDTH-1), `
-  %v_`'i = extractelement <eval(2*WIDTH) x $1> %v2, i32 %index_`'i')
-
-  %ret_0 = insertelement <WIDTH x $1> undef, $1 %v_0, i32 0
-forloop(i, 1, eval(WIDTH-1), `  %ret_`'i = insertelement <WIDTH x $1> %ret_`'eval(i-1), $1 %v_`'i, i32 i
-')
-  ret <WIDTH x $1> %ret_`'eval(WIDTH-1)
-
-not_const:
-  ; otherwise store the two vectors onto the stack and then use the given
-  ; permutation vector to get indices into that array...
-  %res = call <WIDTH x $1> @__shuffle2_non_const_$1(<WIDTH x $1> %0, <WIDTH x $1> %1, <WIDTH x i32> %2)
-  ret <WIDTH x $1> %res
 }
 ')
 
@@ -2171,14 +2169,14 @@ shuffle1(double)
 shuffle1(i64)
 ')
 
-define(`define_shuffle2_non_const',`
-shuffle2_non_const(i8)
-shuffle2_non_const(i16)
-shuffle2_non_const(half)
-shuffle2_non_const(float)
-shuffle2_non_const(i32)
-shuffle2_non_const(double)
-shuffle2_non_const(i64)
+define(`define_shuffle2_const',`
+shuffle2_const(i8)
+shuffle2_const(i16)
+shuffle2_const(half)
+shuffle2_const(float)
+shuffle2_const(i32)
+shuffle2_const(double)
+shuffle2_const(i64)
 ')
 
 define(`define_shuffle2',`
@@ -2193,7 +2191,7 @@ shuffle2(i64)
 
 define(`define_shuffles',`
 define_shuffle1()
-define_shuffle2_non_const()
+define_shuffle2_const()
 define_shuffle2()
 ')
 

@@ -4252,6 +4252,18 @@ use Newton-Raphson.
     float rcp_fast(float v)
     uniform float rcp_fast(uniform float v)
 
+The ``fmodf()`` functions compute the floating-point remainder of the division
+operation x/y (its implementation is based on the ``rcp`` and ``trunc`` functions):
+
+::
+
+    float16 fmodf(float16 x, float16 y)
+    uniform float16 fmodf(uniform float16 x, uniform float16 y)
+    float fmodf(float x, float y)
+    uniform float fmodf(uniform float x, uniform float y)
+    double fmodf(double x, double y)
+    uniform double fmodf(uniform double x, uniform double y)
+
 A standard set of minimum and maximum functions is available for all ispc
 standard types.  These functions also map to corresponding intrinsic functions.
 

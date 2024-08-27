@@ -285,6 +285,7 @@ DeclSpecs::DeclSpecs(const Type *t, StorageClass sc, int tq) {
     typeQualifiers = tq;
     soaWidth = 0;
     vectorSize = 0;
+    vectorSizeSym = nullptr;
     attributeList = nullptr;
     if (t != nullptr) {
         if (m->symbolTable->ContainsType(t)) {
@@ -316,14 +317,14 @@ const Type *DeclSpecs::GetBaseType(SourcePos pos) const {
         retType = AtomicType::UniformInt32->GetAsUnboundVariabilityType();
     }
 
-    if (vectorSize > 0) {
+    if (vectorSize > 0 || vectorSizeSym != nullptr) {
         const AtomicType *atomicType = CastType<AtomicType>(retType);
         if (atomicType == nullptr) {
             Error(pos, "Only atomic types (int, float, ...) are legal for vector "
                        "types.");
             return nullptr;
         }
-        retType = new VectorType(atomicType, vectorSize);
+        retType = (vectorSize > 0)? new VectorType(atomicType, vectorSize) : new VectorType(atomicType, vectorSizeSym);
     }
 
     retType = lApplyTypeQualifiers(typeQualifiers, retType, pos);
@@ -403,8 +404,9 @@ void DeclSpecs::Print() const {
         attributeList->Print();
     }
 
-    if (vectorSize > 0)
-        printf("<%d>", vectorSize);
+    if (vectorSize > 0 || vectorSizeSym != nullptr) {
+        (vectorSize > 0)? printf("<%d>", vectorSize): printf("<%s>", vectorSizeSym->name.c_str());
+    }
     printf("]");
 }
 

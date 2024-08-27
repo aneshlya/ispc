@@ -164,6 +164,7 @@ class DeclSpecs : public Traceable {
         width.  For non-vector types, this is zero.
      */
     int vectorSize;
+    Symbol* vectorSizeSym;
 
     /** If this is a declaration with an "soa<n>" qualifier, this gives the
         SOA width specified.  Otherwise this is zero.

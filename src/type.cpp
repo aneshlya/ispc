@@ -1670,6 +1670,16 @@ VectorType::VectorType(const AtomicType *b, int a) : SequentialType(VECTOR_TYPE)
     Assert(base != nullptr);
 }
 
+VectorType::VectorType(const AtomicType *b, Symbol* num) : SequentialType(VECTOR_TYPE), base(b), numElementsSymbol(num) {
+    Assert(base != nullptr);
+    Assert(numElementsSymbol != nullptr);
+}
+
+VectorType::VectorType(const AtomicType *b, int a, Symbol* num) : SequentialType(VECTOR_TYPE), base(b), numElements(a), numElementsSymbol(num) {
+    Assert(base != nullptr);
+}
+
+
 Variability VectorType::GetVariability() const { return base->GetVariability(); }
 
 bool VectorType::IsFloatType() const { return base->IsFloatType(); }
@@ -1686,22 +1696,31 @@ bool VectorType::IsConstType() const { return base->IsConstType(); }
 
 const Type *VectorType::GetBaseType() const { return base; }
 
-const VectorType *VectorType::GetAsVaryingType() const { return new VectorType(base->GetAsVaryingType(), numElements); }
+const VectorType *VectorType::GetAsVaryingType() const { return new VectorType(base->GetAsVaryingType(), numElements, numElementsSymbol); }
 
-const VectorType *VectorType::GetAsUniformType() const { return new VectorType(base->GetAsUniformType(), numElements); }
+const VectorType *VectorType::GetAsUniformType() const { return new VectorType(base->GetAsUniformType(), numElements, numElementsSymbol); }
 
 const VectorType *VectorType::GetAsUnboundVariabilityType() const {
-    return new VectorType(base->GetAsUnboundVariabilityType(), numElements);
+    return new VectorType(base->GetAsUnboundVariabilityType(), numElements, numElementsSymbol);
 }
 
 const VectorType *VectorType::GetAsSOAType(int width) const {
-    return new VectorType(base->GetAsSOAType(width), numElements);
+    return new VectorType(base->GetAsSOAType(width), numElements, numElementsSymbol);
 }
 
-const VectorType *VectorType::ResolveDependence(TemplateInstantiation &templInst) const { return this; }
+const VectorType *VectorType::ResolveDependence(TemplateInstantiation &templInst) const { 
+    if (numElementsSymbol != nullptr) {
+        Symbol *instSym = templInst.InstantiateSymbol(numElementsSymbol);
+        ConstExpr* c = instSym->constValue ? instSym->constValue : nullptr;
+        unsigned int constValue[1];
+        int count = c->GetValues(constValue);
+        return new VectorType(base, constValue[0], instSym);
+    }
+    return this;
+}
 
 const VectorType *VectorType::ResolveUnboundVariability(Variability v) const {
-    return new VectorType(base->ResolveUnboundVariability(v), numElements);
+    return new VectorType(base->ResolveUnboundVariability(v), numElements, numElementsSymbol);
 }
 
 const VectorType *VectorType::GetAsUnsignedType() const {
@@ -1709,7 +1728,7 @@ const VectorType *VectorType::GetAsUnsignedType() const {
         Assert(m->errorCount > 0);
         return nullptr;
     }
-    return new VectorType(base->GetAsUnsignedType(), numElements);
+    return new VectorType(base->GetAsUnsignedType(), numElements, numElementsSymbol);
 }
 
 const VectorType *VectorType::GetAsSignedType() const {
@@ -1717,13 +1736,13 @@ const VectorType *VectorType::GetAsSignedType() const {
         Assert(m->errorCount > 0);
         return nullptr;
     }
-    return new VectorType(base->GetAsSignedType(), numElements);
+    return new VectorType(base->GetAsSignedType(), numElements, numElementsSymbol);
 }
 
-const VectorType *VectorType::GetAsConstType() const { return new VectorType(base->GetAsConstType(), numElements); }
+const VectorType *VectorType::GetAsConstType() const { return new VectorType(base->GetAsConstType(), numElements, numElementsSymbol); }
 
 const VectorType *VectorType::GetAsNonConstType() const {
-    return new VectorType(base->GetAsNonConstType(), numElements);
+    return new VectorType(base->GetAsNonConstType(), numElements, numElementsSymbol);
 }
 
 std::string VectorType::GetString() const {

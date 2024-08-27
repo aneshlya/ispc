@@ -681,6 +681,8 @@ class ArrayType : public SequentialType {
 class VectorType : public SequentialType {
   public:
     VectorType(const AtomicType *base, int size);
+    VectorType(const AtomicType *b, Symbol* num);
+    VectorType(const AtomicType *b, int a, Symbol* num);
 
     Variability GetVariability() const;
 
@@ -720,7 +722,9 @@ class VectorType : public SequentialType {
     /** Base type that the vector holds elements of */
     const AtomicType *const base;
     /** Number of elements in the vector */
-    const int numElements;
+    int numElements;
+    /** Number of elements in the vector when template parameter is used */
+    Symbol *numElementsSymbol{nullptr};
 
   public:
     /** Returns the number of elements stored in memory for the vector.

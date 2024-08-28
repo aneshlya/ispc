@@ -13,6 +13,8 @@
 #include "ispc.h"
 #include "util.h"
 
+#include <variant>
+
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
@@ -681,8 +683,8 @@ class ArrayType : public SequentialType {
 class VectorType : public SequentialType {
   public:
     VectorType(const AtomicType *base, int size);
-    VectorType(const AtomicType *b, Symbol* num);
-    VectorType(const AtomicType *b, int a, Symbol* num);
+    VectorType(const AtomicType *base, Symbol *num);
+    VectorType(const AtomicType *base, int size, Symbol *num);
 
     Variability GetVariability() const;
 
@@ -721,16 +723,24 @@ class VectorType : public SequentialType {
   private:
     /** Base type that the vector holds elements of */
     const AtomicType *const base;
-    /** Number of elements in the vector */
-    int numElements;
-    /** Number of elements in the vector when template parameter is used */
-    Symbol *numElementsSymbol{nullptr};
+
+    /** Number of elements in the vector or a symbol representing it */
+    struct ElementCount {
+        int fixedCount;
+        Symbol *symbolCount;
+        ElementCount(int count) : fixedCount(count), symbolCount(nullptr) {}
+        ElementCount(Symbol *sym) : fixedCount(0), symbolCount(sym) {}
+        ElementCount(int count, Symbol *sym) : fixedCount(count), symbolCount(sym) {}
+    } elementCount;
 
   public:
     /** Returns the number of elements stored in memory for the vector.
         For uniform vectors, this is rounded up so that the number of
         elements evenly divides the target's native vector width. */
     int getVectorMemoryCount() const;
+
+    /** Resolves the element count, handling both fixed sizes and symbols */
+    int ResolveElementCount(TemplateInstantiation &templInst) const;
 };
 
 /** @brief Representation of a structure holding a number of members.

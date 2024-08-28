@@ -1665,20 +1665,44 @@ const Type *ArrayType::SizeUnsizedArrays(const Type *type, Expr *initExpr) {
 ///////////////////////////////////////////////////////////////////////////
 // VectorType
 
-VectorType::VectorType(const AtomicType *b, int a) : SequentialType(VECTOR_TYPE), base(b), numElements(a) {
-    Assert(numElements > 0);
+VectorType::VectorType(const AtomicType *base, int size) : SequentialType(VECTOR_TYPE), base(base), elementCount(size) {
     Assert(base != nullptr);
 }
 
-VectorType::VectorType(const AtomicType *b, Symbol* num) : SequentialType(VECTOR_TYPE), base(b), numElementsSymbol(num) {
-    Assert(base != nullptr);
-    Assert(numElementsSymbol != nullptr);
+VectorType::VectorType(const AtomicType *base, Symbol *num)
+    : SequentialType(VECTOR_TYPE), base(base), elementCount(num) {}
+
+VectorType::VectorType(const AtomicType *base, int size, Symbol *num)
+    : SequentialType(VECTOR_TYPE), base(base), elementCount(size, num) {}
+
+int VectorType::GetElementCount() const { return elementCount.fixedCount; }
+
+int VectorType::ResolveElementCount(TemplateInstantiation &templInst) const {
+    if (elementCount.symbolCount) {
+        Symbol *instSym = templInst.InstantiateSymbol(elementCount.symbolCount);
+        ConstExpr *c = instSym->constValue ? instSym->constValue : nullptr;
+        unsigned int constValue[1];
+        int count = c->GetValues(constValue);
+        if (count > 0) {
+            return constValue[0];
+        }
+        return 0;
+    }
+    return elementCount.fixedCount;
 }
 
-VectorType::VectorType(const AtomicType *b, int a, Symbol* num) : SequentialType(VECTOR_TYPE), base(b), numElements(a), numElementsSymbol(num) {
-    Assert(base != nullptr);
+const VectorType *VectorType::GetAsUnboundVariabilityType() const {
+    return new VectorType(base->GetAsUnboundVariabilityType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
+const VectorType *VectorType::ResolveDependence(TemplateInstantiation &templInst) const {
+    int resolvedCount = ResolveElementCount(templInst);
+    return new VectorType(base, resolvedCount, elementCount.symbolCount);
+}
+
+const VectorType *VectorType::GetAsSOAType(int width) const {
+    return new VectorType(base->GetAsSOAType(width), elementCount.fixedCount, elementCount.symbolCount);
+}
 
 Variability VectorType::GetVariability() const { return base->GetVariability(); }
 
@@ -1696,31 +1720,16 @@ bool VectorType::IsConstType() const { return base->IsConstType(); }
 
 const Type *VectorType::GetBaseType() const { return base; }
 
-const VectorType *VectorType::GetAsVaryingType() const { return new VectorType(base->GetAsVaryingType(), numElements, numElementsSymbol); }
-
-const VectorType *VectorType::GetAsUniformType() const { return new VectorType(base->GetAsUniformType(), numElements, numElementsSymbol); }
-
-const VectorType *VectorType::GetAsUnboundVariabilityType() const {
-    return new VectorType(base->GetAsUnboundVariabilityType(), numElements, numElementsSymbol);
+const VectorType *VectorType::GetAsVaryingType() const {
+    return new VectorType(base->GetAsVaryingType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
-const VectorType *VectorType::GetAsSOAType(int width) const {
-    return new VectorType(base->GetAsSOAType(width), numElements, numElementsSymbol);
-}
-
-const VectorType *VectorType::ResolveDependence(TemplateInstantiation &templInst) const { 
-    if (numElementsSymbol != nullptr) {
-        Symbol *instSym = templInst.InstantiateSymbol(numElementsSymbol);
-        ConstExpr* c = instSym->constValue ? instSym->constValue : nullptr;
-        unsigned int constValue[1];
-        int count = c->GetValues(constValue);
-        return new VectorType(base, constValue[0], instSym);
-    }
-    return this;
+const VectorType *VectorType::GetAsUniformType() const {
+    return new VectorType(base->GetAsUniformType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
 const VectorType *VectorType::ResolveUnboundVariability(Variability v) const {
-    return new VectorType(base->ResolveUnboundVariability(v), numElements, numElementsSymbol);
+    return new VectorType(base->ResolveUnboundVariability(v), elementCount.fixedCount, elementCount.symbolCount);
 }
 
 const VectorType *VectorType::GetAsUnsignedType() const {
@@ -1728,7 +1737,7 @@ const VectorType *VectorType::GetAsUnsignedType() const {
         Assert(m->errorCount > 0);
         return nullptr;
     }
-    return new VectorType(base->GetAsUnsignedType(), numElements, numElementsSymbol);
+    return new VectorType(base->GetAsUnsignedType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
 const VectorType *VectorType::GetAsSignedType() const {
@@ -1736,37 +1745,37 @@ const VectorType *VectorType::GetAsSignedType() const {
         Assert(m->errorCount > 0);
         return nullptr;
     }
-    return new VectorType(base->GetAsSignedType(), numElements, numElementsSymbol);
+    return new VectorType(base->GetAsSignedType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
-const VectorType *VectorType::GetAsConstType() const { return new VectorType(base->GetAsConstType(), numElements, numElementsSymbol); }
+const VectorType *VectorType::GetAsConstType() const {
+    return new VectorType(base->GetAsConstType(), elementCount.fixedCount, elementCount.symbolCount);
+}
 
 const VectorType *VectorType::GetAsNonConstType() const {
-    return new VectorType(base->GetAsNonConstType(), numElements, numElementsSymbol);
+    return new VectorType(base->GetAsNonConstType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
 std::string VectorType::GetString() const {
     std::string s = base->GetString();
     char buf[16];
-    snprintf(buf, sizeof(buf), "<%d>", numElements);
+    snprintf(buf, sizeof(buf), "<%d>", elementCount.fixedCount);
     return s + std::string(buf);
 }
 
 std::string VectorType::Mangle() const {
     std::string s = base->Mangle();
     char buf[16];
-    snprintf(buf, sizeof(buf), "_3C_%d_3E_", numElements); // "<%d>"
+    snprintf(buf, sizeof(buf), "_3C_%d_3E_", elementCount.fixedCount); // "<%d>"
     return s + std::string(buf);
 }
 
 std::string VectorType::GetDeclaration(const std::string &name, DeclarationSyntax syntax) const {
     std::string s = base->GetDeclaration("", syntax);
     char buf[16];
-    snprintf(buf, sizeof(buf), "%d", numElements);
+    snprintf(buf, sizeof(buf), "%d", elementCount.fixedCount);
     return s + std::string(buf) + "  " + name;
 }
-
-int VectorType::GetElementCount() const { return numElements; }
 
 const AtomicType *VectorType::GetElementType() const { return base; }
 
@@ -1817,14 +1826,14 @@ llvm::Type *VectorType::LLVMType(llvm::LLVMContext *ctx) const { return lGetVect
 llvm::DIType *VectorType::GetDIType(llvm::DIScope *scope) const {
     llvm::DIType *eltType = base->GetDIType(scope);
 
-    llvm::Metadata *sub = m->diBuilder->getOrCreateSubrange(0, numElements);
+    llvm::Metadata *sub = m->diBuilder->getOrCreateSubrange(0, elementCount.fixedCount);
 
     // vectors of varying types are already naturally aligned to the
     // machine's vector width, but arrays of uniform types need to be
     // explicitly aligned to the machines natural vector alignment.
 
     llvm::DINodeArray subArray = m->diBuilder->getOrCreateArray(sub);
-    uint64_t sizeBits = eltType->getSizeInBits() * numElements;
+    uint64_t sizeBits = eltType->getSizeInBits() * elementCount.fixedCount;
     uint64_t align = eltType->getAlignInBits();
 
     if (IsUniformType()) {
@@ -1835,7 +1844,7 @@ llvm::DIType *VectorType::GetDIType(llvm::DIScope *scope) const {
     if (IsUniformType() || IsVaryingType())
         return m->diBuilder->createVectorType(sizeBits, align, eltType, subArray);
     else if (IsSOAType()) {
-        ArrayType at(base, numElements);
+        ArrayType at(base, elementCount.fixedCount);
         return at.GetDIType(scope);
     } else {
         FATAL("Unexpected variability in VectorType::GetDIType()");
@@ -1845,7 +1854,7 @@ llvm::DIType *VectorType::GetDIType(llvm::DIScope *scope) const {
 
 int VectorType::getVectorMemoryCount() const {
     if (base->IsVaryingType())
-        return numElements;
+        return elementCount.fixedCount;
     else if (base->IsUniformType()) {
         // Round up the element count to power of 2 bits in size but not less then 128 bit in total vector size
         // where one element size is data type width in bits.
@@ -1856,7 +1865,7 @@ int VectorType::getVectorMemoryCount() const {
         // registers are used. It generally leads to better performance. This strategy also matches OpenCL short
         // vectors.
         // 3. Using data type width of the target to determine element size makes optimization trade off.
-        int nextPow2 = llvm::NextPowerOf2(numElements - 1);
+        int nextPow2 = llvm::NextPowerOf2(elementCount.fixedCount - 1);
         return (nextPow2 * g->target->getDataTypeWidth() < 128) ? (128 / g->target->getDataTypeWidth()) : nextPow2;
     } else if (base->IsSOAType()) {
         FATAL("VectorType SOA getVectorMemoryCount");

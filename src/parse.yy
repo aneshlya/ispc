@@ -1034,7 +1034,7 @@ declaration_specifiers
     | type_specifier '<' TOKEN_IDENTIFIER '>'
     {
           DeclSpecs *ds = new DeclSpecs($1);
-          ds->vectorSizeSym = new Symbol(*$<stringVal>3, Union(@1, @3), AtomicType::UniformInt32->GetAsConstType());
+          ds->vectorSize = new Symbol(*$<stringVal>3, Union(@1, @3), AtomicType::UniformInt32->GetAsConstType());
           $$ = ds;
     }
     | type_specifier declaration_specifiers
@@ -1243,9 +1243,10 @@ short_vec_specifier
     }
     | atomic_var_type_specifier '<' TOKEN_IDENTIFIER '>'
     {
-        Symbol* s = new Symbol(*$<stringVal>3, Union(@1, @3), AtomicType::UniformInt32->GetAsConstType());
-        lCleanUpString($3);
-        $$ = $1 ? new VectorType($1, s) : nullptr;
+         Symbol* s = new Symbol(*$<stringVal>3, Union(@1, @3), AtomicType::UniformInt32->GetAsConstType());
+         lCleanUpString($3);
+         $$ = $1 ? new VectorType($1, s) : nullptr;
+
     }
     ;
 

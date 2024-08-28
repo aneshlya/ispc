@@ -284,8 +284,7 @@ DeclSpecs::DeclSpecs(const Type *t, StorageClass sc, int tq) {
     storageClass = sc;
     typeQualifiers = tq;
     soaWidth = 0;
-    vectorSize = 0;
-    vectorSizeSym = nullptr;
+    vectorSize = std::monostate{};
     attributeList = nullptr;
     if (t != nullptr) {
         if (m->symbolTable->ContainsType(t)) {
@@ -317,14 +316,22 @@ const Type *DeclSpecs::GetBaseType(SourcePos pos) const {
         retType = AtomicType::UniformInt32->GetAsUnboundVariabilityType();
     }
 
-    if (vectorSize > 0 || vectorSizeSym != nullptr) {
+    if (std::holds_alternative<int>(vectorSize) || std::holds_alternative<Symbol *>(vectorSize)) {
         const AtomicType *atomicType = CastType<AtomicType>(retType);
         if (atomicType == nullptr) {
             Error(pos, "Only atomic types (int, float, ...) are legal for vector "
                        "types.");
             return nullptr;
         }
-        retType = (vectorSize > 0)? new VectorType(atomicType, vectorSize) : new VectorType(atomicType, vectorSizeSym);
+        if (std::holds_alternative<int>(vectorSize)) {
+            int size = std::get<int>(vectorSize);
+            retType = new VectorType(atomicType, size);
+        } else if (std::holds_alternative<Symbol *>(vectorSize)) {
+            Symbol *sym = std::get<Symbol *>(vectorSize);
+            retType = new VectorType(atomicType, sym);
+        } else {
+            UNREACHABLE();
+        }
     }
 
     retType = lApplyTypeQualifiers(typeQualifiers, retType, pos);
@@ -404,8 +411,12 @@ void DeclSpecs::Print() const {
         attributeList->Print();
     }
 
-    if (vectorSize > 0 || vectorSizeSym != nullptr) {
-        (vectorSize > 0)? printf("<%d>", vectorSize): printf("<%s>", vectorSizeSym->name.c_str());
+    if (std::holds_alternative<int>(vectorSize)) {
+        printf("<%d>", std::get<int>(vectorSize));
+    } else if (std::holds_alternative<Symbol *>(vectorSize)) {
+        printf("<%s>", std::get<Symbol *>(vectorSize)->name.c_str());
+    } else if (!std::holds_alternative<std::monostate>(vectorSize)) {
+        UNREACHABLE();
     }
     printf("]");
 }

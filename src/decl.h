@@ -30,6 +30,7 @@
 #include "ispc.h"
 
 #include <llvm/ADT/SmallVector.h>
+#include <variant>
 
 namespace ispc {
 
@@ -161,10 +162,9 @@ class DeclSpecs : public Traceable {
     const Type *GetBaseType(SourcePos pos) const;
 
     /** If this is a declaration with a vector type, this gives the vector
-        width.  For non-vector types, this is zero.
+        width. For non-vector types, this is std::monostate.
      */
-    int vectorSize;
-    Symbol* vectorSizeSym;
+    std::variant<std::monostate, int, Symbol *> vectorSize;
 
     /** If this is a declaration with an "soa<n>" qualifier, this gives the
         SOA width specified.  Otherwise this is zero.

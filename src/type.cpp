@@ -182,8 +182,15 @@ bool Type::IsDependentType() const {
         return elemType && elemType->IsDependentType();
     }
     case VECTOR_TYPE: {
-        const Type *elemType = CastType<VectorType>(this)->GetElementType();
-        return elemType && elemType->IsDependentType();
+        const VectorType *vecType = CastType<VectorType>(this);
+        const Type *elemType = vecType->GetElementType();
+        // Check if element type is dependent
+        bool isElementTypeDependent = elemType && elemType->IsDependentType();
+
+        // Check if element count is dependent (i.e., uses a non-type template parameter)
+        bool isCountDependent = vecType->IsCountDependent();
+
+        return isElementTypeDependent || isCountDependent;
     }
     case STRUCT_TYPE: {
         const StructType *st = CastType<StructType>(this);
@@ -1665,14 +1672,17 @@ const Type *ArrayType::SizeUnsizedArrays(const Type *type, Expr *initExpr) {
 ///////////////////////////////////////////////////////////////////////////
 // VectorType
 
-VectorType::VectorType(const AtomicType *base, int size) : SequentialType(VECTOR_TYPE), base(base), elementCount(size) {
+VectorType::VectorType(const Type *base, int size) : SequentialType(VECTOR_TYPE), base(base), elementCount(size) {
     Assert(base != nullptr);
+    if (!CastType<AtomicType>(base) && !CastType<TemplateTypeParmType>(base)) {
+        // TODO: issue error here.
+        // Error(pos, "Vector base type must be either an atomic type or a template type parameter.");
+    }
 }
 
-VectorType::VectorType(const AtomicType *base, Symbol *num)
-    : SequentialType(VECTOR_TYPE), base(base), elementCount(num) {}
+VectorType::VectorType(const Type *base, Symbol *num) : SequentialType(VECTOR_TYPE), base(base), elementCount(num) {}
 
-VectorType::VectorType(const AtomicType *base, int size, Symbol *num)
+VectorType::VectorType(const Type *base, int size, Symbol *num)
     : SequentialType(VECTOR_TYPE), base(base), elementCount(size, num) {}
 
 int VectorType::GetElementCount() const { return elementCount.fixedCount; }
@@ -1682,6 +1692,14 @@ int VectorType::ResolveElementCount(TemplateInstantiation &templInst) const {
         Symbol *instSym = templInst.InstantiateSymbol(elementCount.symbolCount);
         ConstExpr *c = instSym->constValue ? instSym->constValue : nullptr;
         unsigned int constValue[1];
+        if (c == nullptr) {
+            Error(instSym->pos,
+                  "Unable to resolve the value of the "
+                  "symbol \"%s\" used to specify the "
+                  "size of a vector type.",
+                  elementCount.symbolCount->name.c_str());
+            return 0;
+        }
         int count = c->GetValues(constValue);
         if (count > 0) {
             return constValue[0];
@@ -1697,7 +1715,14 @@ const VectorType *VectorType::GetAsUnboundVariabilityType() const {
 
 const VectorType *VectorType::ResolveDependence(TemplateInstantiation &templInst) const {
     int resolvedCount = ResolveElementCount(templInst);
-    return new VectorType(base, resolvedCount, elementCount.symbolCount);
+    const Type *at = base->ResolveDependence(templInst);
+    auto t = CastType<TemplateTypeParmType>(base);
+    if (!CastType<AtomicType>(at)) {
+        Error(t->GetSourcePos(), "Only atomic types (int, float, ...) are legal for vector "
+                                 "types.");
+        return this;
+    }
+    return new VectorType(at, resolvedCount);
 }
 
 const VectorType *VectorType::GetAsSOAType(int width) const {
@@ -1725,6 +1750,10 @@ const VectorType *VectorType::GetAsVaryingType() const {
 }
 
 const VectorType *VectorType::GetAsUniformType() const {
+    if (base == nullptr) {
+        Assert(m->errorCount > 0);
+        return nullptr;
+    }
     return new VectorType(base->GetAsUniformType(), elementCount.fixedCount, elementCount.symbolCount);
 }
 
@@ -1759,25 +1788,42 @@ const VectorType *VectorType::GetAsNonConstType() const {
 std::string VectorType::GetString() const {
     std::string s = base->GetString();
     char buf[16];
-    snprintf(buf, sizeof(buf), "<%d>", elementCount.fixedCount);
+    if (elementCount.fixedCount > 0 || elementCount.symbolCount == nullptr) {
+        snprintf(buf, sizeof(buf), "<%d>", elementCount.fixedCount);
+    } else {
+        snprintf(buf, sizeof(buf), "<%s>", elementCount.symbolCount->name.c_str());
+    }
     return s + std::string(buf);
 }
 
 std::string VectorType::Mangle() const {
     std::string s = base->Mangle();
     char buf[16];
-    snprintf(buf, sizeof(buf), "_3C_%d_3E_", elementCount.fixedCount); // "<%d>"
+    if (elementCount.fixedCount > 0 || elementCount.symbolCount == nullptr) {
+        snprintf(buf, sizeof(buf), "_3C_%d_3E_", elementCount.fixedCount); // "<%d>"
+    } else {
+        snprintf(buf, sizeof(buf), "_3C_%s_3E_", elementCount.symbolCount->name.c_str()); // "<%s>"
+    }
     return s + std::string(buf);
 }
 
 std::string VectorType::GetDeclaration(const std::string &name, DeclarationSyntax syntax) const {
     std::string s = base->GetDeclaration("", syntax);
     char buf[16];
-    snprintf(buf, sizeof(buf), "%d", elementCount.fixedCount);
+    if (elementCount.fixedCount > 0 || elementCount.symbolCount == nullptr) {
+        snprintf(buf, sizeof(buf), "%d", elementCount.fixedCount);
+    } else {
+        snprintf(buf, sizeof(buf), "%s", elementCount.symbolCount->name.c_str());
+    }
     return s + std::string(buf) + "  " + name;
 }
 
-const AtomicType *VectorType::GetElementType() const { return base; }
+const Type *VectorType::GetElementType() const {
+    //    const AtomicType *at = CastType<AtomicType>(base);
+    //    return (at != nullptr)? at : nullptr;
+    //    return base->ResolveDependence()
+    return base;
+}
 
 static llvm::Type *lGetVectorLLVMType(llvm::LLVMContext *ctx, const VectorType *vType, bool isStorage) {
 
@@ -1788,7 +1834,10 @@ static llvm::Type *lGetVectorLLVMType(llvm::LLVMContext *ctx, const VectorType *
         Assert(m->errorCount > 0);
         return nullptr;
     }
-
+    if (base->IsDependentType()) {
+        Assert(m->errorCount > 0);
+        return nullptr;
+    }
     llvm::Type *bt;
     // Non-uniform vector types are represented in IR as an array.
     // So, creating them with base as storage type similar to arrays.

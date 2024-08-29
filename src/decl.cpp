@@ -318,17 +318,18 @@ const Type *DeclSpecs::GetBaseType(SourcePos pos) const {
 
     if (std::holds_alternative<int>(vectorSize) || std::holds_alternative<Symbol *>(vectorSize)) {
         const AtomicType *atomicType = CastType<AtomicType>(retType);
-        if (atomicType == nullptr) {
-            Error(pos, "Only atomic types (int, float, ...) are legal for vector "
-                       "types.");
+        const TemplateTypeParmType *templTypeParam = CastType<TemplateTypeParmType>(retType);
+
+        if (atomicType == nullptr && templTypeParam == nullptr) {
+            Error(pos, "Only atomic types (int, float, ...) and template type parameters are legal for vector types.");
             return nullptr;
         }
         if (std::holds_alternative<int>(vectorSize)) {
             int size = std::get<int>(vectorSize);
-            retType = new VectorType(atomicType, size);
+            retType = new VectorType(retType, size);
         } else if (std::holds_alternative<Symbol *>(vectorSize)) {
             Symbol *sym = std::get<Symbol *>(vectorSize);
-            retType = new VectorType(atomicType, sym);
+            retType = new VectorType(retType, sym);
         } else {
             UNREACHABLE();
         }

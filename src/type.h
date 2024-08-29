@@ -682,9 +682,9 @@ class ArrayType : public SequentialType {
  */
 class VectorType : public SequentialType {
   public:
-    VectorType(const AtomicType *base, int size);
-    VectorType(const AtomicType *base, Symbol *num);
-    VectorType(const AtomicType *base, int size, Symbol *num);
+    VectorType(const Type *base, int size);
+    VectorType(const Type *base, Symbol *num);
+    VectorType(const Type *base, int size, Symbol *num);
 
     Variability GetVariability() const;
 
@@ -694,7 +694,7 @@ class VectorType : public SequentialType {
     bool IsUnsignedType() const;
     bool IsSignedType() const;
     bool IsConstType() const;
-
+    bool IsCountDependent() const { return elementCount.symbolCount != nullptr; }
     const Type *GetBaseType() const;
     const VectorType *GetAsVaryingType() const;
     const VectorType *GetAsUniformType() const;
@@ -718,11 +718,11 @@ class VectorType : public SequentialType {
     llvm::DIType *GetDIType(llvm::DIScope *scope) const;
 
     int GetElementCount() const;
-    const AtomicType *GetElementType() const;
+    const Type *GetElementType() const;
 
   private:
     /** Base type that the vector holds elements of */
-    const AtomicType *const base;
+    const Type *const base;
 
     /** Number of elements in the vector or a symbol representing it */
     struct ElementCount {

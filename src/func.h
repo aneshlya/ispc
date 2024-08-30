@@ -166,13 +166,21 @@ class FunctionTemplate {
     void Print(Indent &indent) const;
     bool IsStdlibSymbol() const;
 
+    struct InstantiationsMap {
+        TemplateArgs args;
+        Symbol *symbol;
+        TemplateInstantiationKind kind;
+        InstantiationsMap(const TemplateArgs &a, Symbol *s, TemplateInstantiationKind k)
+            : args(a), symbol(s), kind(k) {}
+    };
+
   private:
     TemplateSymbol *sym;
     std::vector<Symbol *> args;
     Stmt *code;
     Symbol *maskSymbol;
 
-    std::vector<std::pair<TemplateArgs *, Symbol *>> instantiations;
+    std::vector<InstantiationsMap> instantiations;
 };
 
 // A helper class to drive function instantiation, it provides the following:

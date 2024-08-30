@@ -741,13 +741,7 @@ void Function::GenerateIR() {
             }
         } else {
             // Set linkage for the function
-            ispc::StorageClass sc = sym->storageClass;
-            bool isInline = (function->getAttributes().getFnAttrs().hasAttribute(llvm::Attribute::AlwaysInline));
-            // We create regular functions with ExternalLinkage by default.
-            // Fix it to InternalLinkage only if the function is static or inline
-            if (sc == SC_STATIC || isInline) {
-                function->setLinkage(llvm::GlobalValue::InternalLinkage);
-            }
+            MaybeUpdateLinkage();
 
             if (g->target->isXeTarget()) {
                 // Mark all internal ISPC functions as a stack call
@@ -763,6 +757,22 @@ void Function::GenerateIR() {
     }
 }
 
+llvm::GlobalValue::LinkageTypes Function::MaybeUpdateLinkage(llvm::GlobalValue::LinkageTypes requestedLinkage) {
+    llvm::Function *function = sym->function;
+    Assert(function != nullptr);
+    ispc::StorageClass sc = sym->storageClass;
+    bool isInline = (function->getAttributes().getFnAttrs().hasAttribute(llvm::Attribute::AlwaysInline));
+
+    // Check for static or inline first
+    if (sc == SC_STATIC || isInline) {
+        function->setLinkage(llvm::GlobalValue::InternalLinkage);
+    } else {
+        // If not static or inline, set the requested linkage
+        function->setLinkage(requestedLinkage);
+    }
+
+    return function->getLinkage();
+}
 ///////////////////////////////////////////////////////////////////////////
 // TemplateParam
 
@@ -998,6 +1008,30 @@ void FunctionTemplate::GenerateIR() const {
         Function *func = const_cast<Function *>(inst.symbol->parentFunction);
         if (func != nullptr) {
             func->GenerateIR();
+
+            // Update linkage
+            llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
+            switch (inst.kind) {
+            // Function can be defined multiple times across different translation units without causing conflicts.
+            // The linker will choose a definition for the function based on its default behavior.
+            case TemplateInstantiationKind::Explicit:
+                linkage = llvm::GlobalValue::WeakODRLinkage;
+                break;
+            // The function is only allowed to be defined once across all translation units, but it can be discarded if
+            // unused. If multiple definitions of the function are present across different translation units, the
+            // linker will keep only one of them, discarding the rest.
+            case TemplateInstantiationKind::Implicit:
+                linkage = llvm::GlobalValue::LinkOnceODRLinkage;
+                break;
+            case TemplateInstantiationKind::Specialization:
+                linkage = llvm::GlobalValue::ExternalLinkage;
+                break;
+            default:
+                break;
+            }
+
+            func->MaybeUpdateLinkage(linkage);
+
         } else {
             Error(inst.symbol->pos, "Template function specialization was declared but never defined.");
         }
@@ -1257,29 +1291,7 @@ llvm::Function *TemplateInstantiation::createLLVMFunction(Symbol *functionSym) {
     std::string functionName = name_pref + functionSym->name + name_suf;
 
     llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
-    if (functionSym->storageClass == SC_STATIC || isInline) {
-        linkage = llvm::GlobalValue::InternalLinkage;
-    } else {
-        // If the linkage is not internal, apply the Clang linkage rules for templates.
-        switch (kind) {
-        // Function can be defined multiple times across different translation units without causing conflicts.
-        // The linker will choose a definition for the function based on its default behavior.
-        case TemplateInstantiationKind::Explicit:
-            linkage = llvm::GlobalValue::WeakODRLinkage;
-            break;
-        // The function is only allowed to be defined once across all translation units, but it can be discarded if
-        // unused. If multiple definitions of the function are present across different translation units, the linker
-        // will keep only one of them, discarding the rest.
-        case TemplateInstantiationKind::Implicit:
-            linkage = llvm::GlobalValue::LinkOnceODRLinkage;
-            break;
-        case TemplateInstantiationKind::Specialization:
-            linkage = llvm::GlobalValue::ExternalLinkage;
-            break;
-        default:
-            break;
-        }
-    }
+
     // And create the llvm::Function
     llvm::Function *function = llvm::Function::Create(llvmFunctionType, linkage, functionName.c_str(), m->module);
 

@@ -30,6 +30,8 @@ class Function {
     /** Generate LLVM IR for the function into the current module. */
     void GenerateIR();
 
+    llvm::GlobalValue::LinkageTypes
+    MaybeUpdateLinkage(llvm::GlobalValue::LinkageTypes requestedLinkage = llvm::GlobalValue::ExternalLinkage);
     void Print() const;
     void Print(Indent &indent) const;
     bool IsStdlibSymbol() const;

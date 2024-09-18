@@ -1,0 +1,44 @@
+# Copyright 2024, Intel Corporation
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: DLL injection check in ISPC Windows package
+
+permissions: read-all
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'ISPC release version (just number without v, e.g., 1.24.0)'
+        required: true
+        type: string
+
+env:
+  release_base_url: https://github.com/ispc/ispc/releases/download/
+
+jobs:
+  scan:
+    runs-on: windows-latest
+    # Disabling this workflow for non ispc/ispc repo as it needs to run on releases only.
+    if: github.repository == 'ispc/ispc'
+
+    steps:
+    - name: Install procmon and wget
+      run: |
+        Install-ChocoPackage procmon wget
+
+    - name: Download ISPC release archives
+      env:
+        V: ${{ inputs.version }}
+      run: |
+        ZIP="ispc-v\"$V\"-windows.zip"
+        wget --quiet -O "$ZIP" ${{ env.release_base_url }}/v"$V"/"$ZIP"
+        7z.exe x "$ZIP"
+        ISPC_BIN_DIR="ispc-v${V}-windows/bin"
+        export PATH=$PATH:"$ISPC_BIN_DIR"
+
+    - name: Check ISPC binary for DLL injection
+      run: |
+        python ./scripts/dll_inject_check.py dbghelp.dll"
+
+

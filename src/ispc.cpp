@@ -370,6 +370,9 @@ typedef enum {
     GPU_MTL_H,
     GPU_BMG_G21,
     GPU_LNL_M,
+#ifdef __INTEL_EMBARGO__
+    GPU_BMG_G31,
+#endif
 #endif
     sizeofDeviceType
 } DeviceType;
@@ -435,6 +438,9 @@ std::map<DeviceType, std::set<std::string>> CPUFeatures = {
     {GPU_MTL_H, {}},
     {GPU_BMG_G21, {}},
     {GPU_LNL_M, {}},
+#ifdef __INTEL_EMBARGO__
+    {GPU_BMG_G31, {}},
+#endif
 #endif
 };
 
@@ -555,6 +561,9 @@ class AllCPUs {
         names[GPU_MTL_H].push_back("mtl-h");
         names[GPU_BMG_G21].push_back("bmg-g21");
         names[GPU_LNL_M].push_back("lnl-m");
+#ifdef __INTEL_EMBARGO__
+        names[GPU_BMG_G31].push_back("bmg-g31");
+#endif
 #endif
 
         Assert(names.size() == sizeofDeviceType);
@@ -652,9 +661,17 @@ class AllCPUs {
         compat[GPU_MTL_H] =
             Set(GPU_MTL_U, GPU_MTL_H, GPU_ACM_G10, GPU_ACM_G11, GPU_ACM_G12, GPU_ACM_G11, GPU_TGLLP, GPU_SKL, CPU_None);
         compat[GPU_BMG_G21] =
-            Set(GPU_BMG_G21, GPU_MTL_U, GPU_MTL_H, GPU_ACM_G10, GPU_ACM_G11, GPU_ACM_G12, GPU_TGLLP, GPU_SKL, CPU_None);
+            Set(GPU_BMG_G21,
+#ifdef __INTEL_EMBARGO__
+                GPU_BMG_G31,
+#endif
+                GPU_MTL_U, GPU_MTL_H, GPU_ACM_G10, GPU_ACM_G11, GPU_ACM_G12, GPU_TGLLP, GPU_SKL, CPU_None);
         compat[GPU_LNL_M] =
             Set(GPU_LNL_M, GPU_MTL_U, GPU_MTL_H, GPU_ACM_G10, GPU_ACM_G11, GPU_ACM_G12, GPU_TGLLP, GPU_SKL, CPU_None);
+#ifdef __INTEL_EMBARGO__
+        compat[GPU_BMG_G31] = Set(GPU_BMG_G21, GPU_BMG_G31, GPU_LNL_M, GPU_MTL_U, GPU_MTL_H, GPU_ACM_G10, GPU_ACM_G11,
+                                  GPU_ACM_G12, GPU_ACM_G11, GPU_TGLLP, GPU_SKL, CPU_None);
+#endif
 #endif
     }
 
@@ -810,6 +827,11 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         case GPU_LNL_M:
             m_ispc_target = ISPCTarget::xe2lpg_x16;
             break;
+#ifdef __INTEL_EMBARGO__
+        case GPU_BMG_G31:
+            m_ispc_target = ISPCTarget::xe2hpg_x16;
+            break;
+#endif
 #endif
 
         case CPU_KNL:

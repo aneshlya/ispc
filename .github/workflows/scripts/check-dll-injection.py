@@ -11,7 +11,8 @@ import time
 # Subprocess is used with default shell which is False, it's safe and doesn't allow shell injection
 # so we can ignore the Bandit warning
 import subprocess #nosec
-import xml.etree.ElementTree as ET
+# defusedxml.defuse_stdlib() is called to defuse the standard library
+import xml.etree.ElementTree as ET #nosec
 import argparse
 import sys
 import winreg
@@ -56,7 +57,8 @@ def export_log_to_xml(logfile, xml_log):
 def filter_events(xml_log, dll_name):
     # Filter the events in the XML log to find those related to the specified DLL.
     filtered_events = []
-    tree = ET.parse(xml_log)
+    # defusedxml.defuse_stdlib() is called to defuse the standard library
+    tree = ET.parse(xml_log) #nosec
     root = tree.getroot()
 
     for event in root.iter('event'):

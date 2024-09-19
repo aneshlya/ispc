@@ -1,20 +1,18 @@
 # Copyright 2024, Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 
-name: Check against DLL injection (release)
+name: Check against DLL injection (trunc)
 
 permissions: read-all
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'ISPC release version (just number without v, e.g., 1.24.0)'
-        required: true
-        type: string
+  schedule:
+    # Run every day at 22:00 UTC
+    - cron: '0 22 * * *'
 
 env:
-  release_base_url: https://github.com/ispc/ispc/releases/download/
+  ZIP_URL: https://ci.appveyor.com/api/projects/ispc/ispc/artifacts/build%2Fispc-trunk-windows.zip?job=Environment%3A%20APPVEYOR_BUILD_WORKER_IMAGE%3DVisual%20Studio%202019%2C%20LLVM_VERSION%3Dlatest
 
 jobs:
   scan:
@@ -23,7 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-    - name: Install required packages
+    - name: Install procmon and wget
       run: |
         Install-ChocoPackage wget
         Install-ChocoPackage procmon
@@ -32,14 +30,13 @@ jobs:
       shell: powershell
 
     - name: Download ISPC Release Archives
-      env:
-        V: ${{ inputs.version }}
       run: |
-        ZIP="ispc-v${V}-windows.zip"
-        echo "Download artifact $ZIP" >> "%GITHUB_STEP_SUMMARY%"
-        wget --quiet -O "$ZIP" "${release_base_url}/v${V}/$ZIP"
+        echo "Download artifact $ZIP_URL" >> "%GITHUB_STEP_SUMMARY%"
+        wget --quiet -O archive.zip "$ZIP_URL"
         7z x "$ZIP"
-        ISPC_BIN_DIR="ispc-v${V}-windows/bin"
+        ls -al
+        cd ispc-*
+        ISPC_BIN_DIR="ispc-trunk-windows/bin"
         echo "$ISPC_BIN_DIR" >> "$GITHUB_PATH"
       shell: bash
 

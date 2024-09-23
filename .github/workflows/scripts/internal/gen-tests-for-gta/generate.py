@@ -70,9 +70,9 @@ def main():
                 continue
 
         if os.name == 'nt':
-            cmd = 'python run_tests.py --l0loader=%s\\xe-deps %s' % (ci_project_dir, run_tests_extra_params)
+            cmd = 'python scripts/run_tests.py --l0loader=%s\\xe-deps %s' % (ci_project_dir, run_tests_extra_params)
         else:
-            cmd = './run_tests.py --l0loader=/usr/local %s' % (run_tests_extra_params)
+            cmd = './scripts/run_tests.py --l0loader=/usr/local %s' % (run_tests_extra_params)
 
         tests_count += 1
 

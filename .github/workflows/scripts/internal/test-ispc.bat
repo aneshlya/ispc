@@ -14,7 +14,7 @@ set ISPC_DIR=%GITHUB_WORKSPACE%\artifacts\install
 set PATH=%ISPC_DIR%\bin;%PATH%
 
 cd %GITHUB_WORKSPACE%
-python run_tests.py -u FP -a xe64 -t %TESTS_TARGET% --l0loader=%ISPC_DIR% --ispc_output=%ISPC_OUTPUT% --fail_db=%FAIL_DB_PATH% --test_time 60 -j 8 %EXTRA_ARGS% || goto :error
+python scripts\run_tests.py -u FP -a xe64 -t %TESTS_TARGET% --l0loader=%ISPC_DIR% --ispc_output=%ISPC_OUTPUT% --fail_db=%FAIL_DB_PATH% --test_time 60 -j 8 %EXTRA_ARGS% || goto :error
 
 goto :EOF
 

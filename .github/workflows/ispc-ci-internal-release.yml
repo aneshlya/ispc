@@ -72,11 +72,11 @@ jobs:
           run: |
             PACKAGE_NAME="ispc-trunk"
             PACKAGE_EXAMPLES_NAME="ispc-examples-trunk"
-            DOCKER_PATH="ispc/docker/centos/7/xpu_ispc_build"
+            DOCKER_PATH="ispc/docker/ubuntu/18.04/xpu_ispc_build"
             if [[ ${{ inputs.core_ref}} =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               PACKAGE_NAME="ispc-${{ inputs.core_ref}}"
               PACKAGE_EXAMPLES_NAME="ispc-examples-${{ inputs.core_ref }}"
-              DOCKER_PATH="ispc/docker/${{ inputs.core_ref}}/centos7"
+              DOCKER_PATH="ispc/docker/${{ inputs.core_ref}}/ubuntu18.04"
             fi
             echo "package_name=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
             echo "package_name=${PACKAGE_NAME}" >> $GITHUB_STEP_SUMMARY
@@ -132,7 +132,7 @@ jobs:
             path: ispc
             token: ${{ secrets.ACCESS_TOKEN }}
 
-        - name: Build CentOS 7 docker image
+        - name: Build docker image
           run: |
             cd ${{ needs.define-package-params.outputs.docker_path }}
             docker build --no-cache \
@@ -141,16 +141,16 @@ jobs:
                 --build-arg REPO=${{ inputs.core_repo }} \
                 --build-arg SHA=${{ inputs.core_ref }} \
                 --build-arg LTO=${{ inputs.lto }} \
-                -t centos_7_ispc_xpu \
+                -t ubuntu_1804_ispc_xpu \
                 -f Dockerfile .
           shell: bash
 
         - name: Copy ISPC release package from docker
           run: |
-            container_id=$(docker create centos_7_ispc_xpu)
-            docker cp $container_id:/usr/local/src/ispc/${{ needs.define-package-params.outputs.package_linux_name }} .
+            container_id=$(docker create ubuntu_1804_ispc_xpu)
+            docker cp $container_id:/usr/local/src/${{ needs.define-package-params.outputs.package_linux_name }} .
             docker rm -v $container_id
-            docker rmi centos_7_ispc_xpu
+            docker rmi ubuntu_1804_ispc_xpu
           shell: bash
 
         - name: Upload package
@@ -323,7 +323,7 @@ jobs:
             path: ispc
             token: ${{ secrets.ACCESS_TOKEN }}
 
-        - name: Build CentOS 7 docker image
+        - name: Build Ubunut 18.04 docker image
           run: |
             cd ${{ needs.define-package-params.outputs.docker_path }}
             docker build --no-cache \
@@ -333,16 +333,16 @@ jobs:
                 --build-arg SHA=${{ inputs.core_ref }} \
                 --build-arg TBB=oneapi \
                 --build-arg LTO=${{ inputs.lto }} \
-                -t centos_7_ispc_xpu_oneapi \
+                -t ubuntu_1804_ispc_xpu_oneapi \
                 -f Dockerfile .
           shell: bash
 
         - name: Copy ISPC release package from docker
           run: |
-            container_id=$(docker create centos_7_ispc_xpu_oneapi)
-            docker cp $container_id:/usr/local/src/ispc/${{ needs.define-package-params.outputs.package_linux_name }} ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
+            container_id=$(docker create ubuntu_1804_ispc_xpu_oneapi)
+            docker cp $container_id:/usr/local/src/${{ needs.define-package-params.outputs.package_linux_name }} ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
             docker rm -v $container_id
-            docker rmi centos_7_ispc_xpu_oneapi
+            docker rmi ubuntu_1804_ispc_xpu_oneapi
           shell: bash
 
         - name: Upload package

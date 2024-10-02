@@ -6,39 +6,6 @@
 % LLVM bugs in released versions, that we have to workaround by applying patches (see llvm_patches
 % folder). The recommended way to build LLVM on Unix is to use "alloy.py".
 %
-./tests/func-tests/clock.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int16.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int32.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint16.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint32.ispc runfail    xe64      xelpg-x8 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/clock.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int16.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int32.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint16.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint32.ispc runfail    xe64      xelpg-x16 mtl_presi   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int16.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int32.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint16.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint32.ispc runfail    xe64      xelpg-x8 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int16.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-int32.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint16.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/idiv-uint32.ispc runfail    xe64      xelpg-x16 mtl   Linux LLVM 15.0 clang++15.0 O2 spv *
-./tests/func-tests/fmod-double-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
-./tests/func-tests/fmod-float-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
-./tests/func-tests/fmod-float16-varying.ispc runfail    xe64     xe2lpg-x32 lnl-a0   Linux LLVM 17.0 clang++17.0 O2 spv *
-.\tests\func-tests\idiv-uint16.ispc runfail    xe64        xelp-x8 tgllp Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint32.ispc runfail    xe64        xelp-x8 tgllp Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint16.ispc runfail    xe64        xelp-x16 tgllp Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint32.ispc runfail    xe64        xelp-x16 tgllp Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-int16.ispc runfail    xe64        xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-int32.ispc runfail    xe64        xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint16.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint32.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-int16.ispc runfail    xe64        xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-int32.ispc runfail    xe64        xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint16.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
-.\tests\func-tests\idiv-uint32.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 15.0         cl O2 spv *
 .\tests\func-tests\switch-18.ispc runfail    xe64       xelpg-x8 mtl Windows LLVM 16.0         cl O2 spv *
 .\tests\func-tests\print_bool.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *
 .\tests\func-tests\print_varying_simd.ispc runfail    xe64       xelp-x16 tgllp Windows LLVM 17.0         cl O2 spv *

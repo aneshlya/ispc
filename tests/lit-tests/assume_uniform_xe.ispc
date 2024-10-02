@@ -4,7 +4,7 @@
 // RUN: FileCheck %s -check-prefix=CHECK_FOO2 -input-file=foo2_kernel.asm
 // RUN: FileCheck %s -check-prefix=CHECK_FOO3 -input-file=foo3_kernel.asm
 
-// REQUIRES: XE_ENABLED
+// REQUIRES: XE_ENABLED && !EMBARGO_ENABLED
 // REQUIRES: OCLOC_INSTALLED
 // REQUIRES: LINUX_HOST
 

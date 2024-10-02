@@ -23,4 +23,4 @@ jobs:
 
     - name: Check format
       run: |
-        ./check_format.sh
+        ./scripts/check_format.sh

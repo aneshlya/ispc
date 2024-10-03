@@ -33,3 +33,7 @@
 .\tests\func-tests\fmod-float-varying.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
 .\tests\func-tests\fmod-float16-uniform.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
 .\tests\func-tests\fmod-float16-varying.ispc runfail    xe64       xelpg-x16 mtl Windows LLVM 17.0         cl O2 spv *
+./tests/func-tests/1596.ispc runfail    xe64     xe2lpg-x16 lnl-m   Linux LLVM 18.1 clang++18.1 O2 spv *
+./tests/func-tests/popcnt-1.ispc runfail    xe64     xe2lpg-x16 lnl-m   Linux LLVM 18.1 clang++18.1 O2 spv *
+./tests/func-tests/1596.ispc runfail    xe64     xe2lpg-x32 lnl-m   Linux LLVM 18.1 clang++18.1 O2 spv *
+./tests/func-tests/popcnt-1.ispc runfail    xe64     xe2lpg-x32 lnl-m   Linux LLVM 18.1 clang++18.1 O2 spv *

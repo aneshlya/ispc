@@ -36,7 +36,7 @@ jobs:
       lto_flag: ${{ github.event_name != 'push' && inputs.lto || false }}
     steps:
       - name: Checkout core ISPC repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - id: define-id
         env:

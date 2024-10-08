@@ -22,10 +22,10 @@ jobs:
     container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
     steps:
       - name: Checkout core repo for scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Checkout core repo for creating PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           repository: intel-innersource/applications.compilers.ispc.core
           path: ispc
@@ -34,13 +34,13 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Checkout vc-intrinsics
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           repository: intel/vc-intrinsics
           path: vc-intrinsics
 
       - name: Checkout internal vc-intrinsics
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           repository: intel-innersource/drivers.gpu.compute.vc-intrinsics
           path: vc-intrinsics-int

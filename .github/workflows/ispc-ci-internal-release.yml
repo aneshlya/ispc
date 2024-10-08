@@ -58,7 +58,7 @@ jobs:
         docker_path: ${{ steps.define-package.outputs.docker_path }}
       steps:
         - name: Checkout ISPC repo
-          uses: actions/checkout@v4
+          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: ${{ inputs.core_repo }}
             ref: ${{ inputs.core_ref }}
@@ -123,7 +123,7 @@ jobs:
       container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
       needs: [define-package-params]
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: ${{ inputs.core_repo }}
             ref: ${{ inputs.core_ref }}
@@ -154,7 +154,7 @@ jobs:
           shell: bash
 
         - name: Upload package
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_linux_package
             path: ${{ needs.define-package-params.outputs.package_linux_name }}
@@ -232,7 +232,7 @@ jobs:
       env:
         ispc_version: '1.22.0'
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: 'intel-innersource/libraries.graphics.renderkit.superbuild'
             ref: 'v1.8.2'
@@ -277,7 +277,7 @@ jobs:
       needs: [define-package-params, linux-package]
       container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: 'intel-innersource/applications.compilers.ispc.core'
             ref: 'gen'
@@ -314,7 +314,7 @@ jobs:
       container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
       needs: [define-package-params]
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: ${{ inputs.core_repo }}
             ref: ${{ inputs.core_ref }}
@@ -346,7 +346,7 @@ jobs:
           shell: bash
 
         - name: Upload package
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_linux_package_oneapi
             path: ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
@@ -362,7 +362,7 @@ jobs:
       needs: [define-package-params, linux-package]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -396,7 +396,7 @@ jobs:
       needs: [define-package-params, linux-package-oneapi]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -435,7 +435,7 @@ jobs:
         NOTARYTOOL_API_KEY_ID: ${{ secrets.NOTARYTOOL_API_KEY_ID }}
       steps:
         - name: Checkout ISPC repo
-          uses: actions/checkout@v4
+          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: ${{ inputs.core_repo }}
             ref: ${{ inputs.core_ref }}
@@ -444,7 +444,7 @@ jobs:
 
         # We need to fetch internal repo to use notarize.sh script
         - name: Checkout internal ISPC repo
-          uses: actions/checkout@v4
+          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -541,49 +541,49 @@ jobs:
           shell: bash
 
         - name: Upload macOS universal package
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_uni
             path: ${{ needs.define-package-params.outputs.package_macos_name_uni }}
 
         - name: Upload universal notarize archive
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_notarize_archive_uni
             path: ispc-uni.zip
 
         - name: Upload macOS arm64 package
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_arm64
             path: ${{ needs.define-package-params.outputs.package_macos_name_arm64 }}
 
         - name: Upload arm64 notarize archive
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_notarize_archive_arm64
             path: ispc-arm64.zip
 
         - name: Upload macOS x86_64 package
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_x86_64
             path: ${{ needs.define-package-params.outputs.package_macos_name_x86_64 }}
 
         - name: Upload x86_64 notarize archive
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_notarize_archive_x86_64
             path: ispc-x86_64.zip
 
         - name: Upload LLVM stage2 toolchain
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: llvm-stage2-mac
             path: llvm-stage2-*.tgz
 
         - name: Upload examples archive
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: examples-tgz
             path: ${{ needs.define-package-params.outputs.package_examples_linux_name }}
@@ -593,7 +593,7 @@ jobs:
       needs: [define-package-params, macos-package]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -626,7 +626,7 @@ jobs:
       needs: [define-package-params, macos-package]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -659,7 +659,7 @@ jobs:
       needs: [define-package-params, macos-package]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -692,13 +692,13 @@ jobs:
       runs-on: ['Windows', 'sign']
       needs: [define-package-params, define-presets]
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: ${{ inputs.core_repo }}
             ref: ${{ inputs.core_ref }}
             token: ${{ secrets.access_token }}
             submodules: true
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             repository: intel-innersource/applications.compilers.ispc.core
             ref: ${{ github.ref }}
@@ -722,21 +722,21 @@ jobs:
             cmake --build build --target package-stage2
 
         - name: Upload ispc artifacts
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: win-ispc-release
             path: |
               d:\temp\build\build-ispc-stage2\src\ispc-stage2-build\${{ needs.define-package-params.outputs.package_win_name }}
 
         - name: Upload LLVM stage2 toolchain
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: llvm-stage2-win
             path: |
               d:\temp\build\llvm-stage2-*.tgz
 
         - name: Upload examples artifacts
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: examples-zip
             path: |
@@ -747,7 +747,7 @@ jobs:
       needs: [define-package-params, win-package]
       steps:
         # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
             submodules: false
             fetch-depth: 0
@@ -912,49 +912,49 @@ jobs:
             gpg --verify ${{ needs.define-package-params.outputs.package_examples_win_name }}.sig ${{ needs.define-package-params.outputs.package_examples_win_name }}
 
         - name: Upload Windows package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: win-ispc-release-sig
             path: ${{ needs.define-package-params.outputs.package_win_name }}.sig
 
         - name: Upload Linux package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_linux_package_sig
             path: ${{ needs.define-package-params.outputs.package_linux_name }}.sig
 
         - name: Upload Linux OneAPI package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_linux_package_oneapi_sig
             path: ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}.sig
 
         - name: Upload macOS uni package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_uni_sig
             path: ${{ needs.define-package-params.outputs.package_macos_name_uni }}.sig
 
         - name: Upload macOS x86-64 package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_x86_64_sig
             path: ${{ needs.define-package-params.outputs.package_macos_name_x86_64 }}.sig
 
         - name: Upload macOS arm64 package signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: ispc_macos_package_arm64_sig
             path: ${{ needs.define-package-params.outputs.package_macos_name_arm64 }}.sig
 
         - name: Upload examples tar.gz archive signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: examples-tgz-sig
             path: ${{ needs.define-package-params.outputs.package_examples_linux_name }}.sig
 
         - name: Upload examples zip archive signature
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
           with:
             name: examples-zip-sig
             path: ${{ needs.define-package-params.outputs.package_examples_win_name }}.sig

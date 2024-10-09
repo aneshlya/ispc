@@ -227,21 +227,23 @@ jobs:
       timeout-minutes: 20
       needs: [define-package-params, linux-package]
       container:
-        image: amr-registry.caas.intel.com/renderkit/ubuntu:22.04
-        options: --user root
+        image: ubuntu:22.04
       env:
-        ispc_version: '1.22.0'
+        ispc_version: '1.25.0dev'
       steps:
         - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
-            repository: 'intel-innersource/libraries.graphics.renderkit.superbuild'
-            ref: 'v1.8.2'
-            token: ${{ secrets.access_token }}
+            repository: 'RenderKit/superbuild'
         - name: Clean up
           run: |
             rm -rf artifacts
           shell: bash
-
+        - name: Install packages
+          run: |
+            echo "Installing build dependencies..."
+            apt update
+            apt upgrade -y
+            apt install -y git wget tar build-essential cmake ninja-build libglfw3-dev libgl1-mesa-dev libxinerama-dev libxcursor-dev libxi-dev python3-dev
         - name: Download build artifacts
           uses: actions/download-artifact@v4
           with:

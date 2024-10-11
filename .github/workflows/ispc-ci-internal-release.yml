@@ -171,7 +171,7 @@ jobs:
       timeout-minutes: 10
       container:
         # TODO: use llvm version in docker name from presets
-        image: amr-registry.caas.intel.com/ispc/gen-os-15.0:latest
+        image: amr-registry.caas.intel.com/ispc/gen-os-18.1:latest
         options: --device=/dev/dri:/dev/dri --cap-add=SYS_PTRACE
       steps:
         - name: Clean up

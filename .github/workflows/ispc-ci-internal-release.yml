@@ -744,6 +744,56 @@ jobs:
             path: |
               d:\temp\build\build-ispc-stage2\src\ispc-stage2-build\${{ needs.define-package-params.outputs.package_examples_win_name }}
 
+    # Build ispctests
+    win-ispctests:
+      runs-on: ['Windows']
+      needs: [define-package-params, win-package]
+      steps:
+
+        - name: Clean up
+          run: |
+            rm -rf artifacts ispc-*-windows
+          shell: bash
+
+        - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+          with:
+            repository: intel-innersource/applications.gaming.ispctest
+            token: ${{ secrets.access_token }}
+
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+          with:
+            repository: intel-innersource/applications.compilers.ispc.core
+            ref: ${{ github.ref }}
+            token: ${{ secrets.access_token }}
+            submodules: false
+            path: core
+
+        - name: Download ISPC package
+          uses: actions/download-artifact@v4
+          with:
+            name: win-ispc-release
+            path: artifacts
+
+        - name: Add msbuild to PATH
+          uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
+
+        - name: Run GameDev ISPC tests
+          env:
+            SCRIPTS_DIR: ${{ github.workspace }}\core\.github\workflows\scripts\internal
+          run: |
+            cd artifacts
+            unzip "${{ needs.define-package-params.outputs.package_win_name }}"
+            cd ..\
+            mkdir ISPC\win
+            copy "%GITHUB_WORKSPACE%\artifacts\${{ needs.define-package-params.outputs.package_name }}-windows\bin\ispc.exe" ISPC\win\
+            %SCRIPTS_DIR%\run-ispctests.bat
+          shell: cmd
+
+        - name: Clean up
+          run: |
+            rm -rf artifacts
+          shell: bash
+
     win-check:
       runs-on: ['Windows', 'sign']
       needs: [define-package-params, win-package]

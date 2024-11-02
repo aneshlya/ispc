@@ -746,7 +746,7 @@ jobs:
 
     # Build ispctests
     win-ispctests:
-      runs-on: ['Windows']
+      runs-on: ['Windows', 'sign']
       needs: [define-package-params, win-package]
       steps:
 
@@ -791,7 +791,7 @@ jobs:
 
         - name: Clean up
           run: |
-            rm -rf artifacts
+            rm -rf artifacts ispc-*-windows
           shell: bash
 
     win-check:

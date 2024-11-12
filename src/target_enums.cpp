@@ -583,9 +583,6 @@ std::string ISPCTargetToString(ISPCTarget target) {
 
 bool ISPCTargetIsX86(ISPCTarget target, Arch arch) {
     switch (target) {
-    case ISPCTarget::common_x4:
-    case ISPCTarget::common_x8:
-        return arch == Arch::x86_64 || arch == Arch::x86;
     case ISPCTarget::sse2_i32x4:
     case ISPCTarget::sse2_i32x8:
     case ISPCTarget::sse41_i8x16:
@@ -684,6 +681,8 @@ bool ISPCTargetIsNeon(ISPCTarget target) {
     case ISPCTarget::neon_i16x8:
     case ISPCTarget::neon_i32x4:
     case ISPCTarget::neon_i32x8:
+    case ISPCTarget::common_x4:
+    case ISPCTarget::common_x8:
         return true;
     default:
         return false;

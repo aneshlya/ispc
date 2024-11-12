@@ -69,16 +69,16 @@ function (generate_stdlibs_1 ispc_name)
     generate_stdlib_or_target_builtins(stdlib_to_cpp ${ispc_name} STDLIB_CPP_FILES STDLIB_BC_FILES)
 
     # TODO: this is a temporary solution to generate bitcode libs for common_x4
-    set(name stdlib_common_x86_x4_64bit_unix)
+    set(name stdlib_common_aarch64_x4_64bit_unix)
     set(target common-x4)
     set(target_name common_x4)
     set(fixed_os linux)
-    set(fixed_arch x86_64)
+    set(fixed_arch aarch64)
     file(APPEND ${CMAKE_BINARY_DIR}/bitcode_libs_generated.cpp
       "static BitcodeLib ${name}(BitcodeLib::BitcodeLibType::Stdlib, \"${name}.bc\", ISPCTarget::${target_name}, TargetOS::${fixed_os}, Arch::${fixed_arch});\n")
     set(INCLUDE_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/stdlib/include)
     set(bc ${BITCODE_FOLDER}/${name}.bc)
-    set(canon_arch x86_64)
+    set(canon_arch aarch64)
     set(canon_os linux)
 
     add_custom_command(
@@ -90,7 +90,7 @@ function (generate_stdlibs_1 ispc_name)
     list(APPEND STDLIB_BC_FILES ${bc})
 
     # TODO: common_x8
-    set(name stdlib_common_x86_x8_64bit_unix)
+    set(name stdlib_common_aarch64_x8_64bit_unix)
     set(target common-x8)
     set(target_name common_x8)
     set(bc ${BITCODE_FOLDER}/${name}.bc)
@@ -174,11 +174,11 @@ endfunction()
 
 function (generate_common_target_bcs ispc_name)
     # TODO: This is a temporary solution to generate target builtins for x4.
-    set(name builtins_target_common_x86_x4_64bit_unix)
+    set(name builtins_target_common_aarch64_x4_64bit_unix)
     set(target_ common_x4)
     set(target common-x4)
     set(fixed_os linux)
-    set(fixed_arch x86_64)
+    set(fixed_arch aarch64)
     file(APPEND ${CMAKE_BINARY_DIR}/bitcode_libs_generated.cpp
       "static BitcodeLib ${name}(\"${name}.bc\", ISPCTarget::${target_}, TargetOS::${fixed_os}, Arch::${fixed_arch});\n")
     set(input_ll builtins/target-common-x4.ll)
@@ -216,7 +216,7 @@ function (generate_common_target_bcs ispc_name)
     list(APPEND COMMON_TARGET_BC_FILE ${bc})
 
     # TODO: common_x8
-    set(name builtins_target_common_x86_x8_64bit_unix)
+    set(name builtins_target_common_aarch64_x8_64bit_unix)
     set(target_ common_x8)
     set(target common-x8)
     set(input_ll builtins/target-common-x8.ll)

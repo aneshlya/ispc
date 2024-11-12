@@ -1517,7 +1517,7 @@ std::unordered_set<std::string> pseudoFuncs = {
 std::unordered_map<ISPCTarget, ISPCTarget> targetParentMap = {
     {ISPCTarget::avx512spr_x4, ISPCTarget::avx512icl_x4},
     {ISPCTarget::avx512icl_x4, ISPCTarget::avx512skx_x4},
-    {ISPCTarget::avx512skx_x4, ISPCTarget::common_x4},
+    //{ISPCTarget::avx512skx_x4, ISPCTarget::common_x4},
 
     {ISPCTarget::avx2vnni_i32x4, ISPCTarget::avx2_i32x4},
     {ISPCTarget::avx2_i32x4, ISPCTarget::avx1_i32x4},
@@ -1526,7 +1526,7 @@ std::unordered_map<ISPCTarget, ISPCTarget> targetParentMap = {
 
     {ISPCTarget::avx512spr_x8, ISPCTarget::avx512icl_x8},
     {ISPCTarget::avx512icl_x8, ISPCTarget::avx512skx_x8},
-    {ISPCTarget::avx512skx_x8, ISPCTarget::common_x8},
+    //{ISPCTarget::avx512skx_x8, ISPCTarget::common_x8},
 
     {ISPCTarget::avx2vnni_i32x8, ISPCTarget::avx2_i32x8},
     {ISPCTarget::avx2_i32x8, ISPCTarget::avx1_i32x8},

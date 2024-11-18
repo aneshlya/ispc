@@ -1290,6 +1290,12 @@ int main(int Argc, char *Argv[]) {
                     ISPCTargetToString(target).c_str());
         }
 #endif
+#ifdef ISPC_ARM_ENABLED
+        if (target == ISPCTarget::neon_i8x16 || target == ISPCTarget::neon_i16x8) {
+            Warning(SourcePos(), "The target %s is deprecated and will be removed in the future.",
+                    ISPCTargetToString(target).c_str());
+        }
+#endif
     }
 
     // If [no]wrap-signed-int is explicitly specified, then use this value.

@@ -61,8 +61,10 @@ Module *ispc::m;
 ///////////////////////////////////////////////////////////////////////////
 // Target
 
-#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM64)
+#if defined(__arm__)
 #define ISPC_HOST_IS_ARM
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#define ISPC_HOST_IS_AARCH64
 #elif defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
 #define ISPC_HOST_IS_X86
 #endif
@@ -78,6 +80,13 @@ static void __cpuidex(int info[4], int level, int count) {
     __asm__ __volatile__("cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "0"(level), "2"(count));
 }
 #endif // !ISPC_HOST_IS_WINDOWS && __x86_64__
+
+// Description of ARM registers can be found in Arm® Architecture Reference Manual for A-profile architecture
+#if !defined(ISPC_HOST_IS_WINDOWS) && defined(ISPC_HOST_IS_AARCH64)
+static void read_id_aa64pfr0(uint64_t *value) { __asm__ __volatile__("mrs %0, ID_AA64PFR0_EL1" : "=r"(*value)); }
+
+static void read_id_aa64isar0(uint64_t *value) { __asm__ __volatile__("mrs %0, ID_AA64ISAR0_EL1" : "=r"(*value)); }
+#endif
 
 #ifdef ISPC_HOST_IS_X86
 static bool __os_has_avx_support() {
@@ -123,7 +132,7 @@ static bool __os_has_avx512_support() {
 #endif // ISPC_HOST_IS_X86
 
 static ISPCTarget lGetSystemISA() {
-#if defined(ISPC_HOST_IS_ARM)
+#if defined(ISPC_HOST_IS_ARM) || defined(ISPC_HOST_IS_AARCH64)
     return ISPCTarget::neon_i32x4;
 #elif defined(ISPC_HOST_IS_X86)
     int info[4];
@@ -381,6 +390,7 @@ typedef enum {
 // The following LLVM files were used as reference:
 // CPU Features: <llvm>/lib/Support/X86TargetParser.cpp
 // X86 Intrinsics: <llvm>/include/llvm/IR/IntrinsicsX86.td
+// AARCH64 features: <llvm>/lib/Target/AArch64/AArch64Processors.td
 std::map<DeviceType, std::set<std::string>> CPUFeatures = {
     {CPU_x86_64, {"mmx", "sse", "sse2"}},
     {CPU_Bonnell, {"mmx", "sse", "sse2", "ssse3"}},
@@ -412,17 +422,18 @@ std::map<DeviceType, std::set<std::string>> CPUFeatures = {
     {CPU_ZNVER3, {"mmx", "sse", "sse2", "ssse3", "sse41", "sse42", "avx", "avx2"}},
 // TODO: Add features for remaining CPUs if valid.
 #ifdef ISPC_ARM_ENABLED
-    {CPU_CortexA9, {}},
-    {CPU_CortexA15, {}},
-    {CPU_CortexA35, {}},
-    {CPU_CortexA53, {}},
-    {CPU_CortexA57, {}},
-    {CPU_AppleA7, {}},
-    {CPU_AppleA10, {}},
-    {CPU_AppleA11, {}},
-    {CPU_AppleA12, {}},
-    {CPU_AppleA13, {}},
-    {CPU_AppleA14, {}},
+    {CPU_CortexA9, {"neon", "fp16"}},
+    {CPU_CortexA15, {"neon", "fp16"}},
+    {CPU_CortexA35, {"aes", "crc", "fp-armv8", "neon", "sha2"}},
+    {CPU_CortexA53, {"aes", "crc", "fp-armv8", "neon", "sha2"}},
+    {CPU_CortexA57, {"aes", "crc", "fp-armv8", "neon", "sha2"}},
+    {CPU_AppleA7, {"aes", "fp-armv8", "neon", "sha2"}},
+    {CPU_AppleA10, {"aes", "crc", "fp-armv8", "neon", "rdm", "sha2"}},
+    {CPU_AppleA11, {"aes", "crc", "fp-armv8", "fullfp16", "lse", "neon", "rdm", "sha2"}},
+    {CPU_AppleA12, {"aes", "crc", "fp-armv8", "fullfp16", "lse", "neon", "rdm", "sha2"}},
+    {CPU_AppleA13, {"aes", "crc", "dotprod", "fp-armv8", "fp16fml", "fullfp16", "lse", "neon", "rdm", "sha2", "sha3"}},
+    {CPU_AppleA14,
+     {"aes", "crc", "dotprod", "fp-armv8", "fp16fml", "fptoint", "fullfp16", "lse", "neon", "rdm", "sha2", "sha3"}},
 #endif
 #ifdef ISPC_XE_ENABLED
     {GPU_SKL, {}},
@@ -437,6 +448,101 @@ std::map<DeviceType, std::set<std::string>> CPUFeatures = {
     {GPU_LNL_M, {}},
 #endif
 };
+
+#if defined(ISPC_HOST_IS_ARM) || defined(ISPC_HOST_IS_AARCH64)
+static DeviceType lGetARMDeviceType(Arch arch) {
+    Assert(arch == Arch::arm || arch == Arch::aarch64);
+    if (arch == Arch::arm) {
+        return DeviceType::CPU_CortexA9;
+    }
+    if (g->genStdlib) {
+        if (g->target_os == TargetOS::ios) {
+            return DeviceType::CPU_AppleA7;
+        } else if (g->target_os == TargetOS::macos) {
+                // Open source LLVM doesn't has definition for M1 CPU, so use the latest iPhone CPU.
+            return DeviceType::CPU_AppleA14;
+        } else {
+            return DeviceType::CPU_CortexA35;
+        }
+    }
+    
+#if defined(ISPC_HOST_IS_AARCH64)
+    uint64_t pfr0 = 0, isar0 = 0;
+
+    // Read the system registers
+    read_id_aa64pfr0(&pfr0);
+    read_id_aa64isar0(&isar0);
+
+    // clang-format off
+    bool neon                     = ((pfr0 >> 20) & 0xF) != 0b1111;   // NEON (ASIMD): Bits 23:20 in ID_AA64PFR0_EL1
+    bool fp_armv8                 = ((pfr0 >> 16) & 0xF) != 0b1111;   // Floating-point (FP): Bits 19:16 in ID_AA64PFR0_EL1
+    [[maybe_unused]] bool fp16    = ((pfr0 >> 16) & 0xF) == 0b0001;   // FP16 (half-precision): Bits 19:16 in ID_AA64PFR0_EL1
+
+    bool aes                      = ((isar0 >> 4) & 0xF) != 0;   // AES: Bits 7:4 in ID_AA64ISAR0_EL1
+    bool sha2                     = ((isar0 >> 12) & 0xF) != 0;  // SHA2: Bits 15:12 in ID_AA64ISAR0_EL1
+    bool crc                      = ((isar0 >> 16) & 0xF) != 0;  // CRC32: Bits 19:16 in ID_AA64ISAR0_EL1
+    [[maybe_unused]] bool sha1    = ((isar0 >> 8) & 0xF) != 0;   // SHA1: Bits 11:8 in ID_AA64ISAR0_EL1
+    [[maybe_unused]] bool atomics = ((isar0 >> 20) & 0xF) != 0;  // Atomic (LSE): Bits 23:20 in ID_AA64ISAR0_EL1
+    [[maybe_unused]] bool dp      = ((isar0 >> 44) & 0xF) != 0;  // Dot product: Bits 47:44 in ID_AA64ISAR0_EL1
+    // clang-format on
+
+#if defined(ISPC_HOST_IS_APPLE)
+    // ARMv8-A
+    bool apple_a7 = neon && fp_armv8 && aes && sha2;
+    bool apple_a10 = apple_a7 && crc;
+    // ARMv8.2-A
+    bool apple_a11 = apple_a10 && atomics && fp16;
+    // ARMv8.3-A
+    bool apple_a12 = apple_a11;
+    // ARMv8.4-A
+    bool apple_a13 = apple_a12 && dp;
+    bool apple_a14 = apple_a13;
+    if (apple_a13 || apple_a14) {
+        return DeviceType::CPU_AppleA13;
+    } else if (apple_a11 || apple_a12) {
+        return DeviceType::CPU_AppleA11;
+    } else if (apple_a10) {
+        return DeviceType::CPU_AppleA10;
+    } else {
+        return DeviceType::CPU_AppleA7;
+    }
+#else
+    // ARMv8-A (cortex-a35, cortex-a53, cortex-a57)
+    [[maybe_unused]] bool a53 = neon && fp_armv8 && aes && sha2 && crc;
+    return DeviceType::CPU_CortexA35;
+#endif // ISPC_HOST_IS_APPLE
+#else
+    // Requested aarch64 on non aarch64 device
+    return DeviceType::CPU_CortexA35;
+#endif // ISPC_HOST_IS_AARCH64
+    /*printf("Detected Features:\n");
+    printf("AES: %s\n", aes ? "Yes" : "No");
+    printf("SHA1: %s\n", sha1 ? "Yes" : "No");
+    printf("SHA2: %s\n", sha2 ? "Yes" : "No");
+    printf("CRC32: %s\n", crc ? "Yes" : "No");
+    printf("Atomics (LSE): %s\n", atomics ? "Yes" : "No");
+    printf("Dot Product (DP): %s\n", dp ? "Yes" : "No");
+    printf("FP16 (half-precision): %s\n", fp16 ? "Yes" : "No");
+    printf("Neon: %s\n", neon ? "Yes" : "No");
+    printf("FP-armv8: %s\n", fp_armv8 ? "Yes" : "No");*/
+}
+#endif
+
+// Format feature striwng for LLVM
+std::string lFormatCPUFeatures(const std::set<std::string> &features) {
+    std::ostringstream oss;
+    bool first = true;
+
+    for (const auto &feature : features) {
+        if (!first) {
+            oss << ","; // Add a comma before subsequent features
+        }
+        oss << "+" << feature; // Prefix each feature with '+'
+        first = false;
+    }
+
+    return oss.str();
+}
 
 class AllCPUs {
   private:
@@ -1746,20 +1852,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
 
 #if defined(ISPC_ARM_ENABLED)
     if ((CPUID == CPU_None) && ISPCTargetIsNeon(m_ispc_target)) {
-        if (arch == Arch::arm) {
-            CPUID = CPU_CortexA9;
-        } else if (arch == Arch::aarch64) {
-            if (g->target_os == TargetOS::ios) {
-                CPUID = CPU_AppleA7;
-            } else if (g->target_os == TargetOS::macos) {
-                // Open source LLVM doesn't has definition for M1 CPU, so use the latest iPhone CPU.
-                CPUID = CPU_AppleA14;
-            } else {
-                CPUID = CPU_CortexA35;
-            }
-        } else {
-            UNREACHABLE();
-        }
+        // Get CPUID using HW feature
+        CPUID = lGetARMDeviceType(arch);
     }
 #endif
 
@@ -1812,27 +1906,27 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         llvm::TargetOptions options;
 #ifdef ISPC_ARM_ENABLED
         options.FloatABIType = llvm::FloatABI::Hard;
+
+        std::string targetFeatures;
+        std::string featuresString;
+
         if (arch == Arch::arm) {
             if (g->target_os == TargetOS::custom_linux) {
-                this->m_funcAttributes.push_back(std::make_pair("target-features", "+crypto,+fp-armv8,+neon,+sha2"));
+                targetFeatures = "+crypto,+fp-armv8,+neon,+sha2";
             } else {
-                if (CPUID != CPU_CortexA9 && CPUID != CPU_CortexA15) {
-                    // fp-armv8 is supported starting cortex-a35
-                    this->m_funcAttributes.push_back(std::make_pair("target-features", "+neon,+fp16,+fp-armv8"));
-                } else {
-                    this->m_funcAttributes.push_back(std::make_pair("target-features", "+neon,+fp16"));
-                }
+                targetFeatures = lFormatCPUFeatures(CPUFeatures[CPUID]);
             }
-            featuresString = "+neon,+fp16";
         } else if (arch == Arch::aarch64) {
             if (g->target_os == TargetOS::custom_linux) {
-                this->m_funcAttributes.push_back(
-                    std::make_pair("target-features", "+aes,+crc,+crypto,+fp-armv8,+neon,+sha2"));
+                targetFeatures = "+aes,+crc,+crypto,+fp-armv8,+neon,+sha2";
             } else {
-                this->m_funcAttributes.push_back(std::make_pair("target-features", "+neon"));
+                targetFeatures = lFormatCPUFeatures(CPUFeatures[CPUID]);
             }
-            featuresString = "+neon";
         }
+
+        // Push the target features to function attributes
+        this->m_funcAttributes.push_back(std::make_pair("target-features", targetFeatures));
+        featuresString = targetFeatures;
 #endif
 
         // Support 'i64' and 'double' types in cm
@@ -1898,7 +1992,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
 
         this->m_is32Bit = (getDataLayout()->getPointerSize() == 4);
 
-        // TO-DO : Revisit addition of "target-features" and "target-cpu" for ARM support.
+        // It's not necessary to specify target-cpu and target-features function attributes
+        // but it's good for debugging purposes and it follows clang behaviour.
         llvm::AttrBuilder *fattrBuilder = new llvm::AttrBuilder(*g->ctx);
 #ifdef ISPC_ARM_ENABLED
         if (m_isa == Target::NEON) {

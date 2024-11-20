@@ -82,9 +82,10 @@ static void __cpuidex(int info[4], int level, int count) {
 #endif // !ISPC_HOST_IS_WINDOWS && __x86_64__
 
 // Description of ARM registers can be found in Arm® Architecture Reference Manual for A-profile architecture
-#if !defined(ISPC_HOST_IS_WINDOWS) && defined(ISPC_HOST_IS_AARCH64)
+// Reading of registries only work on Linux, macOS and Windows are not allowed in user mode and can only be accessed in
+// kernel mode.
+#if defined(ISPC_HOST_IS_LINUX) && defined(ISPC_HOST_IS_AARCH64)
 static void read_id_aa64pfr0(uint64_t *value) { __asm__ __volatile__("mrs %0, ID_AA64PFR0_EL1" : "=r"(*value)); }
-
 static void read_id_aa64isar0(uint64_t *value) { __asm__ __volatile__("mrs %0, ID_AA64ISAR0_EL1" : "=r"(*value)); }
 #endif
 
@@ -450,6 +451,7 @@ std::map<DeviceType, std::set<std::string>> CPUFeatures = {
 };
 
 #if defined(ISPC_HOST_IS_ARM) || defined(ISPC_HOST_IS_AARCH64)
+#if defined(ISPC_HOST_IS_LINUX)
 static DeviceType lGetARMDeviceType(Arch arch) {
     Assert(arch == Arch::arm || arch == Arch::aarch64);
     if (arch == Arch::arm) {
@@ -459,13 +461,12 @@ static DeviceType lGetARMDeviceType(Arch arch) {
         if (g->target_os == TargetOS::ios) {
             return DeviceType::CPU_AppleA7;
         } else if (g->target_os == TargetOS::macos) {
-                // Open source LLVM doesn't has definition for M1 CPU, so use the latest iPhone CPU.
+            // Open source LLVM doesn't has definition for M1 CPU, so use the latest iPhone CPU.
             return DeviceType::CPU_AppleA14;
         } else {
             return DeviceType::CPU_CortexA35;
         }
     }
-    
 #if defined(ISPC_HOST_IS_AARCH64)
     uint64_t pfr0 = 0, isar0 = 0;
 
@@ -485,8 +486,78 @@ static DeviceType lGetARMDeviceType(Arch arch) {
     [[maybe_unused]] bool atomics = ((isar0 >> 20) & 0xF) != 0;  // Atomic (LSE): Bits 23:20 in ID_AA64ISAR0_EL1
     [[maybe_unused]] bool dp      = ((isar0 >> 44) & 0xF) != 0;  // Dot product: Bits 47:44 in ID_AA64ISAR0_EL1
     // clang-format on
+    // ARMv8-A (cortex-a35, cortex-a53, cortex-a57)
+    [[maybe_unused]] bool a53 = neon && fp_armv8 && aes && sha2 && crc;
+    return DeviceType::CPU_CortexA35;
+#else
+    // Requested aarch64 on non aarch64 device
+    return DeviceType::CPU_CortexA35;
+#endif // ISPC_HOST_IS_AARCH64
+}
+#endif // ISPC_HOST_IS_LINUX
 
 #if defined(ISPC_HOST_IS_APPLE)
+#include <sys/sysctl.h>
+static DeviceType lGetARMDeviceType(Arch arch) {
+    uint64_t features = 0;
+
+    // Feature mapping from sysctl
+    static const struct {
+        const char *sysctl_name;
+        const char *feature_name;
+        bool *feature_flag;
+    } feature_checks[] = {
+        {"hw.optional.AdvSIMD", "NEON (ASIMD)", NULL},                // NEON
+        {"hw.optional.arm.FEAT_FP16", "FP16 (half-precision)", NULL}, // FP16
+        {"hw.optional.arm.FEAT_AES", "AES", NULL},                    // AES
+        {"hw.optional.arm.FEAT_SHA256", "SHA2", NULL},                // SHA2
+        {"hw.optional.arm.FEAT_CRC32", "CRC32", NULL},                // CRC32
+        {"hw.optional.arm.FEAT_LSE", "Atomics (LSE)", NULL},          // LSE
+        {"hw.optional.arm.FEAT_DotProd", "Dot Product", NULL},        // Dot Product
+        {"hw.optional.arm.FEAT_SHA1", "SHA1", NULL},                  // SHA1
+    };
+
+    bool neon = false;
+    bool fp16 = false;
+    bool aes = false;
+    bool sha2 = false;
+    bool crc = false;
+    bool atomics = false;
+    bool dp = false;
+    bool sha1 = false;
+
+    // Initialize feature flags
+    feature_checks[0].feature_flag = &neon;
+    feature_checks[1].feature_flag = &fp16;
+    feature_checks[2].feature_flag = &aes;
+    feature_checks[3].feature_flag = &sha2;
+    feature_checks[4].feature_flag = &crc;
+    feature_checks[5].feature_flag = &atomics;
+    feature_checks[6].feature_flag = &dp;
+    feature_checks[7].feature_flag = &sha1;
+
+    // Iterate over features and query their support
+    for (size_t i = 0; i < sizeof(feature_checks) / sizeof(feature_checks[0]); i++) {
+        int result = 0;
+        size_t size = sizeof(result);
+
+        if (sysctlbyname(feature_checks[i].sysctl_name, &result, &size, NULL, 0) == 0 && result != 0) {
+            *(feature_checks[i].feature_flag) = true;
+        } else {
+            *(feature_checks[i].feature_flag) = false;
+        }
+    }
+    // Print detected features
+    printf("Feature Detection on macOS:\n");
+    printf("  NEON (ASIMD): %s\n", neon ? "Supported" : "Not Supported");
+    printf("  FP16 (half-precision): %s\n", fp16 ? "Supported" : "Not Supported");
+    printf("  AES: %s\n", aes ? "Supported" : "Not Supported");
+    printf("  SHA2: %s\n", sha2 ? "Supported" : "Not Supported");
+    printf("  CRC32: %s\n", crc ? "Supported" : "Not Supported");
+    printf("  Atomics (LSE): %s\n", atomics ? "Supported" : "Not Supported");
+    printf("  Dot Product: %s\n", dp ? "Supported" : "Not Supported");
+    printf("  SHA1: %s\n", sha1 ? "Supported" : "Not Supported");
+
     // ARMv8-A
     bool apple_a7 = neon && fp_armv8 && aes && sha2;
     bool apple_a10 = apple_a7 && crc;
@@ -506,27 +577,9 @@ static DeviceType lGetARMDeviceType(Arch arch) {
     } else {
         return DeviceType::CPU_AppleA7;
     }
-#else
-    // ARMv8-A (cortex-a35, cortex-a53, cortex-a57)
-    [[maybe_unused]] bool a53 = neon && fp_armv8 && aes && sha2 && crc;
-    return DeviceType::CPU_CortexA35;
-#endif // ISPC_HOST_IS_APPLE
-#else
-    // Requested aarch64 on non aarch64 device
-    return DeviceType::CPU_CortexA35;
-#endif // ISPC_HOST_IS_AARCH64
-    /*printf("Detected Features:\n");
-    printf("AES: %s\n", aes ? "Yes" : "No");
-    printf("SHA1: %s\n", sha1 ? "Yes" : "No");
-    printf("SHA2: %s\n", sha2 ? "Yes" : "No");
-    printf("CRC32: %s\n", crc ? "Yes" : "No");
-    printf("Atomics (LSE): %s\n", atomics ? "Yes" : "No");
-    printf("Dot Product (DP): %s\n", dp ? "Yes" : "No");
-    printf("FP16 (half-precision): %s\n", fp16 ? "Yes" : "No");
-    printf("Neon: %s\n", neon ? "Yes" : "No");
-    printf("FP-armv8: %s\n", fp_armv8 ? "Yes" : "No");*/
 }
-#endif
+#endif // ISPC_HOST_IS_APPLE
+#endif // defined(ISPC_HOST_IS_ARM) || defined(ISPC_HOST_IS_AARCH64)
 
 // Format feature striwng for LLVM
 std::string lFormatCPUFeatures(const std::set<std::string> &features) {

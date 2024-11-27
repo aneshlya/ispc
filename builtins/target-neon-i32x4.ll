@@ -735,3 +735,33 @@ define <4 x i16> @__psubus_vi16(<4 x i16>, <4 x i16>) {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; rcp/rsqrt declarations for half
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; dot product
+declare <4 x i32> @llvm.aarch64.neon.sdot.v4i32.v16i8(<4 x i32>, <16 x i8>, <16 x i8>) nounwind readnone
+define <4 x i32> @__dot4add_u8i8packed(<4 x i32> %a, <4 x i32> %b, <4 x i32> %acc) nounwind readnone alwaysinline {
+  %a.cast = bitcast <4 x i32> %a to <16 x i8>
+  %b.cast = bitcast <4 x i32> %b to <16 x i8>
+  %ret = call <4 x i32> @llvm.aarch64.neon.sdot.v4i32.v16i8(<4 x i32> %acc, <16 x i8> %a.cast, <16 x i8> %b.cast)
+  ret <4 x i32> %ret
+}
+
+
+define <4 x i32> @__dot4add_u8i8packed_sat(<4 x i32> %a, <4 x i32> %b, <4 x i32> %acc) nounwind readnone alwaysinline {
+  %a.cast = bitcast <4 x i32> %a to <16 x i8>
+  %b.cast = bitcast <4 x i32> %b to <16 x i8> 
+  %ret = call <4 x i32> @llvm.aarch64.neon.sdot.v4i32.v16i8(<4 x i32> %acc, <16 x i8> %a.cast, <16 x i8> %b.cast)
+  ; Create <4 x i32> vectors using shuffles
+  %int32_min_vector = insertelement <4 x i32> undef, i32 -2147483648, i32 0
+  %int32_min = shufflevector <4 x i32> %int32_min_vector, <4 x i32> undef, <4 x i32> <i32 0, i32 0, i32 0, i32 0>
+
+  %int32_max_vector = insertelement <4 x i32> undef, i32 2147483647, i32 0
+  %int32_max = shufflevector <4 x i32> %int32_max_vector, <4 x i32> undef, <4 x i32> <i32 0, i32 0, i32 0, i32 0>
+  ; Step 1: Compare %ret with %int32_min and %int32_max
+  %less_than_min = icmp slt <4 x i32> %ret, %int32_min    ; Compare if %ret < %int32_min
+  %greater_than_max = icmp sgt <4 x i32> %ret, %int32_max ; Compare if %ret > %int32_max
+  %saturated_min = select <4 x i1> %less_than_min, <4 x i32> %int32_min, <4 x i32> %ret ; Clamp to min
+  %saturated_result = select <4 x i1> %greater_than_max, <4 x i32> %int32_max, <4 x i32> %saturated_min ; Clamp to max
+
+  
+  ret <4 x i32> %saturated_result
+}

@@ -1626,6 +1626,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         // We nned to defferentiate ARM target with and without float16 support.
         this->m_maskingIsFree = (arch == Arch::aarch64);
         this->m_maskBitCount = 32;
+        this->m_hasDotProductVNNI = true;
         break;
     case ISPCTarget::neon_i32x8:
         this->m_isa = Target::NEON;
@@ -2012,6 +2013,8 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         options.FloatABIType = llvm::FloatABI::Hard;
         if (arch == Arch::arm || arch == Arch::aarch64) {
             featuresString = lGetARMTargetFeatures(arch, m_cpu);
+            // Update features here
+            featuresString += ",+dotprod";
             this->m_funcAttributes.push_back(std::make_pair("target-features", featuresString));
         }
 #endif

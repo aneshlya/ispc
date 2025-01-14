@@ -115,6 +115,7 @@ std::pair<std::vector<ISPCTarget>, std::string> ParseISPCTargets(const char *tar
 std::string ISPCTargetToString(ISPCTarget target);
 bool ISPCTargetIsX86(ISPCTarget target);
 bool ISPCTargetIsNeon(ISPCTarget target);
+bool ISPCTargetIsSVE(ISPCTarget target);
 bool ISPCTargetIsWasm(ISPCTarget target);
 bool ISPCTargetIsGen(ISPCTarget target);
 bool ISPCTargetIsGeneric(ISPCTarget target);

@@ -32,8 +32,8 @@ static bool lIsSafeToBlend(llvm::Value *lvalue) {
             while ((at = llvm::dyn_cast<llvm::ArrayType>(type))) {
                 type = at->getElementType();
             }
-            llvm::FixedVectorType *vt = llvm::dyn_cast<llvm::FixedVectorType>(type);
-            return (vt != nullptr && (int)vt->getNumElements() == g->target->getVectorWidth());
+            llvm::VectorType *vt = llvm::dyn_cast<llvm::VectorType>(type);
+            return (vt != nullptr && (int)vt->getElementCount().getKnownMinValue() == g->target->getVectorWidth());
         } else {
             llvm::GetElementPtrInst *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(lvalue);
             if (gep != nullptr) {

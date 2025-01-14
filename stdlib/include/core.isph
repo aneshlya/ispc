@@ -61,7 +61,7 @@ static const uniform int32 programCount = TARGET_WIDTH;
 #error Unknown value of TARGET_WIDTH
 #endif
 
-static const int32 programIndex = {PROGRAM_INDEX_INITIALIZER};
+//static const int32 programIndex; //{PROGRAM_INDEX_INITIALIZER};
 
 #ifdef ISPC_FAST_MASKED_VLOAD
 #define ISPC_FAST_MASKED_VLOAD_VAL 1

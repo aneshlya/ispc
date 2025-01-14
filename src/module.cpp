@@ -277,6 +277,16 @@ Module::Module(const char *fn) : filename(fn) {
     // LLVM is transitioning to new debug info representation, use "old" style for now.
     module->setIsNewDbgInfoFormat(false);
 #endif
+    auto ScalableVectorType = LLVMTypes::Int32VectorType;
+    llvm::GlobalVariable *ProgramIndex = new llvm::GlobalVariable(
+        *module,                               // Module
+        ScalableVectorType,              // Type
+        false,                           // Is constant
+        llvm::GlobalValue::ExternalLinkage,    // Linkage
+        llvm::ConstantAggregateZero::get(ScalableVectorType), // Initializer
+        "programIndex"
+        
+    );
 
     // Version strings.
     // Have ISPC details and LLVM details as two separate strings attached to !llvm.ident.
@@ -588,6 +598,7 @@ Expr *lConvertExprListToConstExpr(Expr *initExpr, const Type *type, const std::s
 
 void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
     const std::string &name = decl->name;
+    std::cout << name << std::endl;
     const Type *type = decl->type;
     Expr *initExpr = decl->initExpr;
     StorageClass storageClass = decl->storageClass;
@@ -654,6 +665,7 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
         return;
     }
 
+    llvmType->print(llvm::errs());
     // See if we have an initializer expression for the global.  If so,
     // make sure it's a compile-time constant!
     llvm::Constant *llvmInitializer = nullptr;
@@ -731,7 +743,7 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
             llvmInitializer = llvm::Constant::getNullValue(llvmType);
         }
     }
-
+    llvmInitializer->print(llvm::errs());
     Symbol *sym = symbolTable->LookupVariable(name.c_str());
     llvm::GlobalVariable *oldGV = nullptr;
     if (sym != nullptr) {

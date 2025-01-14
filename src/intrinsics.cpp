@@ -21,7 +21,7 @@
 #include <llvm/GenXIntrinsics/GenXIntrinsics.h>
 #endif
 #include <llvm/Target/TargetIntrinsicInfo.h>
-
+#include <llvm/IR/IntrinsicsAArch64.h>
 using namespace ispc;
 
 using IITDesc = llvm::Intrinsic::IITDescriptor;
@@ -544,7 +544,10 @@ static std::vector<llvm::Type *> lDeductArgTypes(llvm::Module *module, llvm::Int
     std::vector<llvm::Type *> exprType;
     if (llvm::Intrinsic::isOverloaded(ID)) {
         Assert(args);
-
+        if (ID == llvm::Intrinsic::aarch64_sve_index) {
+                exprType.push_back(llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 4));
+                return exprType;
+        }
         std::vector<unsigned> nInits;
         lGetOverloadedArgumentIndices(ID, nInits, pos);
 

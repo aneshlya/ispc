@@ -791,8 +791,14 @@ void ispc::InitSymbol(AddressInfo *ptrInfo, const Type *symType, Expr *initExpr,
                     // i32 6, i32 3>
 
                     // Our final vector which will be used for initialization
-                    llvm::Value *initListVector = llvm::UndefValue::get(
-                        llvm::FixedVectorType::get(symVectorType->GetElementType()->LLVMType(g->ctx), nVectorElements));
+                    llvm::Value *initListVector = nullptr;
+                    if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                        initListVector = llvm::UndefValue::get(
+                            llvm::ScalableVectorType::get(symVectorType->GetElementType()->LLVMType(g->ctx), nVectorElements));
+                    } else {
+                        initListVector = llvm::UndefValue::get(
+                            llvm::FixedVectorType::get(symVectorType->GetElementType()->LLVMType(g->ctx), nVectorElements));
+                    }
                     for (const auto &[type, expr_map] : exprPerType) {
                         // There is no good way to construct AtomicType from AtomicType::BasicType,
                         // just use the first one
@@ -806,8 +812,14 @@ void ispc::InitSymbol(AddressInfo *ptrInfo, const Type *symType, Expr *initExpr,
                             // Construct ISPC vector type for resulting "initializer" vector for this type
                             const VectorType *vResType = new VectorType(aType, nVectorElements);
                             // Resulting LLVM vector for this type
-                            llvm::Value *initListVectorPerType = llvm::UndefValue::get(
-                                llvm::FixedVectorType::get(aType->LLVMType(g->ctx), nVectorElements));
+                            llvm::Value *initListVectorPerType = nullptr;
+                            if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                                initListVector = llvm::UndefValue::get(
+                                    llvm::ScalableVectorType::get(aType->LLVMType(g->ctx), nVectorElements));
+                            } else {
+                                initListVector = llvm::UndefValue::get(
+                                    llvm::FixedVectorType::get(aType->LLVMType(g->ctx), nVectorElements));
+                            }
                             // Create a linear vector that will be used as a shuffle mask for
                             // shufflevector with initListVector.
                             std::vector<uint32_t> linearVector(nVectorElements);
@@ -1018,10 +1030,10 @@ static llvm::Constant *lLLVMConstantValue(const Type *type, llvm::LLVMContext *c
         // LLVM ArrayTypes leaks into the code here; it feels like this detail
         // should be better encapsulated?
         if (baseType->IsUniformType()) {
-            llvm::FixedVectorType *lvt = llvm::dyn_cast<llvm::FixedVectorType>(llvmVectorType);
+            llvm::VectorType *lvt = llvm::dyn_cast<llvm::VectorType>(llvmVectorType);
             Assert(lvt != nullptr);
             std::vector<llvm::Constant *> vals;
-            for (unsigned int i = 0; i < lvt->getNumElements(); ++i) {
+            for (unsigned int i = 0; i < lvt->getElementCount().getKnownMinValue(); ++i) {
                 vals.push_back(constElement);
             }
             return llvm::ConstantVector::get(vals);

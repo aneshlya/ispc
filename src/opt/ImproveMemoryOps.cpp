@@ -175,7 +175,7 @@ static llvm::Value *lGetBasePtrAndOffsets(llvm::Value *ptrs, llvm::Value **offse
                 llvm::Instruction *shuffle_offset = nullptr;
                 if (cv != nullptr) {
                     llvm::Value *zeroMask = llvm::ConstantVector::getSplat(
-                        llvm::ElementCount::get(llvm::dyn_cast<llvm::FixedVectorType>(cv->getType())->getNumElements(),
+                        llvm::ElementCount::get(llvm::dyn_cast<llvm::VectorType>(cv->getType())->getElementCount().getKnownMinValue(),
                                                 false),
                         llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*g->ctx)));
                     // Create offset
@@ -188,12 +188,12 @@ static llvm::Value *lGetBasePtrAndOffsets(llvm::Value *ptrs, llvm::Value **offse
                     // %offsets = add <16 x i32> %another_bop, %base
                     bop_var = llvm::dyn_cast<llvm::BinaryOperator>(bop_var->getOperand(0));
                     if (bop_var != nullptr) {
-                        llvm::FixedVectorType *bop_var_type = llvm::dyn_cast<llvm::FixedVectorType>(bop_var->getType());
+                        llvm::VectorType *bop_var_type = llvm::dyn_cast<llvm::VectorType>(bop_var->getType());
                         if (!bop_var_type) {
                             return nullptr;
                         }
                         llvm::Value *zeroMask = llvm::ConstantVector::getSplat(
-                            llvm::ElementCount::get(bop_var_type->getNumElements(), false),
+                            llvm::ElementCount::get(bop_var_type->getElementCount().getKnownMinValue(), false),
                             llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*g->ctx)));
                         shuffle_offset = new llvm::ShuffleVectorInst(bop_var, llvm::UndefValue::get(bop_var_type),
                                                                      zeroMask, "shuffle");
@@ -1405,7 +1405,7 @@ static llvm::Instruction *lGSToLoadStore(llvm::CallInst *callInst) {
                 llvm::InsertElementInst::Create(undef1Value, scalarValue, LLVMInt32(0), callInst->getName(),
                                                 ISPC_INSERTION_POINT_INSTRUCTION(callInst));
             llvm::Value *zeroMask = llvm::ConstantVector::getSplat(
-                llvm::ElementCount::get(llvm::dyn_cast<llvm::FixedVectorType>(callInst->getType())->getNumElements(),
+                llvm::ElementCount::get(llvm::dyn_cast<llvm::VectorType>(callInst->getType())->getElementCount().getKnownMinValue(),
                                         false),
                 llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*g->ctx)));
             llvm::Instruction *shufInst =

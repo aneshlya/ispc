@@ -16,8 +16,8 @@ static std::string mangleMathOCLBuiltin(const llvm::Function &func) {
     std::string mangledName;
     llvm::Type *retType = func.getReturnType();
     // spirv OpenCL builtins are used for half/float/double types only
-    llvm::Type *retElementType = (retType->isVectorTy() && llvm::isa<llvm::FixedVectorType>(retType))
-                                     ? llvm::dyn_cast<llvm::FixedVectorType>(retType)->getElementType()
+    llvm::Type *retElementType = (retType->isVectorTy() && llvm::isa<llvm::VectorType>(retType))
+                                     ? llvm::dyn_cast<llvm::VectorType>(retType)->getElementType()
                                      : retType;
     Assert(retElementType->isHalfTy() || retElementType->isFloatTy() || retElementType->isDoubleTy());
 

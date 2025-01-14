@@ -719,6 +719,10 @@ bool ISPCTargetIsNeon(ISPCTarget target) {
     }
 }
 
+bool ISPCTargetIsSVE(ISPCTarget target) {
+    return true;
+}
+
 bool ISPCTargetIsWasm(ISPCTarget target) {
     switch (target) {
     case ISPCTarget::wasm_i32x4:

@@ -1953,7 +1953,11 @@ static llvm::Type *lGetVectorLLVMType(llvm::LLVMContext *ctx, const VectorType *
         // them out into machine vector registers for the specified target
         // so that e.g. if we want to add two uniform 4 float
         // vectors, that is turned into a single addps on SSE.
-        return LLVMVECTOR::get(bt, vType->getVectorMemoryCount());
+        if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+            return llvm::ScalableVectorType::get(bt, vType->getVectorMemoryCount());
+        } else {
+            return LLVMVECTOR::get(bt, vType->getVectorMemoryCount());
+        }
     } else if (base->IsVaryingType()) {
         // varying types are already laid out to fill HW vector registers,
         // so a vector type here is just expanded out as an llvm array.

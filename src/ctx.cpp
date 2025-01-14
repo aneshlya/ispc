@@ -24,6 +24,7 @@
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/IntrinsicsAArch64.h>
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
 
@@ -235,6 +236,13 @@ FunctionEmitContext::FunctionEmitContext(const Function *func, Symbol *funSym, l
     llvm::BranchInst::Create(bblock, allocaBlock);
 
     funcStartPos = funSym->pos;
+    llvm::Value *PI = ProgramIndexVector();
+    llvm::Value *ProgramIndex = m->module->getGlobalVariable("programIndex");
+    if (!ProgramIndex) {
+        // TODO
+    }
+    StoreInst(PI, new AddressInfo(ProgramIndex, ProgramIndex->getType()));
+
 
     internalMaskAddressInfo = AllocaInst(LLVMTypes::MaskType, "internal_mask_memory");
     StoreInst(LLVMMaskAllOn, internalMaskAddressInfo);
@@ -1453,8 +1461,18 @@ llvm::Value *FunctionEmitContext::ProgramIndexVector(bool is32bits) {
     }
 
     llvm::Constant *index = llvm::ConstantVector::get(array);
-
-    return index;
+    if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+        llvm::Function* indexIntrinsic = llvm::Intrinsic::getDeclaration(
+            m->module,
+            llvm::Intrinsic::aarch64_sve_index,
+            LLVMTypes::Int32VectorType);
+        std::vector<llvm::Value *> args;
+        args.push_back(LLVMInt32(0));
+        args.push_back(LLVMInt32(1));
+        return CallInst(indexIntrinsic, nullptr, args, "index_vector");
+    } else {
+        return index;
+    }
 }
 
 llvm::Value *FunctionEmitContext::GetStringPtr(const std::string &str) {
@@ -1647,8 +1665,8 @@ static int lArrayVectorWidth(llvm::Type *t) {
 
     // We shouldn't be seeing arrays of anything but vectors being passed
     // to things like FunctionEmitContext::BinaryOperator() as operands.
-    llvm::FixedVectorType *vectorElementType = llvm::dyn_cast<llvm::FixedVectorType>(arrayType->getElementType());
-    Assert((vectorElementType != nullptr && (int)vectorElementType->getNumElements() == g->target->getVectorWidth()));
+    llvm::VectorType *vectorElementType = llvm::dyn_cast<llvm::VectorType>(arrayType->getElementType());
+    Assert((vectorElementType != nullptr && (int)vectorElementType->getElementCount().getKnownMinValue() == g->target->getVectorWidth()));
 
     return (int)arrayType->getNumElements();
 }
@@ -1750,11 +1768,15 @@ static llvm::Type *lGetMatchingBoolVectorType(llvm::Type *type) {
     llvm::ArrayType *arrayType = llvm::dyn_cast<llvm::ArrayType>(type);
     Assert(arrayType != nullptr);
 
-    llvm::FixedVectorType *vectorElementType = llvm::dyn_cast<llvm::FixedVectorType>(arrayType->getElementType());
+    llvm::VectorType *vectorElementType = llvm::dyn_cast<llvm::VectorType>(arrayType->getElementType());
     Assert(vectorElementType != nullptr);
-    Assert((int)vectorElementType->getNumElements() == g->target->getVectorWidth());
-
-    llvm::Type *base = LLVMVECTOR::get(LLVMTypes::BoolType, g->target->getVectorWidth());
+    Assert((int)vectorElementType->getElementCount().getKnownMinValue() == g->target->getVectorWidth());
+    llvm::Type *base = nullptr;
+    if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+        base = llvm::ScalableVectorType::get(LLVMTypes::BoolType, g->target->getVectorWidth());
+    } else {
+        base = LLVMVECTOR::get(LLVMTypes::BoolType, g->target->getVectorWidth());
+    }
     return llvm::ArrayType::get(base, arrayType->getNumElements());
 }
 
@@ -1804,7 +1826,11 @@ llvm::Value *FunctionEmitContext::SmearUniform(llvm::Value *value, const llvm::T
     } else {
         // All other varying types are represented as vectors of the
         // underlying type.
-        vecType = LLVMVECTOR::get(eltType, g->target->getVectorWidth());
+        if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+            vecType = llvm::ScalableVectorType::get(eltType, g->target->getVectorWidth());
+        } else {
+            vecType = LLVMVECTOR::get(eltType, g->target->getVectorWidth());
+        }
     }
 
     // Check for a constant case.
@@ -2390,9 +2416,14 @@ llvm::Value *FunctionEmitContext::lSwitchBoolSize_2(llvm::Value *value, llvm::Ty
     // 2) zero or sign extend from native bool types to storage or internal correspondingly.
     llvm::Value *i1Bool = value;
     llvm::Twine newName = name.isTriviallyEmpty() ? (llvm::Twine(value->getName()) + "_toi1") : name;
-    if (llvm::dyn_cast<llvm::FixedVectorType>(fromType)) {
-        llvm::VectorType *i1VecType = LLVMVECTOR::get(
-            llvm::Type::getInt1Ty(*g->ctx), llvm::dyn_cast<llvm::FixedVectorType>(fromType)->getNumElements());
+    if (llvm::dyn_cast<llvm::VectorType>(fromType)) {
+        llvm::VectorType *i1VecType = nullptr;
+        unsigned width = llvm::dyn_cast<llvm::VectorType>(fromType)->getElementCount().getKnownMinValue();
+        if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+            i1VecType = llvm::ScalableVectorType::get(llvm::Type::getInt1Ty(*g->ctx), width);
+        } else {
+            i1VecType = LLVMVECTOR::get(llvm::Type::getInt1Ty(*g->ctx), width);
+        }
         // trunc only if needed
         if (fromType != i1VecType) {
             i1Bool = TruncInst(value, i1VecType, newName);
@@ -3380,7 +3411,7 @@ llvm::Value *FunctionEmitContext::BroadcastValue(llvm::Value *v, llvm::Type *vec
         return nullptr;
     }
 
-    llvm::FixedVectorType *ty = llvm::dyn_cast<llvm::FixedVectorType>(vecType);
+    llvm::VectorType *ty = llvm::dyn_cast<llvm::VectorType>(vecType);
     Assert(ty && ty->getElementType() == v->getType());
 
     // Generate the following sequence:
@@ -3397,7 +3428,7 @@ llvm::Value *FunctionEmitContext::BroadcastValue(llvm::Value *v, llvm::Type *vec
 
     // ShuffleVector
     llvm::Constant *zeroVec =
-        llvm::ConstantVector::getSplat(llvm::ElementCount::get(static_cast<unsigned int>(ty->getNumElements()), false),
+        llvm::ConstantVector::getSplat(llvm::ElementCount::get(static_cast<unsigned int>(ty->getElementCount().getKnownMinValue()), false),
                                        llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*g->ctx)));
     llvm::Value *ret = ShuffleInst(insert, undef2, zeroVec,
                                    name.isTriviallyEmpty() ? (llvm::Twine(v->getName()) + "_broadcast") : name);
@@ -3989,11 +4020,11 @@ llvm::Value *FunctionEmitContext::XeSimdCFAny(llvm::Value *value) {
 }
 
 llvm::Value *FunctionEmitContext::XeSimdCFPredicate(llvm::Value *value, llvm::Value *defaults) {
-    AssertPos(currentPos, llvm::isa<llvm::FixedVectorType>(value->getType()));
-    llvm::FixedVectorType *vt = llvm::dyn_cast<llvm::FixedVectorType>(value->getType());
+    AssertPos(currentPos, llvm::isa<llvm::VectorType>(value->getType()));
+    llvm::VectorType *vt = llvm::dyn_cast<llvm::VectorType>(value->getType());
     if (defaults == nullptr) {
         defaults = llvm::ConstantVector::getSplat(
-            llvm::ElementCount::get(static_cast<unsigned int>(vt->getNumElements()), false),
+            llvm::ElementCount::get(static_cast<unsigned int>(vt->getElementsCount().getKnownMinValue()), false),
             llvm::Constant::getNullValue(vt->getElementType()));
     }
 

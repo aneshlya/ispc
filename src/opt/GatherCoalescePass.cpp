@@ -311,7 +311,12 @@ static void lEmitLoads(llvm::Value *basePtr, llvm::Type *baseType, std::vector<C
             if (g->opt.forceAlignedMemory) {
                 align = g->target->getNativeVectorAlignment();
             }
-            llvm::VectorType *vt = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+            llvm::VectorType *vt = nullptr;
+            if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                vt = llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 4);
+            } else {
+                vt = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+            }
             loadOps[i].load = lGEPAndLoad(basePtr, baseType, start, align, insertBefore, vt);
             break;
         }
@@ -320,7 +325,12 @@ static void lEmitLoads(llvm::Value *basePtr, llvm::Type *baseType, std::vector<C
             if (g->opt.forceAlignedMemory) {
                 align = g->target->getNativeVectorAlignment();
             }
-            llvm::VectorType *vt = LLVMVECTOR::get(LLVMTypes::Int32Type, 8);
+            llvm::VectorType *vt = nullptr;
+            if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                vt = llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 8);
+            } else {
+                vt = LLVMVECTOR::get(LLVMTypes::Int32Type, 8);
+            }
             loadOps[i].load = lGEPAndLoad(basePtr, baseType, start, align, insertBefore, vt);
             break;
         }
@@ -400,7 +410,12 @@ static llvm::Value *lApplyLoad2(llvm::Value *result, const CoalescedLoadOp &load
             Assert(set[elt] == false && ((elt < 3) && set[elt + 1] == false));
 
             // In this case, we bitcast from a 4xi32 to a 2xi64 vector
-            llvm::Type *vec2x64Type = LLVMVECTOR::get(LLVMTypes::Int64Type, 2);
+            llvm::Type *vec2x64Type = nullptr;
+            if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                vec2x64Type = llvm::ScalableVectorType::get(LLVMTypes::Int64Type, 2);
+            } else {
+                vec2x64Type = LLVMVECTOR::get(LLVMTypes::Int64Type, 2);
+            }
             result =
                 new llvm::BitCastInst(result, vec2x64Type, "to2x64", ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
 
@@ -410,7 +425,12 @@ static llvm::Value *lApplyLoad2(llvm::Value *result, const CoalescedLoadOp &load
                                                      ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
 
             // And back to 4xi32.
-            llvm::Type *vec4x32Type = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+            llvm::Type *vec4x32Type = nullptr;
+            if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+                vec4x32Type = llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 4);
+            } else {
+                vec4x32Type = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+            }
             result =
                 new llvm::BitCastInst(result, vec4x32Type, "to4x32", ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
 
@@ -488,7 +508,12 @@ static llvm::Value *lApplyLoad4(llvm::Value *result, const CoalescedLoadOp &load
 */
 static llvm::Value *lAssemble4Vector(const std::vector<CoalescedLoadOp> &loadOps, const int64_t offsets[4],
                                      llvm::Instruction *insertBefore) {
-    llvm::Type *returnType = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+    llvm::Type *returnType = nullptr;
+    if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+        returnType = llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 4);
+    } else {
+        returnType = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+    }
     llvm::Value *result = llvm::UndefValue::get(returnType);
 
     Debug(SourcePos(), "Starting search for loads [%" PRId64 " %" PRId64 " %" PRId64 " %" PRId64 "].", offsets[0],
@@ -617,7 +642,12 @@ static llvm::Value *lApplyLoad12s(llvm::Value *result, const std::vector<Coalesc
 */
 static llvm::Value *lAssemble4Vector(const std::vector<CoalescedLoadOp> &loadOps, const int64_t offsets[4],
                                      llvm::Instruction *insertBefore) {
-    llvm::Type *returnType = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+    llvm::Type *returnType = nullptr;
+    if (ISPCTargetIsSVE(g->target->getISPCTarget())) {
+        returnType = llvm::ScalableVectorType::get(LLVMTypes::Int32Type, 4);
+    } else {
+        returnType = LLVMVECTOR::get(LLVMTypes::Int32Type, 4);
+    }
     llvm::Value *result = llvm::UndefValue::get(returnType);
 
     Debug(SourcePos(), "Starting search for loads [%" PRId64 " %" PRId64 " %" PRId64 " %" PRId64 "].", offsets[0],

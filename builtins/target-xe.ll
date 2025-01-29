@@ -365,12 +365,12 @@ declare <16 x i16> @llvm.genx.wrregioni.XE_SUFFIXN(i16, 16).XE_SUFFIXN(i16,8).i1
 
 declare i32 @llvm.genx.cbit.i32 (i32)
 
-define i32 @__popcnt_int32(i32) nounwind readonly alwaysinline {
+define i32 @__popcnt_uniform_int32(i32) nounwind readonly alwaysinline {
   %c = call i32 @llvm.genx.cbit.i32 (i32 %0)
   ret i32 %c
 }
 
-define i64 @__popcnt_int64(i64) nounwind readonly alwaysinline {
+define i64 @__popcnt_uniform_int64(i64) nounwind readonly alwaysinline {
   %lo = trunc i64 %0 to i32
   %hi.init = lshr i64 %0, 32
   %hi = trunc i64 %hi.init to i32

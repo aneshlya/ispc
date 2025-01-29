@@ -2560,6 +2560,8 @@ define(`popcnt', `
 
 declare i32 @llvm.ctpop.i32(i32) nounwind readnone
 declare i64 @llvm.ctpop.i64(i64) nounwind readnone
+declare <WIDTH x i32> @llvm.ctpop.TYPE_SUFFIX(i32)(<WIDTH x i32>) nounwind readnone
+declare <WIDTH x i64> @llvm.ctpop.TYPE_SUFFIX(i64)(<WIDTH x i64>) nounwind readnone
 
 define i32 @__popcnt_uniform_int32(i32) nounwind readonly alwaysinline {
   %call = call i32 @llvm.ctpop.i32(i32 %0)
@@ -2569,6 +2571,16 @@ define i32 @__popcnt_uniform_int32(i32) nounwind readonly alwaysinline {
 define i64 @__popcnt_uniform_int64(i64) nounwind readonly alwaysinline {
   %call = call i64 @llvm.ctpop.i64(i64 %0)
   ret i64 %call
+}
+
+define <WIDTH x i32> @__popcnt_varying_int32(<WIDTH x i32>) nounwind readonly alwaysinline {
+  %call = call <WIDTH x i32> @llvm.ctpop.TYPE_SUFFIX(i32)(<WIDTH x i32> %0)
+  ret <WIDTH x i32> %call
+}
+
+define <WIDTH x i64> @__popcnt_varying_int64(<WIDTH x i64>) nounwind readonly alwaysinline {
+  %call = call <WIDTH x i64> @llvm.ctpop.TYPE_SUFFIX(i64)(<WIDTH x i64> %0)
+  ret <WIDTH x i64> %call
 }
 ')
 

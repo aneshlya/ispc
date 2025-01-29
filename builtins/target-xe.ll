@@ -1,4 +1,4 @@
-;;  Copyright (c) 2019-2024, Intel Corporation
+;;  Copyright (c) 2019-2025, Intel Corporation
 ;;
 ;;  SPDX-License-Identifier: BSD-3-Clause
 
@@ -364,6 +364,7 @@ declare <16 x i16> @llvm.genx.wrregioni.XE_SUFFIXN(i16, 16).XE_SUFFIXN(i16,8).i1
 ;; horizontal ops / reductions
 
 declare i32 @llvm.genx.cbit.i32 (i32)
+declare <WIDTH x i32> @llvm.genx.cbit.XE_SUFFIX(i32)(<WIDTH x i32>)
 
 define i32 @__popcnt_uniform_int32(i32) nounwind readonly alwaysinline {
   %c = call i32 @llvm.genx.cbit.i32 (i32 %0)
@@ -379,6 +380,22 @@ define i64 @__popcnt_uniform_int64(i64) nounwind readonly alwaysinline {
   %res.32 = add i32 %lo.cbit, %hi.cbit
   %res = zext i32 %res.32 to i64
   ret i64 %res
+}
+
+define <WIDTH x i32> @__popcnt_varying_int32(<WIDTH x i32>) nounwind readonly alwaysinline {
+  %c = call <WIDTH x i32> @llvm.genx.cbit.XE_SUFFIX(i32)(<WIDTH x i32> %0)
+  ret <WIDTH x i32> %c
+}
+
+define <WIDTH x i64> @__popcnt_varying_int64(<WIDTH x i64>) nounwind readonly alwaysinline {
+  %lo = trunc <WIDTH x i64> %0 to <WIDTH x i32>
+  %hi.init = lshr <WIDTH x i64> %0, CONSTANT_VECTOR(i64, 32)
+  %hi = trunc <WIDTH x i64> %hi.init to <WIDTH x i32>
+  %lo.cbit = call <WIDTH x i32> @llvm.genx.cbit.XE_SUFFIX(i32)(<WIDTH x i32> %lo)
+  %hi.cbit = call <WIDTH x i32> @llvm.genx.cbit.XE_SUFFIX(i32)(<WIDTH x i32> %hi)
+  %res.32 = add <WIDTH x i32> %lo.cbit, %hi.cbit
+  %res = zext <WIDTH x i32> %res.32 to <WIDTH x i64>
+  ret <WIDTH x i64> %res
 }
 
 declare i64 @__spirv_BuiltInWorkgroupId(i32 %dim)

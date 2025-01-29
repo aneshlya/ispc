@@ -299,16 +299,12 @@ __declspec(safe) static inline uniform int32 popcnt(uniform int32 v) { return __
 __declspec(safe) static inline uniform int popcnt(uniform int64 v) { return (int32)__popcnt_uniform_int64(v); }
 
 __declspec(safe) static inline int popcnt(int v) {
-    int r;
-    for (uniform int i = 0; i < programCount; ++i)
-        r = insert(r, i, popcnt(extract(v, i)));
+    int r = __popcnt_varying_int32(v);
     return __mask ? r : 0;
 }
 
 __declspec(safe) static inline int popcnt(int64 v) {
-    int r;
-    for (uniform int i = 0; i < programCount; ++i)
-        r = insert(r, i, popcnt(extract(v, i)));
+    int r = __popcnt_varying_int64(v);;
     return __mask ? r : 0;
 }
 

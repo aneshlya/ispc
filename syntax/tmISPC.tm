@@ -1,0 +1,248 @@
+{
+    "name": "ISPC",
+    "scopeName": "source.ispc",
+    "fileTypes": ["ispc", "isph"],
+    "patterns": [
+        {
+            "include": "#preprocessor"
+        },
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#numbers"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#intrinsics"
+        },
+        {
+            "include": "#pragmas"
+        },
+        {
+            "include": "#functions"
+        },
+        {
+            "include": "#identifiers"
+        }
+    ],
+    "repository": {
+        "preprocessor": {
+            "patterns": [
+                {
+                    "name": "meta.preprocessor.ispc",
+                    "begin": "^\\s*#\\s*(include|define|undef|if|ifdef|ifndef|else|elif|endif|line|error|warning)",
+                    "beginCaptures": {
+                        "0": { "name": "keyword.control.import.ispc" }
+                    },
+                    "end": "(?=(?://|/\\*))|$",
+                    "patterns": [
+                        {
+                            "include": "#comments"
+                        },
+                        {
+                            "include": "#strings"
+                        }
+                    ]
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.block.ispc",
+                    "begin": "/\\*",
+                    "end": "\\*/",
+                    "captures": {
+                        "0": { "name": "punctuation.definition.comment.ispc" }
+                    }
+                },
+                {
+                    "name": "comment.line.double-slash.ispc",
+                    "begin": "//",
+                    "end": "$",
+                    "captures": {
+                        "0": { "name": "punctuation.definition.comment.ispc" }
+                    }
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.ispc",
+                    "begin": "L?\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.ispc",
+                            "match": "\\\\(['\"?\\\\abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]+)"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.ispc",
+                    "begin": "'",
+                    "end": "'",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.ispc",
+                            "match": "\\\\(['\"?\\\\abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]+)"
+                        }
+                    ]
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.hexadecimal.ispc",
+                    "match": "\\b0[xX][0-9a-fA-F]+([uUlL]*[kMG]?[uUlL]*|\\.\\.\\.)?\\b"
+                },
+                {
+                    "name": "constant.numeric.binary.ispc",
+                    "match": "\\b0b[01]+([uUlL]*[kMG]?[uUlL]*|\\.\\.\\.)?\\b"
+                },
+                {
+                    "name": "constant.numeric.float.hexadecimal.ispc",
+                    "match": "\\b0[xX][01](\\.[0-9a-fA-F]*)?[pP][-+]?[0-9]+([dDfF]|[fF]16)?\\b"
+                },
+                {
+                    "name": "constant.numeric.float.decimal.ispc",
+                    "match": "\\b([0-9]+\\.[0-9]*|\\.[0-9]+)([dD]|[fF]|[fF]16)?\\b"
+                },
+                {
+                    "name": "constant.numeric.float.scientific.ispc",
+                    "match": "\\b([0-9]+|(([0-9]+\\.[0-9]*)|\\.[0-9]+))([eE][-+]?[0-9]+)([dD]|[fF]|[fF]16)?\\b"
+                },
+                {
+                    "name": "constant.numeric.integer.decimal.ispc",
+                    "match": "\\b[0-9]+([uUlL]*[kMG]?[uUlL]*|\\.\\.\\.)?\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.ispc",
+                    "match": "\\b(assert|break|case|cdo|cfor|cif|cwhile|continue|default|do|else|for|foreach|foreach_active|foreach_tiled|foreach_unique|goto|if|in|return|switch|sync|task|while|launch|invoke_sycl)\\b"
+                },
+                {
+                    "name": "keyword.operator.ispc",
+                    "match": "\\b(delete|new|sizeof|alloca|print)\\b"
+                },
+                {
+                    "name": "storage.type.ispc",
+                    "match": "\\b(bool|double|float|float16|int|uint|int8|uint8|int16|uint16|int32|uint32|int64|uint64|void|struct|enum)\\b"
+                },
+                {
+                    "name": "storage.modifier.ispc",
+                    "match": "\\b(const|extern|inline|noinline|static|uniform|unmasked|varying|template|typedef|typename|export|signed|unsigned|soa|__vectorcall|__regcall|__attribute__|volatile)\\b"
+                },
+                {
+                    "name": "constant.language.ispc",
+                    "match": "\\b(true|false|NULL)\\b"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.arithmetic.ispc",
+                    "match": "[+\\-*/%]|\\+\\+|\\-\\-"
+                },
+                {
+                    "name": "keyword.operator.comparison.ispc",
+                    "match": "==|!=|<=|>=|<|>"
+                },
+                {
+                    "name": "keyword.operator.logical.ispc",
+                    "match": "&&|\\|\\||!"
+                },
+                {
+                    "name": "keyword.operator.bitwise.ispc",
+                    "match": "&|\\||\\^|~|<<|>>"
+                },
+                {
+                    "name": "keyword.operator.assignment.ispc",
+                    "match": "=|\\+=|\\-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>="
+                },
+                {
+                    "name": "keyword.operator.other.ispc",
+                    "match": "\\->|\\.|::|\\?"
+                }
+            ]
+        },
+        "intrinsics": {
+            "name": "support.function.intrinsic.ispc",
+            "match": "@llvm\\.[a-zA-Z_0-9]*"
+        },
+        "pragmas": {
+            "patterns": [
+                {
+                    "name": "meta.preprocessor.pragma.ispc",
+                    "begin": "#\\s*pragma\\s+",
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "name": "keyword.control.pragma.ispc",
+                            "match": "\\b(unroll|nounroll|ignore\\s+warning)\\b"
+                        }
+                    ]
+                }
+            ]
+        },
+        "functions": {
+            "patterns": [
+                {
+                    "name": "meta.function.ispc",
+                    "begin": "(?x)\\b(?:(export|task|inline|noinline)\\s+)?([A-Za-z_][A-Za-z0-9_]*\\s+)+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
+                    "beginCaptures": {
+                        "1": { "name": "storage.modifier.ispc" },
+                        "3": { "name": "entity.name.function.ispc" }
+                    },
+                    "end": "\\)",
+                    "patterns": [
+                        {
+                            "include": "#parameters"
+                        }
+                    ]
+                }
+            ]
+        },
+        "parameters": {
+            "patterns": [
+                {
+                    "include": "#comments"
+                },
+                {
+                    "include": "#storage-types"
+                },
+                {
+                    "match": "[A-Za-z_][A-Za-z0-9_]*",
+                    "name": "variable.parameter.ispc"
+                }
+            ]
+        },
+        "identifiers": {
+            "patterns": [
+                {
+                    "match": "\\b[A-Z][A-Z0-9_]+\\b",
+                    "name": "constant.other.ispc"
+                },
+                {
+                    "match": "[a-zA-Z_][a-zA-Z_0-9]*",
+                    "name": "variable.other.ispc"
+                }
+            ]
+        }
+    }
+}

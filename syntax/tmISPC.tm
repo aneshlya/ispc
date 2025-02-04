@@ -149,7 +149,7 @@
                 },
                 {
                     "name": "constant.language.ispc",
-                    "match": "\\b(true|false|NULL)\\b"
+                    "match": "\\b(true|false|NULL|programIndex|programCount|threadIndex|threadCount)\\b"
                 }
             ]
         },

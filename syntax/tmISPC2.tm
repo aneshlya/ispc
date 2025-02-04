@@ -32,9 +32,6 @@
         },
         {
             "include": "#identifiers"
-        },
-        {
-            "include": "#preprocessor-line"
         }
     ],
     "repository": {
@@ -55,17 +52,6 @@
                             "include": "#strings"
                         }
                     ]
-                }
-            ]
-        },
-        "preprocessor-line": {
-            "patterns": [
-                {
-                    "name": "meta.preprocessor.line.ispc",
-                    "match": "^\\s*#line\\s+[0-9]+\\s+\"[^\"]*\"",
-                    "captures": {
-                        "0": { "name": "keyword.control.preprocessor.line.ispc" }
-                    }
                 }
             ]
         },
@@ -98,18 +84,7 @@
                     "patterns": [
                         {
                             "name": "constant.character.escape.ispc",
-                            "match": "\\\\(['\"?\\\\abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]+)"
-                        }
-                    ]
-                },
-                {
-                    "name": "string.quoted.single.ispc",
-                    "begin": "'",
-                    "end": "'",
-                    "patterns": [
-                        {
-                            "name": "constant.character.escape.ispc",
-                            "match": "\\\\(['\"?\\\\abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]+)"
+                            "match": "\\\\(['\"?\\\\abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]+|[nrt])"
                         }
                     ]
                 }
@@ -135,15 +110,11 @@
                 },
                 {
                     "name": "constant.numeric.float.scientific.ispc",
-                    "match": "\\b([0-9]+|(([0-9]+\\.[0-9]*)|\\.[0-9]+))([eE][-+]?[0-9]+)([dD]|[fF]|[fF]16)?\\b"
+                    "match": "\\b([0-9]+|(([0-9]+\\.[0-9]*)|\\.[0-9]+))([dD]|[fF]|[fF]16)?[eE][-+]?[0-9]+\\b"
                 },
                 {
                     "name": "constant.numeric.integer.decimal.ispc",
                     "match": "\\b[0-9]+([uUlL]*[kMG]?[uUlL]*|\\.\\.\\.)?\\b"
-                },
-                {
-                    "name": "constant.numeric.float.fortran.ispc",
-                    "match": "\\b([0-9]+|(([0-9]+\\.[0-9]*)|\\.[0-9]+))([dD][-+]?[0-9]+)\\b"
                 }
             ]
         },
@@ -151,7 +122,7 @@
             "patterns": [
                 {
                     "name": "keyword.control.ispc",
-                    "match": "\\b(assert|break|case|cbreak|ccontinue|cdo|cfor|cif|creturn|cwhile|continue|default|delete\\[\\]|do|else|for|foreach|foreach_active|foreach_tiled|foreach_unique|goto|if|in|return|switch|sync|task|while|launch|invoke_sycl)\\b"
+                    "match": "\\b(assert|break|case|cdo|cfor|cif|cwhile|continue|default|do|else|for|foreach|foreach_active|foreach_tiled|foreach_unique|goto|if|in|return|switch|sync|task|while|launch|invoke_sycl)\\b"
                 },
                 {
                     "name": "keyword.operator.ispc",
@@ -159,19 +130,15 @@
                 },
                 {
                     "name": "storage.type.ispc",
-                    "match": "\\b(bool|double|float|float16|int|uint|int8|uint8|int16|uint16|int32|uint32|int64|uint64|void|struct|enum|short|long|union)\\b"
+                    "match": "\\b(bool|double|float|float16|int|uint|int8|uint8|int16|uint16|int32|uint32|int64|uint64|void|struct|enum|size_t|ptrdiff_t|intptr_t|uintptr_t)\\b"
                 },
                 {
                     "name": "storage.modifier.ispc",
-                    "match": "\\b(const|declspec|extern|inline|noinline|static|uniform|unmasked|varying|template|typedef|typename|export|signed|unsigned|soa|__vectorcall|__regcall|__attribute__|volatile|long long)\\b"
+                    "match": "\\b(const|extern|inline|noinline|static|uniform|unmasked|varying|template|typedef|typename|export|signed|unsigned|soa|__vectorcall|__regcall|__attribute__|volatile)\\b"
                 },
                 {
                     "name": "constant.language.ispc",
-                    "match": "\\b(true|false|NULL)\\b"
-                },
-                {
-                    "name": "support.function.preprocessor.ispc",
-                    "match": "\\b(include|define|undef|if|ifdef|ifndef|else|elif|endif|line|error|warning)\\b"
+                    "match": "\\b(true|false|NULL|programIndex|programCount|threadIndex|threadCount|taskIndex|taskCount)\\b"
                 }
             ]
         },
@@ -200,10 +167,6 @@
                 {
                     "name": "keyword.operator.other.ispc",
                     "match": "\\->|\\.|::|\\?"
-                },
-                {
-                    "name": "keyword.operator.member.ispc",
-                    "match": "\\[\\]"
                 }
             ]
         },
@@ -237,35 +200,22 @@
                     "begin": "(?x)\\b(?:(export|task|inline|noinline)\\s+)?([A-Za-z_][A-Za-z0-9_]*\\s+)+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
                     "beginCaptures": {
                         "1": { "name": "storage.modifier.ispc" },
+                        "2": { "name": "storage.type.ispc" },
                         "3": { "name": "entity.name.function.ispc" }
                     },
                     "end": "\\)",
                     "patterns": [
                         {
-                            "include": "#parameters"
+                            "include": "#comments"
+                        },
+                        {
+                            "include": "#keywords"
+                        },
+                        {
+                            "match": "[A-Za-z_][A-Za-z0-9_]*",
+                            "name": "variable.parameter.ispc"
                         }
                     ]
-                },
-                {
-                    "name": "meta.function.operator.ispc",
-                    "match": "\\b(operator\\*)|(operator\\+)|(operator\\-)|(operator<<)|(operator>>)|(operator/)|(operator%)",
-                    "captures": {
-                        "0": { "name": "entity.name.function.operator.ispc" }
-                    }
-                }
-            ]
-        },
-        "parameters": {
-            "patterns": [
-                {
-                    "include": "#comments"
-                },
-                {
-                    "include": "#storage-types"
-                },
-                {
-                    "match": "[A-Za-z_][A-Za-z0-9_]*",
-                    "name": "variable.parameter.ispc"
                 }
             ]
         },

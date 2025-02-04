@@ -1,0 +1,186 @@
+{
+  "name": "ISPC",
+  "scopeName": "source.ispc",
+  "fileTypes": [
+    "ispc"
+  ],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#pragmas"
+    },
+    {
+      "include": "#string-literals"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    },
+    {
+      "include": "#intrinsic_call"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.ispc",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.ispc",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "pragmas": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.ispc",
+          "match": "#pragma\\s+.*$"
+        },
+        {
+          "name": "meta.preprocessor.include.ispc",
+          "match": "#(include|import)\\s+.*$"
+        }
+      ]
+    },
+    "string-literals": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.ispc",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.ispc",
+              "match": "\\\\(?:[abfnrtv\"'?\\\\]|x[0-9A-Fa-f]+|[0-7]{1,3})"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.binary.ispc",
+          "match": "\\b0b[01]+(?:[uU]|(?:[lL]{1,2})|[kMG])?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.hexadecimal.ispc",
+          "match": "\\b0[xX][0-9A-Fa-f]+(?:[uU]|(?:[lL]{1,2})|[kMG])?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.decimal.ispc",
+          "match": "\\b[0-9]+(?:[uU]|(?:[lL]{1,2})|[kMG])?\\b"
+        },
+        {
+          "name": "constant.numeric.float.hexadecimal.ispc",
+          "match": "\\b0[xX][01](?:\\.[0-9A-Fa-f]*)?[pP][-+]?[0-9]+(?:[dD]|[fF](?:16)?)?\\b"
+        },
+        {
+          "name": "constant.numeric.float.decimal.scientific.ispc",
+          "match": "\\b(?:[0-9]+\\.[0-9]*|\\.[0-9]+|[0-9]+)(?:[eE][-+]?[0-9]+)(?:[dD]|[fF](?:16)?)?\\b"
+        },
+        {
+          "name": "constant.numeric.float.decimal.ispc",
+          "match": "\\b(?:[0-9]+\\.[0-9]*|\\.[0-9]+)(?:[dD]|[fF](?:16)?)?\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.ispc",
+          "match": "\\b(?:assert|bool|break|case|cbreak|ccontinue|cdo|cfor|cif|cwhile|const|continue|creturn|default|do|delete|double|else|enum|export|extern|false|float|for|foreach|foreach_active|foreach_tiled|foreach_unique|float16|goto|if|in|inline|noinline|__vectorcall|__regcall|int|uint|int8|uint8|int16|uint16|int32|uint32|int64|uint64|launch|invoke_sycl|__attribute__|new|NULL|print|return|soa|signed|sizeof|alloca|static|struct|switch|sync|task|template|true|typedef|typename|uniform|unmasked|unsigned|varying|void|while)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.ispc",
+          "match": "(\\+\\+|--|<<=|>>=|\\+=|-=|\\*=|/=|%=|<<|>>|<=|>=|==|!=|&&|\\|\\||&=|\\^=|\\|=|->|\\+|-|\\*|/|%|<|>|=|&|\\||\\^|!|~|\\?|:)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.terminator.ispc",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.section.block.begin.ispc",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.ispc",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.parens.begin.ispc",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.ispc",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.ispc",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.ispc",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.separator.colon.ispc",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.dot.ispc",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.separator.comma.ispc",
+          "match": ","
+        }
+      ]
+    },
+    "intrinsic_call": {
+      "patterns": [
+        {
+          "name": "support.function.intrinsic.ispc",
+          "match": "@llvm\\.[.a-zA-Z_0-9]+"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.ispc",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        },
+        {
+          "name": "entity.name.function.operator.ispc",
+          "match": "\\boperator(?:\\s*\\S+)+\\b"
+        }
+      ]
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, Intel Corporation
+# Copyright (c) 2023-2025, Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 
 name: (INTERNAL) ISPC release build
@@ -51,7 +51,6 @@ jobs:
         package_macos_name_arm64: ${{ steps.define-package.outputs.package_macos_name_arm64 }}
         package_macos_name_x86_64: ${{ steps.define-package.outputs.package_macos_name_x86_64 }}
         package_linux_name: ${{ steps.define-package.outputs.package_linux_name }}
-        package_linux_name_oneapi: ${{ steps.define-package.outputs.package_linux_name_oneapi }}
         package_examples_linux_name: ${{ steps.define-package.outputs.package_examples_linux_name }}
         package_win_name: ${{ steps.define-package.outputs.package_win_name }}
         package_examples_win_name: ${{ steps.define-package.outputs.package_examples_win_name }}
@@ -88,8 +87,6 @@ jobs:
             echo "package_macos_name_arm64=${PACKAGE_NAME}-macOS.arm64.tar.gz" >> $GITHUB_STEP_SUMMARY
             echo "package_linux_name=${PACKAGE_NAME}-linux.tar.gz" >> $GITHUB_OUTPUT
             echo "package_linux_name=${PACKAGE_NAME}-linux.tar.gz" >> $GITHUB_STEP_SUMMARY
-            echo "package_linux_name_oneapi=${PACKAGE_NAME}-linux-oneapi.tar.gz" >> $GITHUB_OUTPUT
-            echo "package_linux_name_oneapi=${PACKAGE_NAME}-linux-oneapi.tar.gz" >> $GITHUB_STEP_SUMMARY
             echo "package_examples_linux_name=${PACKAGE_EXAMPLES_NAME}.tar.gz" >> $GITHUB_OUTPUT
             echo "package_examples_linux_name=${PACKAGE_EXAMPLES_NAME}.tar.gz" >> $GITHUB_STEP_SUMMARY
             echo "package_win_name=${PACKAGE_NAME}-windows.zip" >> $GITHUB_OUTPUT
@@ -311,53 +308,6 @@ jobs:
             rm -rf artifacts
           shell: bash
 
-    linux-package-oneapi:
-      runs-on: ['Linux', 'docker', 'build']
-      container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
-      needs: [define-package-params]
-      steps:
-        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-          with:
-            repository: ${{ inputs.core_repo }}
-            ref: ${{ inputs.core_ref }}
-            submodules: false
-            fetch-depth: 0
-            path: ispc
-            token: ${{ secrets.ACCESS_TOKEN }}
-
-        - name: Build Ubunut 18.04 docker image
-          run: |
-            cd ${{ needs.define-package-params.outputs.docker_path }}
-            docker build --no-cache \
-                --build-arg https_proxy=$https_proxy \
-                --build-arg http_proxy=$http_proxy \
-                --build-arg REPO=${{ inputs.core_repo }} \
-                --build-arg SHA=${{ inputs.core_ref }} \
-                --build-arg TBB=oneapi \
-                --build-arg LTO=${{ inputs.lto }} \
-                -t ubuntu_1804_ispc_xpu_oneapi \
-                -f Dockerfile .
-          shell: bash
-
-        - name: Copy ISPC release package from docker
-          run: |
-            container_id=$(docker create ubuntu_1804_ispc_xpu_oneapi)
-            docker cp $container_id:/usr/local/src/${{ needs.define-package-params.outputs.package_linux_name }} ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
-            docker rm -v $container_id
-            docker rmi ubuntu_1804_ispc_xpu_oneapi
-          shell: bash
-
-        - name: Upload package
-          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-          with:
-            name: ispc_linux_package_oneapi
-            path: ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
-
-        - name: Clean up
-          run: |
-            rm -rf *.tar.gz
-          shell: bash
-
     linux-check:
       runs-on: ['Linux', 'docker', 'build']
       container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
@@ -385,40 +335,6 @@ jobs:
         - name: Run release check for package
           run: |
             ./ispc/.github/workflows/scripts/internal/release-check-linux.sh ${{ needs.define-package-params.outputs.package_linux_name }} artifacts
-          shell: bash
-
-        - name: Clean up
-          run: |
-            rm -rf artifacts
-          shell: bash
-
-    linux-oneapi-check:
-      runs-on: ['Linux', 'docker', 'build']
-      container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
-      needs: [define-package-params, linux-package-oneapi]
-      steps:
-        # We need to fetch internal repo for release-check scripts
-        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-          with:
-            submodules: false
-            fetch-depth: 0
-            path: ispc
-            token: ${{ secrets.ACCESS_TOKEN }}
-
-        - name: Clean up
-          run: |
-            rm -rf artifacts
-          shell: bash
-
-        - name: Download package
-          uses: actions/download-artifact@v4
-          with:
-            name: ispc_linux_package_oneapi
-            path: artifacts
-
-        - name: Run release check for package
-          run: |
-            ./ispc/.github/workflows/scripts/internal/release-check-linux.sh ${{ needs.define-package-params.outputs.package_linux_name_oneapi }} artifacts
           shell: bash
 
         - name: Clean up
@@ -876,7 +792,7 @@ jobs:
     sign-artifacts:
       runs-on: ['Linux', 'docker', 'build']
       container: amr-registry.caas.intel.com/edss-public-containers/edss_p11:focal-v1.9
-      needs: [define-package-params,  win-package, macos-package, linux-package, linux-package-oneapi]
+      needs: [define-package-params,  win-package, macos-package, linux-package]
       steps:
         - name: Clean up
           run: |
@@ -897,11 +813,6 @@ jobs:
           uses: actions/download-artifact@v4
           with:
             name: ispc_linux_package
-
-        - name: Download Linux OneAPI build artifacts
-          uses: actions/download-artifact@v4
-          with:
-            name: ispc_linux_package_oneapi
 
         - name: Download Linux examples package
           uses: actions/download-artifact@v4
@@ -948,8 +859,6 @@ jobs:
             # Sign Linux packages
             gpg --detach-sign ${{ needs.define-package-params.outputs.package_linux_name }}
             gpg --verify ${{ needs.define-package-params.outputs.package_linux_name }}.sig ${{ needs.define-package-params.outputs.package_linux_name }}
-            gpg --detach-sign ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
-            gpg --verify ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}.sig ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}
             # Sign macOS packages
             gpg --detach-sign ${{ needs.define-package-params.outputs.package_macos_name_uni }}
             gpg --verify ${{ needs.define-package-params.outputs.package_macos_name_uni }}.sig ${{ needs.define-package-params.outputs.package_macos_name_uni }}
@@ -974,12 +883,6 @@ jobs:
           with:
             name: ispc_linux_package_sig
             path: ${{ needs.define-package-params.outputs.package_linux_name }}.sig
-
-        - name: Upload Linux OneAPI package signature
-          uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-          with:
-            name: ispc_linux_package_oneapi_sig
-            path: ${{ needs.define-package-params.outputs.package_linux_name_oneapi }}.sig
 
         - name: Upload macOS uni package signature
           uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0

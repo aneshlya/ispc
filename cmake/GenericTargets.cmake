@@ -75,6 +75,22 @@ function (generate_generic_builtins ispc_name)
         )
     endif()
 
+    # TODO: enable generic targets for Xe
+    # if (XE_ENABLED)
+    #    if (NOT APPLE)
+    #        list(APPEND ARCH_LIST
+    #            "xe64,64"
+    #        )
+    #    endif()
+    # endif()
+
+    if (WASM_ENABLED)
+        list(APPEND ARCH_LIST
+            "wasm32,32",
+            "wasm64,64"
+        )
+    endif()
+
     foreach(os ${os_list})
         foreach(target ${TARGET_LIST})
             foreach(pair ${ARCH_LIST})
@@ -83,6 +99,9 @@ function (generate_generic_builtins ispc_name)
                 list(GET pair_split 1 bit)
                 # Skip unsupported cases, see Target::GetTripleString for more details.
                 if (${os} STREQUAL "windows" AND ${arch} STREQUAL "arm")
+                    continue()
+                endif()
+                if (${os} STREQUAL "macos" AND ${arch} STREQUAL "xe64")
                     continue()
                 endif()
                 generate_generic_target_builtin(${ispc_name} ${target} ${arch} ${bit} ${os})

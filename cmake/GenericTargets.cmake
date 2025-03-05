@@ -85,9 +85,10 @@ function (generate_generic_builtins ispc_name)
     # endif()
 
     if (WASM_ENABLED)
+        list(APPEND os_list "web")
         list(APPEND ARCH_LIST
-            "wasm32,32",
             "wasm64,64"
+            "wasm32,32"
         )
     endif()
 
@@ -97,11 +98,9 @@ function (generate_generic_builtins ispc_name)
                 string(REGEX REPLACE "," ";" pair_split ${pair})
                 list(GET pair_split 0 arch)
                 list(GET pair_split 1 bit)
+                message(STATUS "Debuuuuuuuuug" ${arch} ${bit})
                 # Skip unsupported cases, see Target::GetTripleString for more details.
                 if (${os} STREQUAL "windows" AND ${arch} STREQUAL "arm")
-                    continue()
-                endif()
-                if (${os} STREQUAL "macos" AND ${arch} STREQUAL "xe64")
                     continue()
                 endif()
                 generate_generic_target_builtin(${ispc_name} ${target} ${arch} ${bit} ${os})

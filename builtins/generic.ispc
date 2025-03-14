@@ -765,7 +765,7 @@ EXT READNONE varying uint8 __max_varying_uint8(varying uint8 x, varying uint8 y)
 // int16 min/max
 EXT READNONE uniform int16 __min_uniform_int16(uniform int16 x, uniform int16 y) { return x < y ? x : y; }
 EXT READNONE uniform int16 __max_uniform_int16(uniform int16 x, uniform int16 y) { return x > y ? x : y; }
-EXT READNONE uniform uint16 __min_uniform_uint16(uniform uint16 x, uniform uint16 y) { return x < y ? x : y; }
+EXT READNONE uniform uint16 __min_uniform_uint16(uniform uint16  x, uniform uint16 y) { return x < y ? x : y; }
 EXT READNONE uniform uint16 __max_uniform_uint16(uniform uint16 x, uniform uint16 y) { return x > y ? x : y; }
 EXT READNONE varying int16 __min_varying_int16(varying int16 x, varying int16 y) { return x < y ? x : y; }
 EXT READNONE varying int16 __max_varying_int16(varying int16 x, varying int16 y) { return x > y ? x : y; }

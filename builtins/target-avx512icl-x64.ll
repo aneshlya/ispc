@@ -313,6 +313,30 @@ define float @__min_uniform_float(float, float) nounwind readnone alwaysinline {
   ret float %r
 }
 
+define i8 @__min_uniform_int8(i8, i8) nounwind readnone alwaysinline {
+  %cmp = icmp slt i8 %0, %1
+  %r = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %r
+}
+
+define i8 @__max_uniform_int8(i8, i8) nounwind readnone alwaysinline {
+  %cmp = icmp sgt i8 %0, %1
+  %r = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %r
+}
+
+define i8 @__min_uniform_uint8(i8, i8) nounwind readnone alwaysinline {
+  %cmp = icmp ult i8 %0, %1
+  %r = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %r
+}
+
+define i8 @__max_uniform_uint8(i8, i8) nounwind readnone alwaysinline {
+  %cmp = icmp ugt i8 %0, %1
+  %r = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %r
+}
+
 define i32 @__min_uniform_int32(i32, i32) nounwind readnone alwaysinline {
   %cmp = icmp slt i32 %0, %1
   %r = select i1 %cmp, i32 %0, i32 %1
@@ -409,6 +433,37 @@ define <WIDTH x double> @__max_varying_double(<WIDTH x double>,
   %m = fcmp ogt <WIDTH x double> %0, %1
   %r = select <WIDTH x i1> %m, <WIDTH x double> %0, <WIDTH x double> %1
   ret <WIDTH x double> %r
+}
+
+;; int8 versions
+declare <64 x i8> @llvm.x86.avx512.mask.pmins.b.512(<64 x i8>, <64 x i8>, <64 x i8>, i64)
+declare <64 x i8> @llvm.x86.avx512.mask.pmaxs.b.512(<64 x i8>, <64 x i8>, <64 x i8>, i64)
+
+define <64 x i8> @__min_varying_int8(<64 x i8>, <64 x i8>) nounwind readonly alwaysinline {
+  %ret = call <64 x i8> @llvm.x86.avx512.mask.pmins.b.512(<64 x i8> %0, <64 x i8> %1, 
+                                                           <64 x i8> zeroinitializer, i64 -1)
+  ret <64 x i8> %ret
+}
+
+define <64 x i8> @__max_varying_int8(<64 x i8>, <64 x i8>) nounwind readonly alwaysinline {
+  %ret = call <64 x i8> @llvm.x86.avx512.mask.pmaxs.b.512(<64 x i8> %0, <64 x i8> %1,
+                                                           <64 x i8> zeroinitializer, i64 -1)
+  ret <64 x i8> %ret
+}
+
+declare <64 x i8> @llvm.x86.avx512.mask.pminu.b.512(<64 x i8>, <64 x i8>, <64 x i8>, i64)
+declare <64 x i8> @llvm.x86.avx512.mask.pmaxu.b.512(<64 x i8>, <64 x i8>, <64 x i8>, i64)
+
+define <64 x i8> @__min_varying_uint8(<64 x i8>, <64 x i8>) nounwind readonly alwaysinline {
+  %ret = call <64 x i8> @llvm.x86.avx512.mask.pminu.b.512(<64 x i8> %0, <64 x i8> %1,
+                                                           <64 x i8> zeroinitializer, i64 -1)
+  ret <64 x i8> %ret
+}
+
+define <64 x i8> @__max_varying_uint8(<64 x i8>, <64 x i8>) nounwind readonly alwaysinline {
+  %ret = call <64 x i8> @llvm.x86.avx512.mask.pmaxu.b.512(<64 x i8> %0, <64 x i8> %1,
+                                                           <64 x i8> zeroinitializer, i64 -1)
+  ret <64 x i8> %ret
 }
 
 ;; int32/uint32/float versions
@@ -582,6 +637,22 @@ define i16 @__reduce_add_int8(<64 x i8>) nounwind readnone alwaysinline {
   %r = add i64 %r0123, %r4567
   %r16 = trunc i64 %r to i16
   ret i16 %r16
+}
+
+define i8 @__reduce_min_int8(<64 x i8>) nounwind readnone alwaysinline {
+  reduce64(i8, @__min_varying_int8, @__min_uniform_int8)
+}
+
+define i8 @__reduce_max_int8(<64 x i8>) nounwind readnone alwaysinline {
+  reduce64(i8, @__max_varying_int8, @__max_uniform_int8)
+}
+
+define i8 @__reduce_min_uint8(<64 x i8>) nounwind readnone alwaysinline {
+  reduce64(i8, @__min_varying_uint8, @__min_uniform_uint8)
+}
+
+define i8 @__reduce_max_uint8(<64 x i8>) nounwind readnone alwaysinline {
+  reduce64(i8, @__max_varying_uint8, @__max_uniform_uint8)
 }
 
 ;; 16 bit

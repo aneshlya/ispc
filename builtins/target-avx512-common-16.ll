@@ -264,6 +264,39 @@ define <16 x float> @__min_varying_float(<16 x float>, <16 x float>) nounwind re
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; unsigned int8 min/max
+
+declare <16 x i8> @llvm.x86.avx512.mask.pmins.b.128(<16 x i8>, <16 x i8>, <16 x i8>, i16)
+declare <16 x i8> @llvm.x86.avx512.mask.pmaxs.b.128(<16 x i8>, <16 x i8>, <16 x i8>, i16)
+
+define <16 x i8> @__min_varying_int8(<16 x i8>, <16 x i8>) nounwind readonly alwaysinline {
+  %ret = call <16 x i8> @llvm.x86.avx512.mask.pmins.b.128(<16 x i8> %0, <16 x i8> %1, 
+                                                           <16 x i8> zeroinitializer, i16 -1)
+  ret <16 x i8> %ret
+}
+
+define <16 x i8> @__max_varying_int8(<16 x i8>, <16 x i8>) nounwind readonly alwaysinline {
+  %ret = call <16 x i8> @llvm.x86.avx512.mask.pmaxs.b.128(<16 x i8> %0, <16 x i8> %1,
+                                                           <16 x i8> zeroinitializer, i16 -1)
+  ret <16 x i8> %ret
+}
+
+declare <16 x i8> @llvm.x86.avx512.mask.pminu.b.128(<16 x i8>, <16 x i8>, <16 x i8>, i16)
+declare <16 x i8> @llvm.x86.avx512.mask.pmaxu.b.128(<16 x i8>, <16 x i8>, <16 x i8>, i16)
+
+define <16 x i8> @__min_varying_uint8(<16 x i8>, <16 x i8>) nounwind readonly alwaysinline {
+  %ret = call <16 x i8> @llvm.x86.avx512.mask.pminu.b.128(<16 x i8> %0, <16 x i8> %1,
+                                                           <16 x i8> zeroinitializer, i16 -1)
+  ret <16 x i8> %ret
+}
+
+define <16 x i8> @__max_varying_uint8(<16 x i8>, <16 x i8>) nounwind readonly alwaysinline {
+  %ret = call <16 x i8> @llvm.x86.avx512.mask.pmaxu.b.128(<16 x i8> %0, <16 x i8> %1,
+                                                           <16 x i8> zeroinitializer, i16 -1)
+  ret <16 x i8> %ret
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; unsigned int min/max
 
 declare <16 x i32> @llvm.x86.avx512.mask.pmins.d.512(<16 x i32>, <16 x i32>, <16 x i32>, i16)
@@ -417,6 +450,22 @@ define i16 @__reduce_add_int8(<16 x i8>) nounwind readnone alwaysinline {
   %r = add i64 %r0, %r1
   %r16 = trunc i64 %r to i16
   ret i16 %r16
+}
+
+define i8 @__reduce_min_int8(<16 x i8>) nounwind readnone alwaysinline {
+  reduce16(i8, @__min_varying_int8, @__min_uniform_int8)
+}
+
+define i8 @__reduce_max_int8(<16 x i8>) nounwind readnone alwaysinline {
+  reduce16(i8, @__max_varying_int8, @__max_uniform_int8)
+}
+
+define i8 @__reduce_min_uint8(<16 x i8>) nounwind readnone alwaysinline {
+  reduce16(i8, @__min_varying_uint8, @__min_uniform_uint8)
+}
+
+define i8 @__reduce_max_uint8(<16 x i8>) nounwind readnone alwaysinline {
+  reduce16(i8, @__max_varying_uint8, @__max_uniform_uint8)
 }
 
 define internal <16 x i16> @__add_varying_i16(<16 x i16>,

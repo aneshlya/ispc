@@ -172,6 +172,21 @@ define float @__min_uniform_float(float, float) nounwind readonly alwaysinline {
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; int8 min/max
+
+define i8 @__min_uniform_int8(i8, i8) nounwind readonly alwaysinline {
+  %cmp = icmp sgt i8 %1, %0
+  %ret = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %ret
+}
+
+define i8 @__max_uniform_int8(i8, i8) nounwind readonly alwaysinline {
+  %cmp = icmp sgt i8 %1, %0
+  %ret = select i1 %cmp, i8 %1, i8 %0
+  ret i8 %ret
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; int min/max
 
 define i32 @__min_uniform_int32(i32, i32) nounwind readonly alwaysinline {
@@ -184,6 +199,21 @@ define i32 @__max_uniform_int32(i32, i32) nounwind readonly alwaysinline {
   %cmp = icmp sgt i32 %1, %0
   %ret = select i1 %cmp, i32 %1, i32 %0
   ret i32 %ret
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; unsigned int8 min/max
+
+define i8 @__min_uniform_uint8(i8, i8) nounwind readonly alwaysinline {
+  %cmp = icmp ugt i8 %1, %0
+  %ret = select i1 %cmp, i8 %0, i8 %1
+  ret i8 %ret
+}
+
+define i8 @__max_uniform_uint8(i8, i8) nounwind readonly alwaysinline {
+  %cmp = icmp ugt i8 %1, %0
+  %ret = select i1 %cmp, i8 %1, i8 %0
+  ret i8 %ret
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

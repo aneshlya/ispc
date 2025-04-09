@@ -1,4 +1,4 @@
-# Copyright (c) 2023, Intel Corporation
+# Copyright (c) 2023-2025, Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 
 name: (INTERNAL) ISPC testing
@@ -10,12 +10,28 @@ on:
         description: Enable LTO
         type: boolean
         default: false
+      flow_type:
+          description: 'Workflow flow type (full or smoke)'
+          required: true
+          default: 'smoke'
+          type: choice
+          options:
+          - 'full'
+          - 'smoke'
   workflow_dispatch:
     inputs:
       lto:
         description: Enable LTO
         type: boolean
         default: false
+      flow_type:
+        description: 'Workflow flow type (full or smoke)'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+        - 'full'
+        - 'smoke'
 
 env:
   LTO_SUFFIX: ${{ inputs.lto && 'lto-' || '' }}
@@ -145,6 +161,7 @@ jobs:
 
   # Linux os-int build
   linux-core-build-os-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/build-linux-job.yml@main
     with:
@@ -157,6 +174,7 @@ jobs:
 
   # Linux os-int testing
   linux-core-test-os-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, linux-core-build-os-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/test-linux-job.yml@main
     with:
@@ -169,6 +187,7 @@ jobs:
 
   # Linux os-int workloads build and testing
   linux-workloads-os-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, linux-core-build-os-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/workloads-build-and-test-linux-job.yml@main
     with:
@@ -182,6 +201,7 @@ jobs:
 
   # Linux int build
   linux-core-build-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/build-linux-job.yml@main
     with:
@@ -194,6 +214,7 @@ jobs:
 
   # Linux int testing
   linux-core-test-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, linux-core-build-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/test-linux-job.yml@main
     with:
@@ -206,6 +227,7 @@ jobs:
 
   # Linux int workloads build and testing
   linux-workloads-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, linux-core-build-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/workloads-build-and-test-linux-job.yml@main
     with:
@@ -219,6 +241,7 @@ jobs:
 
   # Windows int build
   win-core-build-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/build-win-job.yml@main
     with:
@@ -231,6 +254,7 @@ jobs:
 
   # Windows int test
   win-core-test-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, win-core-build-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/test-win-job.yml@main
     with:
@@ -241,6 +265,7 @@ jobs:
 
   # Windows int workloads build and testing
   win-workloads-int:
+    if: github.event.inputs.flow_type == 'full'
     needs: [define-pipeline-params, win-core-build-int]
     uses: intel-innersource/applications.compilers.ispc.infrastructure/.github/workflows/workloads-build-and-test-win-job.yml@main
     with:

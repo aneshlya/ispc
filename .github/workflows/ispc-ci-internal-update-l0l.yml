@@ -9,9 +9,9 @@ on:
       - '.github/workflows/scripts/internal/update-l0l.sh'
       - '.github/workflows/ispc-ci-internal-update-l0l.yml'
   workflow_dispatch:
-  schedule:
-    # At 9:00pm on the 3rd and 17th
-    - cron: '0 21 3,17 * *'
+  # schedule:
+  # At 9:00pm on the 3rd and 17th
+  #  - cron: '0 21 3,17 * *'
 
 env:
   ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}

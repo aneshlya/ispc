@@ -9,9 +9,9 @@ on:
       - '.github/workflows/scripts/internal/update-spirv-translator.sh'
       - '.github/workflows/ispc-ci-internal-update-spirv-translator.yml'
   workflow_dispatch:
-  schedule:
-    # At 9:00pm on the 2nd and 16th
-    - cron: '0 21 2,16 * *'
+  # schedule:
+  # At 9:00pm on the 2nd and 16th
+  #  - cron: '0 21 2,16 * *'
 
 env:
   ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}

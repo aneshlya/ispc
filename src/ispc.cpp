@@ -3076,6 +3076,7 @@ Globals::Globals() {
     debugInfoType = Globals::DebugInfoType::None;
     generateDWARFVersion = 3;
     enableLLVMIntrinsics = false;
+    enableSpecializationConstants = false;
     mangleFunctionsWithTarget = false;
     isMultiTargetCompilation = false;
     darwinVersionMin = llvm::VersionTuple();

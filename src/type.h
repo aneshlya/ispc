@@ -123,6 +123,9 @@ class Type : public Traceable {
     /** Returns true if this type is 'const'-qualified. */
     bool IsConstType() const { return isConst; }
 
+    /** Returns true if this type is 'specconst'-qualified. */
+    virtual bool IsSpecConstType() const { return false; }
+
     /** Returns true if this type is complete. This is used to check for
         incomplete types (e.g. forward-declared structs) that are not
         allowed in certain contexts, e.g., when we need to allocate memory for
@@ -223,6 +226,10 @@ class Type : public Traceable {
     /** Get a const version of this type.  If it's already const, then the old
         Type pointer is returned. */
     virtual const Type *GetAsConstType() const;
+
+    /** Get a specconst version of this type.  If it's already const, then the old
+        Type pointer is returned. */
+    virtual const Type *GetAsSpecConstType() const { return this; };
 
     /** Get a non-const version of this type.  If it's already not const,
         then the old Type pointer is returned. */
@@ -358,11 +365,18 @@ class AtomicType : public Type {
     bool IsIntType() const override;
     bool IsUnsignedType() const override;
     bool IsSignedType() const override;
+    bool IsSpecConstType() const override;
 
     const AtomicType *GetAsUnsignedType() const override;
     const AtomicType *GetAsSignedType() const override;
+    const AtomicType *GetAsSpecConstType() const override;
 
     std::string GetString() const override;
+
+    /** Return a shorted version of the atomic type name (e.g., i8, f32).
+        Useful for emitting variable names for LLVM values. */
+    std::string GetShortString() const;
+
     std::string Mangle() const override;
     std::string GetDeclaration(const std::string &name, DeclarationSyntax syntax) const override;
 
@@ -418,13 +432,16 @@ class AtomicType : public Type {
     static const AtomicType *VaryingInt1;
 
   private:
-    AtomicType(BasicType basicType, Variability v, bool isConst);
+    AtomicType(BasicType basicType, Variability v, bool isConst, bool isSpecConst);
 
     // Copy constructor to allow cloning without enumerating all fields
     AtomicType(const AtomicType &other);
 
     AtomicType *create() const override;
     const AtomicType *createWithBasicType(BasicType newBasicType) const;
+
+    /** Indicates whether the type is specconst-qualified. */
+    bool isSpecConst = {};
 };
 
 /** @brief Type representing a template typename type.

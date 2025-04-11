@@ -77,7 +77,11 @@ class Module {
     void AddTypeDef(const std::string &name, const Type *type, SourcePos pos);
 
     /** Add a new global variable corresponding to the decl. */
-    void AddGlobalVariable(Declarator *decl, bool isConst);
+    void AddGlobalVariable(Declarator *decl, bool isConst, bool isSpecConst);
+
+    /** Add a declaration for the SPIR-V builtin corresponding to loading the value
+     *  of a specconst variable of the given parameter type. */
+    void AddSPIRVBuiltinDeclarationSpecConst(const std::string &name, const FunctionType *ftype, SourcePos pos);
 
     /** Add a declaration of the function defined by the given function
         symbol to the module. */
@@ -140,8 +144,9 @@ class Module {
         HostStub,    /** generate host-side offload stubs */
         CPPStub,     /** generate preprocessed stubs (-E/-dD/-dM mode) */
 #ifdef ISPC_XE_ENABLED
-        ZEBIN, /** generate L0 binary file */
-        SPIRV, /** generate spir-v file */
+        ZEBIN,     /** generate L0 binary file */
+        SPIRV,     /** generate spir-v file */
+        SPECConst, /** generate specialization constant file */
 #endif
     };
 
@@ -240,14 +245,15 @@ class Module {
          * @param hostStubFileName  Host stub file name
          * @param devStubFileName   Device stub file name
          * @param depsTargetName     Dependencies target name
+         * @param specconstFileName     Spec constants map file name
          */
         Output(OutputType outputType, OutputFlags outputFlags, const char *outFileName, const char *headerFileName,
                const char *depsFileName, const char *hostStubFileName, const char *devStubFileName,
-               const char *depsTargetName)
+               const char *depsTargetName, const char *specconstFileName)
             : type(outputType), flags(outputFlags), depsTarget(depsTargetName ? depsTargetName : ""),
               out(outFileName ? outFileName : ""), header(headerFileName ? headerFileName : ""),
               deps(depsFileName ? depsFileName : ""), hostStub(hostStubFileName ? hostStubFileName : ""),
-              devStub(devStubFileName ? devStubFileName : "") {}
+              devStub(devStubFileName ? devStubFileName : ""), specConst(specconstFileName ? specconstFileName : "") {}
 
         OutputType type{};
         OutputFlags flags{};
@@ -255,11 +261,12 @@ class Module {
         std::string depsTarget{};
 
         // Output file names
-        std::string out{};      /**< Main output file name */
-        std::string header{};   /**< Header file name */
-        std::string deps{};     /**< Dependencies file name */
-        std::string hostStub{}; /**< Host stub file name */
-        std::string devStub{};  /**< Device stub file name */
+        std::string out{};       /**< Main output file name */
+        std::string header{};    /**< Header file name */
+        std::string deps{};      /**< Dependencies file name */
+        std::string hostStub{};  /**< Host stub file name */
+        std::string devStub{};   /**< Device stub file name */
+        std::string specConst{}; /**< SpecConst stub file name */
 
         /**
          * Get the target name for dependencies
@@ -350,6 +357,8 @@ class Module {
 
     llvm::DICompileUnit *diCompileUnit{nullptr};
 
+    std::vector<SpecConstInitInfo> &getSpecConstInitInfo();
+
     /** StructType cache.  This needs to be in the context of Module, so it's reset for
         any new Module in multi-target compilation.
 
@@ -366,6 +375,15 @@ class Module {
 
     Output output{};
     CompilationMode m_compilationMode{};
+
+#ifdef ISPC_XE_ENABLED
+    static constexpr uint32_t MIN_CONSTANT_ID{100UL};
+    uint32_t nextSpecConstID{MIN_CONSTANT_ID};
+#endif
+
+    /** Hold on to the information needed to generate uses of specialization
+        constants during IR generation. */
+    std::vector<SpecConstInitInfo> specConstInitInfo;
 
     // Definition and member object capturing preprocessing stream during Module lifetime.
     struct CPPBuffer {
@@ -465,6 +483,7 @@ class Module {
     static bool translateToSPIRV(llvm::Module *module, std::stringstream &outString);
     static bool writeSPIRV(llvm::Module *module, std::string outFileName);
     bool writeZEBin();
+    bool writeSpecConstInfo() const;
 #endif
 
     int preprocessAndParse();

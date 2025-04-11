@@ -96,6 +96,8 @@ static void lPrintVersion() {
 #endif
     printf("    [--enable-llvm-intrinsics]\t\tEnable experimental feature to call LLVM intrinsics from ISPC "
            "source code\n");
+    printf("    [--enable-specconst]\t\tEnable experimental feature specialize constants for ISPC GPU "
+           "source code\n");
     printf("    [--error-limit=<value>]\t\tLimit maximum number of errors emitting by ISPC to <value>\n");
     printf("    [--force-alignment=<value>]\t\tForce alignment in memory allocations routine to be <value>\n");
     printf("    [-g]\t\t\t\tGenerate source-level debug information\n");
@@ -150,6 +152,10 @@ static void lPrintVersion() {
     printf("    [--PIC]\t\t\t\tGenerate position-independent code avoiding any limit on the size of the global offset "
            "table. Ignored for Windows target\n");
     printf("    [--quiet]\t\t\t\tSuppress all output\n");
+#ifdef ISPC_XE_ENABLED
+    printf("    [--specconst-map <filename>]\tSpecifies the file to write "
+           "specialization constant mapping to\n");
+#endif
     printf("    [--support-matrix]\t\t\tPrint full matrix of supported targets, architectures and OSes\n");
     printf("    ");
     char targetHelp[2048];
@@ -633,6 +639,7 @@ int main(int Argc, char *Argv[]) {
     const char *depsTargetName = nullptr;
     const char *hostStubFileName = nullptr;
     const char *devStubFileName = nullptr;
+    const char *specconstFileName = nullptr;
 
     std::vector<std::string> linkFileNames;
     // Initiailize globals early so that we can set various option values
@@ -851,6 +858,8 @@ int main(int Argc, char *Argv[]) {
 #endif
         else if (!strcmp(argv[i], "--enable-llvm-intrinsics")) {
             g->enableLLVMIntrinsics = true;
+        } else if (!strcmp(argv[i], "--enable-specconst")) {
+            g->enableSpecializationConstants = true;
         } else if (!strcmp(argv[i], "-I")) {
             if (++i != argc) {
                 lParseInclude(argv[i]);
@@ -1098,6 +1107,12 @@ int main(int Argc, char *Argv[]) {
                 hostStubFileName = argv[i];
             } else {
                 errorHandler.AddError("No output file name specified after --host-stub option.");
+            }
+        } else if (!strcmp(argv[i], "--specconst-map")) {
+            if (++i != argc) {
+                specconstFileName = argv[i];
+            } else {
+                errorHandler.AddError("No output file name specified after --specconst-map option.");
             }
         } else if (strncmp(argv[i], "--debug-phase=", 14) == 0) {
             errorHandler.AddWarning("Adding debug phases may change the way PassManager"
@@ -1350,7 +1365,7 @@ int main(int Argc, char *Argv[]) {
     {
         llvm::TimeTraceScope TimeScope("ExecuteCompiler");
         Module::Output output = Module::Output(ot, flags, outFileName, headerFileName, depsFileName, hostStubFileName,
-                                               devStubFileName, depsTargetName);
+                                               devStubFileName, depsTargetName, specconstFileName);
         ret = Module::CompileAndOutput(file, arch, cpu, targets, output);
     }
 

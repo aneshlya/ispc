@@ -236,7 +236,7 @@ struct ForeachDimension {
 %token TOKEN_EXTERN TOKEN_EXPORT TOKEN_STATIC TOKEN_INLINE TOKEN_NOINLINE TOKEN_VECTORCALL TOKEN_REGCALL TOKEN_TASK TOKEN_DECLSPEC
 %token TOKEN_UNIFORM TOKEN_VARYING TOKEN_TYPEDEF TOKEN_SOA TOKEN_UNMASKED
 %token TOKEN_INT TOKEN_SIGNED TOKEN_UNSIGNED TOKEN_FLOAT16 TOKEN_FLOAT TOKEN_DOUBLE
-%token TOKEN_INT8 TOKEN_INT16 TOKEN_INT64 TOKEN_CONST TOKEN_VOID TOKEN_BOOL
+%token TOKEN_INT8 TOKEN_INT16 TOKEN_INT64 TOKEN_CONST TOKEN_SPECCONST TOKEN_VOID TOKEN_BOOL
 %token TOKEN_UINT8 TOKEN_UINT16 TOKEN_UINT TOKEN_UINT64
 %token TOKEN_ENUM TOKEN_STRUCT TOKEN_TRUE TOKEN_FALSE
 
@@ -1635,6 +1635,8 @@ specifier_qualifier_list
             }
             else if ($1 == TYPEQUAL_CONST)
                 $$ = $2->GetAsConstType();
+            else if ($1 == TYPEQUAL_SPECCONST)
+                $$ = $2->GetAsSpecConstType();
             else if ($1 == TYPEQUAL_SIGNED) {
                 if ($2->IsIntType() == false) {
                     Error(@1, "Can't apply \"signed\" qualifier to \"%s\" type.",
@@ -1851,6 +1853,7 @@ enumerator
 
 type_qualifier
     : TOKEN_CONST         { $$ = TYPEQUAL_CONST; }
+    | TOKEN_SPECCONST     { $$ = TYPEQUAL_SPECCONST; }
     | TOKEN_UNIFORM       { $$ = TYPEQUAL_UNIFORM; }
     | TOKEN_VARYING       { $$ = TYPEQUAL_VARYING; }
     | TOKEN_TASK          { $$ = TYPEQUAL_TASK; }
@@ -3372,7 +3375,15 @@ lAddDeclaration(DeclSpecs *ds, Declarator *decl) {
         }
         else {
             bool isConst = (ds->typeQualifiers & TYPEQUAL_CONST) != 0;
-            m->AddGlobalVariable(decl, isConst);
+            bool isSpecConst = (ds->typeQualifiers & TYPEQUAL_SPECCONST) != 0;
+            if (isConst && isSpecConst) {
+                Error(yylloc, "Global variable declared with both \"const\" and \"specconst\" qualifiers.");
+                return;
+            }
+            if (isSpecConst && g->target->isXeTarget()) {
+                decl->storageClass = StorageClass::Kind::STATIC;    
+            }
+            m->AddGlobalVariable(decl, isConst, isSpecConst);
         }
     }
 }

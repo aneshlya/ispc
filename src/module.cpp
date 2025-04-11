@@ -601,7 +601,7 @@ Expr *lConvertExprListToConstExpr(Expr *initExpr, const Type *type, const std::s
     return nullptr;
 }
 
-void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
+void Module::AddGlobalVariable(Declarator *decl, bool isConst, bool isSpecConst) {
     const std::string &name = decl->name;
     const Type *type = decl->type;
     Expr *initExpr = decl->initExpr;
@@ -617,7 +617,22 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
         Assert(errorCount > 0);
         return;
     }
+#ifdef ISPC_XE_ENABLED
+    // Don't enforce the feature flag to be enabled for CPU compilation
+    if (g->target->isXeTarget() && isSpecConst && !g->enableSpecializationConstants) {
+        Error(pos, "\"specconst\" qualifier is disabled. Try --enable-specconst.");
+        return;
+    }
+#endif
+    if (isSpecConst && type->IsPointerType()) {
+        Error(pos, "Specialization constants for pointers are not supported.");
+        return;
+    }
 
+    if (isSpecConst && (type->IsVaryingType() || !type->IsAtomicType())) {
+        Error(pos, "Specialization constants with varying types or aggregates are not yet supported.");
+        return;
+    }
     // Check attrbutes for global variables.
     AttributeList *attrList = decl->attributeList;
     if (attrList) {
@@ -696,7 +711,8 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
                 // We need to make sure the initializer expression is
                 // the same type as the global.
                 if (llvm::dyn_cast<ExprList>(initExpr) == nullptr) {
-                    initExpr = TypeConvertExpr(initExpr, type, "initializer");
+                    initExpr = TypeConvertExpr(initExpr, type->IsSpecConstType() ? type->GetAsConstType() : type,
+                                               "initializer");
                 } else {
                     // The alternative is to create ConstExpr initializing
                     // expression with correct type and value from ExprList.
@@ -736,7 +752,7 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
                                     name.c_str());
                         }
 
-                        if (type->IsConstType()) {
+                        if (type->IsConstType() || type->IsSpecConstType()) {
                             // Try to get a ConstExpr associated with
                             // the symbol.  This llvm::dyn_cast can
                             // validly fail, for example for types like
@@ -750,6 +766,10 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
                     }
                 }
             }
+        } else if (isSpecConst) {
+            Error(pos, "Global specialization constant \"%s\" must be initialized when declared (%s:%d).", name.c_str(),
+                  pos.name, pos.first_line);
+            return;
         }
 
         // If no initializer was provided or if we couldn't get a value
@@ -757,6 +777,58 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
         if (llvmInitializer == nullptr) {
             llvmInitializer = llvm::Constant::getNullValue(llvmType);
         }
+#ifdef ISPC_XE_ENABLED
+        if (g->target->isXeTarget() && isSpecConst) {
+            // If the variable declared is a specialization constant,
+            // the initializer is a call to `__spirv_SpecConstant`.
+            // Gather the info required for the call to the bulitin.
+            if (type->IsVaryingType() || !type->IsAtomicType()) {
+                Error(pos, "Specialization constants with varying types or aggregates are not yet supported.");
+                return;
+            }
+            Assert(type->IsUniformType() && "Expecting \"uniform\" type for specialization constant");
+
+            llvm::SmallVector<llvm::Type *, 8> tyArgs;
+            llvm::SmallVector<llvm::Value *, 8> fnArgs;
+            llvm::SmallVector<const ispc::Type *, 8> tyArgsISPC;
+
+            // Push the info for the ID parameter
+            const uint32_t id{nextSpecConstID++};
+            tyArgs.push_back(llvm::Type::getInt32Ty(*g->ctx));
+            tyArgsISPC.push_back(ispc::AtomicType::UniformInt32);
+            fnArgs.push_back(llvm::ConstantInt::get(LLVMTypes::Int32Type, id));
+
+            // Append a type suffix to the variable name.
+            // For bools which are stored as int8, make sure the parameter type is i8 (not i1).
+            std::string typeSuffixStr;
+            if (type->IsBoolType()) {
+                typeSuffixStr = "i1";
+                tyArgsISPC.push_back(ispc::AtomicType::UniformInt8);
+            } else {
+                auto tyAtomic = CastType<AtomicType>(type);
+                if (tyAtomic == nullptr) {
+                    Error(pos, "Expected atomic type for specialization constant");
+                    return;
+                }
+                typeSuffixStr = tyAtomic->GetShortString();
+                tyArgsISPC.push_back(type);
+            }
+
+            // Push the info for the default value parameter
+            tyArgs.push_back(type->IsBoolType() ? ispc::AtomicType::UniformInt8->LLVMStorageType(g->ctx) : llvmType);
+            fnArgs.push_back(llvmInitializer);
+
+            const ispc::FunctionType fnTyISPC{type->IsBoolType() ? ispc::AtomicType::UniformInt8 : type, tyArgsISPC,
+                                              pos};
+            auto *fnTy = llvm::FunctionType::get(llvmType, tyArgs, false);
+            auto *fn =
+                llvm::Function::Create(fnTy, llvm::GlobalValue::ExternalLinkage, "__spirv_SpecConstant", nullptr);
+            AddSPIRVBuiltinDeclarationSpecConst(ispc::mangleSPIRVBuiltin(*fn), &fnTyISPC, pos);
+
+            // Push back info for specconst initializer
+            specConstInitInfo.push_back(SpecConstInitInfo{id, fnTy, fn, fnArgs, typeSuffixStr, name});
+        }
+#endif
     }
 
     Symbol *sym = symbolTable->LookupVariable(name.c_str());
@@ -771,7 +843,14 @@ void Module::AddGlobalVariable(Declarator *decl, bool isConst) {
                   sym->pos.first_line);
             return;
         }
-
+        // If the symbol is for a specconst variable, issue an error.
+        // Return before redefinition check below as there may not exist a global pointer (no AddressInfo)
+        // for specconst variables generated for GPU targets.
+        if (isSpecConst) {
+            Error(pos, "Redefinition of variable \"%s\" is illegal. (Previous definition at %s:%d.)", sym->name.c_str(),
+                  sym->pos.name, sym->pos.first_line);
+            return;
+        }
         llvm::GlobalVariable *gv = llvm::dyn_cast<llvm::GlobalVariable>(sym->storageInfo->getPointer());
         Assert(gv != nullptr);
 
@@ -969,6 +1048,16 @@ void Module::AddFunctionDeclaration(const std::string &name, const FunctionType 
                                     StorageClass storageClass, Declarator *decl, bool isInline, bool isNoInline,
                                     bool isVectorCall, bool isRegCall, SourcePos pos) {
     Assert(functionType != nullptr);
+
+    // Throw an error if any parameters are of specconst type.
+    // This must be checked before the lookup of the function name; otherwise, the
+    // declaration will be ignored
+    for (int i = 0; i < functionType->GetNumParameters(); ++i) {
+        if (functionType->GetParameterType(i)->IsSpecConstType()) {
+            Error(pos, "Parameter types cannot be specconst");
+            return;
+        }
+    }
 
     // If a global variable with the same name has already been declared
     // issue an error.
@@ -1174,6 +1263,9 @@ void Module::AddFunctionDeclaration(const std::string &name, const FunctionType 
         Expr *defaultValue = functionType->GetParameterDefault(i);
         const SourcePos &argPos = functionType->GetParameterSourcePos(i);
 
+        if (argType->IsSpecConstType()) {
+            Error(argPos, "Parameter types cannot be specconst (for \"%s\")", argName.c_str());
+        }
         // If the function is exported or in case of Xe target is task, make sure that the parameter
         // doesn't have any funky stuff going on in it.
         // JCB nomosoa - Varying is now a-ok.
@@ -1263,6 +1355,54 @@ void Module::AddFunctionDeclaration(const std::string &name, const FunctionType 
     // symbol table
     Symbol *funSym =
         new Symbol(name, pos, Symbol::SymbolKind::Function, functionType, storageClass, decl->attributeList);
+    funSym->function = function;
+    bool ok = symbolTable->AddFunction(funSym);
+    Assert(ok);
+}
+
+/** We've got to add a declaration loading the value of a specialization constant from SPIR-V.
+ *  The given name for the appropriate parameter type has already been mangled.
+ *  Don't emit multiple declarations if a previous one exists.
+ */
+void Module::AddSPIRVBuiltinDeclarationSpecConst(const std::string &name, const FunctionType *functionType,
+                                                 SourcePos pos) {
+    Assert(functionType != nullptr);
+
+    // If a global variable with the same name has already been declared
+    // issue an error.
+    if (symbolTable->LookupVariable(name.c_str()) != nullptr) {
+        Error(pos, "Function \"%s\" shadows previously-declared global variable. Ignoring this definition.",
+              name.c_str());
+        return;
+    }
+
+    // No need to check for overloaded functions; each type has a 1:1 relation with that type's
+    // SPIR-V "load value" builtin (__spirv_SpecConstant*).
+    std::vector<Symbol *> funcs;
+    symbolTable->LookupFunction(name.c_str(), &funcs);
+    if (funcs.size() > 0) {
+        // We've already emitted an builtin for this function type.
+        // Assert that these functions have matching types
+        Assert(Type::Equal(funcs[0]->type, functionType));
+        return;
+    }
+
+    llvm::FunctionType *llvmFunctionType = functionType->LLVMFunctionType(g->ctx, true);
+    if (llvmFunctionType == nullptr)
+        return;
+
+    llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
+    llvm::Function *function = llvm::Function::Create(llvmFunctionType, linkage, name.c_str(), module);
+    // Set function attributes: we never throw exceptions
+    function->setDoesNotThrow();
+    function->setCallingConv(functionType->GetCallingConv());
+    g->target->markFuncWithTargetAttr(function);
+
+    lCheckForStructParameters(functionType, pos);
+
+    // Finally, we know all is good and we can add the function to the
+    // symbol table
+    Symbol *funSym = new Symbol(name, pos, Symbol::SymbolKind::Function, functionType);
     funSym->function = function;
     bool ok = symbolTable->AddFunction(funSym);
     Assert(ok);
@@ -1536,6 +1676,7 @@ static const std::vector<Module::OutputTypeInfo> outputTypeInfos = {
 #ifdef ISPC_XE_ENABLED
     /* ZEBIN       */ {"L0 binary", {"bin"}},
     /* SPIRV       */ {"SPIR-V", {"spv"}},
+    /* SpecConst   */ {"specconsts map file", {"specconst"}},
 #endif
     // Deps and other types that don't require warnings can be omitted
 };
@@ -1613,6 +1754,9 @@ bool Module::writeOutput() {
     case Deps:
     case DevStub:
     case HostStub:
+#ifdef ISPC_XE_ENABLED
+    case SPECConst:
+#endif
     default:
         FATAL("Unhandled output type in Module::writeOutput()");
         return false;
@@ -1825,6 +1969,30 @@ bool Module::writeZEBin() {
         std::ofstream fos(output.out, std::ios::binary);
         fos.write(oclocRes.data(), oclocRes.size());
     }
+    return true;
+}
+/**
+ * writeSpecConstInfo outputs the ID, type, and name of each
+ * specialization constant in the module to a given mapping file.
+ *
+ * This mapping file will be used by the ISPC run-time to identify
+ * constants used by the client.
+ *
+ * @return: False if an error has occured; True on success.
+ */
+bool Module::writeSpecConstInfo() const {
+    const std::string metadataFileName{output.specConst};
+    std::ofstream outFile{metadataFileName, std::ios::out | std::ios::trunc};
+
+    if (specConstInitInfo.empty()) {
+        Warning(SourcePos(), "Emitting specconst mapping %s: Empty list.", metadataFileName.c_str());
+        return true;
+    }
+
+    for (const auto &info : specConstInitInfo) {
+        outFile << info.getAsMetadata() << '\n';
+    }
+
     return true;
 }
 #endif // ISPC_XE_ENABLED
@@ -3886,6 +4054,11 @@ int Module::WriteOutputFiles() {
     if (!output.devStub.empty() && !writeDevStub()) {
         return 1;
     }
+#ifdef ISPC_XE_ENABLED
+    if (!output.specConst.empty() && !writeSpecConstInfo()) {
+        return 1;
+    }
+#endif
     return 0;
 }
 
@@ -4325,6 +4498,8 @@ void Module::parseCPPBuffer() {
     yyparse();
     yy_delete_buffer(strbuf);
 }
+
+std::vector<SpecConstInitInfo> &Module::getSpecConstInitInfo() { return specConstInitInfo; }
 
 void Module::clearCPPBuffer() {
     if (bufferCPP) {

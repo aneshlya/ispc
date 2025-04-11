@@ -146,6 +146,29 @@ enum class AddressSpace {
     ispc_generic,  // 4
 };
 
+struct SpecConstInitInfo {
+    const uint32_t id{0};
+    llvm::FunctionType *fnTy;
+    llvm::Function *fn;
+    llvm::SmallVector<llvm::Value *, 8> fnArgs;
+    std::string type;
+    std::string name;
+
+    SpecConstInitInfo() = default;
+    SpecConstInitInfo(uint32_t _id, llvm::FunctionType *_fnTy, llvm::Function *_fn,
+                      llvm::SmallVector<llvm::Value *, 8> _fnArgs, std::string _type, std::string _name)
+        : id{_id}, fnTy{_fnTy}, fn{_fn}, fnArgs{_fnArgs}, type{_type}, name{_name} {}
+    ~SpecConstInitInfo() = default;
+
+    llvm::Type *getValueType() const;
+    std::string getCalleeName() const;
+    std::string getAsMetadata() const;
+};
+
+#ifdef ISPC_XE_ENABLED
+std::string mangleSPIRVBuiltin(const llvm::Function &func);
+#endif
+
 namespace dispatch {
 // This would create an unnecessary unused copies of functions defined in isa.h
 // in each translation unit that includes the current header (ispc.h). However,
@@ -914,6 +937,11 @@ struct Globals {
 
     /* If enabled, allows the user to directly call LLVM intrinsics. */
     bool enableLLVMIntrinsics;
+
+    /* If enabled, specialization constants and the corresponding keyword
+       will be processed during compilation. If disabled, the specconst
+       keyword will not be recognized. */
+    bool enableSpecializationConstants;
 
     /** Global LLVMContext object */
     llvm::LLVMContext *ctx;

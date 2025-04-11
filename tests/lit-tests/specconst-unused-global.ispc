@@ -1,5 +1,5 @@
 // RUN: %{ispc} %s -o %t.ll --dump-file=%t --debug-phase=first --nostdlib --emit-llvm-text --target=xehpg-x8 --enable-specconst --specconst-map /dev/null
-// RUN: FileCheck %s --input-file=%t/ir_0_VerifierPass.ll
+// RUN: FileCheck %s --input-file=%t/ir_10_VerifierPass.ll
 
 // REQUIRES: XE_ENABLED
 

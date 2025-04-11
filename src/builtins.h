@@ -45,8 +45,4 @@ void debugDumpModule(llvm::Module *module, std::string name, int stage);
 
 std::string GetTargetSuffix();
 
-#ifdef ISPC_XE_ENABLED
-std::string mangleSPIRVBuiltin(const llvm::Function &func);
-#endif
-
 } // namespace ispc

@@ -121,6 +121,12 @@ void DeclStmt::EmitCode(FunctionEmitContext *ctx) const {
         AssertPos(pos, sym != nullptr);
         if (sym->type == nullptr) {
             continue;
+        } else if (sym->type->IsSpecConstType()) {
+            Error(sym->pos,
+                  "Specialization constants must be declared "
+                  "globally (for variable \"%s\")",
+                  sym->name.c_str());
+            continue;
         }
         Expr *initExpr = vars[i].init;
 
@@ -294,7 +300,9 @@ Stmt *DeclStmt::Optimize() {
             // computing array sizes from non-trivial expressions is
             // consequently limited.
             Symbol *sym = vars[i].sym;
-            if (sym->type && sym->type->IsConstType() && Type::Equal(init->GetType(), sym->type)) {
+            if (sym->type && sym->type->IsSpecConstType() && Type::EqualIgnoringConst(init->GetType(), sym->type)) {
+                sym->constValue = llvm::dyn_cast<ConstExpr>(init);
+            } else if (sym->type && sym->type->IsConstType() && Type::Equal(init->GetType(), sym->type)) {
                 sym->constValue = llvm::dyn_cast<ConstExpr>(init);
             }
         }

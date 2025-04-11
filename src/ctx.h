@@ -11,7 +11,6 @@
 #pragma once
 
 #include "ispc.h"
-
 #include <map>
 
 #include <llvm/ADT/StringRef.h>
@@ -592,6 +591,10 @@ class FunctionEmitContext {
     llvm::Value *CallInst(llvm::Value *func, const FunctionType *funcType, llvm::Value *arg0, llvm::Value *arg1,
                           const llvm::Twine &name = "");
 
+    /** This is a convenience method that issues a call instruction to a
+        function for uses of specialization constants for Xe targets. */
+    llvm::Value *CallInstSpecConst(std::string symbolName, const Type *type);
+
     /** Launch an asynchronous task to run the given function, passing it
         he given argument values. */
     llvm::Value *LaunchInst(llvm::Value *callee, std::vector<llvm::Value *> &argVals, llvm::Value *launchCount[3],
@@ -812,6 +815,10 @@ class FunctionEmitContext {
     int disableGSWarningCount;
 
     std::map<std::string, llvm::BasicBlock *> labelMap;
+
+    /** Fetch the declared symbol info from the module for the given
+        specialization constant. */
+    SpecConstInitInfo *getSpecConstInitInfo(std::string name);
 
     static bool initLabelBBlocks(ASTNode *node, void *data);
 

@@ -97,6 +97,11 @@ void SymbolTable::PopInnerScopes() {
 bool SymbolTable::AddVariable(Symbol *symbol) {
     Assert(symbol != nullptr);
 
+    if (symbol->type && symbol->type->IsSpecConstType() && symbol->parentFunction != nullptr) {
+        Error(symbol->pos, "Specialization constants must be declared globally (for variable \"%s\")",
+              symbol->name.c_str());
+        return false;
+    }
     // Check to see if a symbol of the same name has already been declared.
     for (int i = (int)variables.size() - 1; i >= 0; --i) {
         SymbolMapType &sm = *(variables[i]);
@@ -105,6 +110,13 @@ bool SymbolTable::AddVariable(Symbol *symbol) {
                 // If a symbol of the same name was declared in the
                 // same scope, it's an error.
                 Error(symbol->pos, "Ignoring redeclaration of symbol \"%s\".", symbol->name.c_str());
+                return false;
+            } else if (symbol->type && symbol->type->IsSpecConstType()) {
+                // This symbol is a specialization constant and should be
+                // globally declared. Somehow, these definitions are not caught
+                // by the parentFunction check above.
+                Error(symbol->pos, "Specialization constants must be declared globally (for variable \"%s\")",
+                      symbol->name.c_str());
                 return false;
             } else {
                 // Otherwise it's just shadowing something else, which

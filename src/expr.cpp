@@ -1392,6 +1392,13 @@ Expr *UnaryExpr::TypeCheck() {
                   type->GetString().c_str());
             return nullptr;
         }
+        if (type->IsSpecConstType()) {
+            Error(pos,
+                  "Can't assign to type \"%s\" on left-hand side of "
+                  "expression.",
+                  type->GetString().c_str());
+            return NULL;
+        }
 
         if (type->IsNumericType()) {
             return this;
@@ -3507,7 +3514,13 @@ Expr *AssignExpr::TypeCheck() {
               lhsType->GetString().c_str());
         return nullptr;
     }
-
+    if (lhsType->IsSpecConstType()) {
+        Error(lvalue->pos,
+              "Can't assign to type \"%s\" on left-hand side of "
+              "expression.",
+              lhsType->GetString().c_str());
+        return NULL;
+    }
     if (CastType<PointerType>(lhsType) != nullptr) {
         if (op == AddAssign || op == SubAssign) {
             if (PointerType::IsVoidPointer(lhsType)) {
@@ -8800,10 +8813,16 @@ AllocaExpr *AllocaExpr::Instantiate(TemplateInstantiation &templInst) const {
 SymbolExpr::SymbolExpr(Symbol *s, SourcePos p) : Expr(p, SymbolExprID) { symbol = s; }
 
 llvm::Value *SymbolExpr::GetValue(FunctionEmitContext *ctx) const {
-    // storageInfo may be nullptr due to an earlier compilation error
-    if (!symbol || !symbol->storageInfo) {
+// storageInfo may be nullptr due to an earlier compilation error, or if
+// the symbol is for specialization constant within a GPU module
+#ifdef ISPC_XE_ENABLED
+    const bool emitSpecConst =
+        g->enableSpecializationConstants && GetType()->IsSpecConstType() && g->target->isXeTarget();
+    if (!symbol || (!symbol->storageInfo && !emitSpecConst))
+#else
+    if (!symbol || !symbol->storageInfo)
+#endif
         return nullptr;
-    }
     ctx->SetDebugPos(pos);
 
     std::string loadName = symbol->name + std::string("_load");
@@ -8812,6 +8831,9 @@ llvm::Value *SymbolExpr::GetValue(FunctionEmitContext *ctx) const {
     // of SPIR-V emitting solution
     if (ctx->emitXeHardwareMask() && symbol->name == "__mask") {
         return ctx->XeSimdCFPredicate(LLVMMaskAllOn);
+    }
+    if (emitSpecConst) {
+        return ctx->CallInstSpecConst(symbol->name, symbol->type);
     }
 #endif
     return ctx->LoadInst(symbol->storageInfo, symbol->type, loadName.c_str());
@@ -8846,7 +8868,7 @@ Expr *SymbolExpr::TypeCheck() { return this; }
 Expr *SymbolExpr::Optimize() {
     if (symbol == nullptr) {
         return nullptr;
-    } else if (symbol->constValue != nullptr) {
+    } else if (symbol->constValue != nullptr && GetType()->IsConstType()) {
         AssertPos(pos, GetType()->IsConstType());
         return new ConstExpr(symbol->constValue, pos);
     } else {

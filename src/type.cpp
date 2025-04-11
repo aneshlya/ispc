@@ -334,41 +334,54 @@ const Type *Type::GetAsSignedType() const {
 ///////////////////////////////////////////////////////////////////////////
 // AtomicType
 
-const AtomicType *AtomicType::UniformBool = new AtomicType(AtomicType::TYPE_BOOL, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingBool = new AtomicType(AtomicType::TYPE_BOOL, Variability::Varying, false);
-const AtomicType *AtomicType::VaryingInt1 = new AtomicType(AtomicType::TYPE_INT1, Variability::Varying, false);
-const AtomicType *AtomicType::UniformInt8 = new AtomicType(AtomicType::TYPE_INT8, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingInt8 = new AtomicType(AtomicType::TYPE_INT8, Variability::Varying, false);
-const AtomicType *AtomicType::UniformUInt8 = new AtomicType(AtomicType::TYPE_UINT8, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingUInt8 = new AtomicType(AtomicType::TYPE_UINT8, Variability::Varying, false);
-const AtomicType *AtomicType::UniformInt16 = new AtomicType(AtomicType::TYPE_INT16, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingInt16 = new AtomicType(AtomicType::TYPE_INT16, Variability::Varying, false);
-const AtomicType *AtomicType::UniformUInt16 = new AtomicType(AtomicType::TYPE_UINT16, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingUInt16 = new AtomicType(AtomicType::TYPE_UINT16, Variability::Varying, false);
-const AtomicType *AtomicType::UniformInt32 = new AtomicType(AtomicType::TYPE_INT32, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingInt32 = new AtomicType(AtomicType::TYPE_INT32, Variability::Varying, false);
-const AtomicType *AtomicType::UniformUInt32 = new AtomicType(AtomicType::TYPE_UINT32, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingUInt32 = new AtomicType(AtomicType::TYPE_UINT32, Variability::Varying, false);
-const AtomicType *AtomicType::UniformFloat16 = new AtomicType(AtomicType::TYPE_FLOAT16, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingFloat16 = new AtomicType(AtomicType::TYPE_FLOAT16, Variability::Varying, false);
-const AtomicType *AtomicType::UniformFloat = new AtomicType(AtomicType::TYPE_FLOAT, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingFloat = new AtomicType(AtomicType::TYPE_FLOAT, Variability::Varying, false);
-const AtomicType *AtomicType::UniformInt64 = new AtomicType(AtomicType::TYPE_INT64, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingInt64 = new AtomicType(AtomicType::TYPE_INT64, Variability::Varying, false);
-const AtomicType *AtomicType::UniformUInt64 = new AtomicType(AtomicType::TYPE_UINT64, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingUInt64 = new AtomicType(AtomicType::TYPE_UINT64, Variability::Varying, false);
-const AtomicType *AtomicType::UniformDouble = new AtomicType(AtomicType::TYPE_DOUBLE, Variability::Uniform, false);
-const AtomicType *AtomicType::VaryingDouble = new AtomicType(AtomicType::TYPE_DOUBLE, Variability::Varying, false);
-const AtomicType *AtomicType::Dependent = new AtomicType(AtomicType::TYPE_DEPENDENT, Variability::Uniform, false);
-const AtomicType *AtomicType::Void = new AtomicType(TYPE_VOID, Variability::Uniform, false);
+const AtomicType *AtomicType::UniformBool = new AtomicType(AtomicType::TYPE_BOOL, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingBool = new AtomicType(AtomicType::TYPE_BOOL, Variability::Varying, false, false);
+const AtomicType *AtomicType::VaryingInt1 = new AtomicType(AtomicType::TYPE_INT1, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformInt8 = new AtomicType(AtomicType::TYPE_INT8, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingInt8 = new AtomicType(AtomicType::TYPE_INT8, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformUInt8 = new AtomicType(AtomicType::TYPE_UINT8, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingUInt8 = new AtomicType(AtomicType::TYPE_UINT8, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformInt16 = new AtomicType(AtomicType::TYPE_INT16, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingInt16 = new AtomicType(AtomicType::TYPE_INT16, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformUInt16 =
+    new AtomicType(AtomicType::TYPE_UINT16, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingUInt16 =
+    new AtomicType(AtomicType::TYPE_UINT16, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformInt32 = new AtomicType(AtomicType::TYPE_INT32, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingInt32 = new AtomicType(AtomicType::TYPE_INT32, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformUInt32 =
+    new AtomicType(AtomicType::TYPE_UINT32, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingUInt32 =
+    new AtomicType(AtomicType::TYPE_UINT32, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformFloat16 =
+    new AtomicType(AtomicType::TYPE_FLOAT16, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingFloat16 =
+    new AtomicType(AtomicType::TYPE_FLOAT16, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformFloat = new AtomicType(AtomicType::TYPE_FLOAT, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingFloat = new AtomicType(AtomicType::TYPE_FLOAT, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformInt64 = new AtomicType(AtomicType::TYPE_INT64, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingInt64 = new AtomicType(AtomicType::TYPE_INT64, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformUInt64 =
+    new AtomicType(AtomicType::TYPE_UINT64, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingUInt64 =
+    new AtomicType(AtomicType::TYPE_UINT64, Variability::Varying, false, false);
+const AtomicType *AtomicType::UniformDouble =
+    new AtomicType(AtomicType::TYPE_DOUBLE, Variability::Uniform, false, false);
+const AtomicType *AtomicType::VaryingDouble =
+    new AtomicType(AtomicType::TYPE_DOUBLE, Variability::Varying, false, false);
+const AtomicType *AtomicType::Dependent =
+    new AtomicType(AtomicType::TYPE_DEPENDENT, Variability::Uniform, false, false);
+const AtomicType *AtomicType::Void = new AtomicType(TYPE_VOID, Variability::Uniform, false, false);
 
-AtomicType::AtomicType(BasicType bt, Variability v, bool ic) : Type(ATOMIC_TYPE, v, ic), basicType(bt) {
+AtomicType::AtomicType(BasicType bt, Variability v, bool ic, bool isc) : Type(ATOMIC_TYPE, v, ic), basicType(bt) {
     asOtherConstType = nullptr;
     asUniformType = asVaryingType = nullptr;
+    isSpecConst = isc;
 }
 
 AtomicType::AtomicType(const AtomicType &other)
-    : Type(ATOMIC_TYPE, other.variability, other.isConst, other.pos, other.alignment), basicType(other.basicType) {}
+    : Type(ATOMIC_TYPE, other.variability, other.isConst, other.pos, other.alignment), basicType(other.basicType),
+      isSpecConst(other.isSpecConst) {}
 
 AtomicType *AtomicType::create() const { return new AtomicType(*this); }
 
@@ -447,10 +460,25 @@ const AtomicType *AtomicType::GetAsSignedType() const {
     }
 }
 
+bool AtomicType::IsSpecConstType() const { return isSpecConst; }
+
+const AtomicType *AtomicType::GetAsSpecConstType() const {
+    if (isSpecConst) {
+        return this;
+    }
+
+    AtomicType *ins = static_cast<AtomicType *>(create());
+    ins->isSpecConst = true;
+    return ins;
+}
+
 std::string AtomicType::GetString() const {
     std::string ret;
     if (isConst) {
         ret += "const ";
+    }
+    if (isSpecConst) {
+        ret += "specconst ";
     }
     if (basicType != TYPE_VOID) {
         ret += variability.GetString();
@@ -507,6 +535,38 @@ std::string AtomicType::GetString() const {
         FATAL("Logic error in AtomicType::GetString()");
     }
     return ret;
+}
+
+std::string AtomicType::GetShortString() const {
+    switch (basicType) {
+    case TYPE_VOID:
+        return "void";
+    case TYPE_BOOL:
+        return "i1";
+    case TYPE_INT8:
+    case TYPE_UINT8:
+        return "i8";
+    case TYPE_INT16:
+    case TYPE_UINT16:
+        return "i16";
+    case TYPE_INT32:
+    case TYPE_UINT32:
+        return "i32";
+    case TYPE_FLOAT16:
+        return "f16";
+    case TYPE_FLOAT:
+        return "f32";
+    case TYPE_INT64:
+    case TYPE_UINT64:
+        return "i64";
+    case TYPE_DOUBLE:
+        return "f64";
+    case TYPE_DEPENDENT:
+        return "<dependent type>";
+    default:
+        FATAL("Logic error in AtomicType::GetShortString()");
+        return "";
+    }
 }
 
 std::string AtomicType::Mangle() const {

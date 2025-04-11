@@ -20,6 +20,8 @@
 #include "util.h"
 
 #include <map>
+#include <sstream>
+#include <vector>
 
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -4196,6 +4198,51 @@ llvm::Value *FunctionEmitContext::InvokeSyclInst(llvm::Value *func, const Functi
         return res;
     }
     return nullptr;
+}
+
+SpecConstInitInfo *FunctionEmitContext::getSpecConstInitInfo(std::string name) {
+    for (auto &info : m->getSpecConstInitInfo()) {
+        if (info.name == name) {
+            return &info;
+        }
+    }
+    Error(currentPos, "Unable to find definition for specialization constant");
+    return nullptr;
+}
+
+llvm::Value *FunctionEmitContext::CallInstSpecConst(std::string symbolName, const Type *type) {
+    auto info = getSpecConstInitInfo(symbolName);
+    AssertPos(currentPos, info != nullptr && "Specialization constant info is null");
+    const auto &callee = m->module->getOrInsertFunction(info->getCalleeName(), info->fnTy).getCallee();
+    auto ci = llvm::CallInst::Create(info->fnTy, callee, info->fnArgs,
+                                     std::string{info->name + ".specconst" + info->type}, bblock);
+    // bool type is stored as i8. So, it requires some processing.
+    llvm::Value *inst = ci;
+    if ((type != nullptr) && (type->IsBoolType())) {
+        if (CastType<AtomicType>(type) != nullptr) {
+            inst = SwitchBoolToMaskType(inst, type->LLVMType(g->ctx));
+        } else if ((CastType<VectorType>(type) != nullptr)) {
+            Error(currentPos, "Unexpected use of specialization constant with varying type");
+            inst = nullptr;
+        }
+    }
+    return inst;
+}
+
+llvm::Type *SpecConstInitInfo::getValueType() const { return fnTy->getReturnType(); }
+
+std::string SpecConstInitInfo::getCalleeName() const {
+#ifdef ISPC_XE_ENABLED
+    return fn->getName().starts_with("__spirv_") ? ispc::mangleSPIRVBuiltin(*fn) : fn->getName().str();
+#else
+    return fn->getName().str();
+#endif
+}
+
+std::string SpecConstInitInfo::getAsMetadata() const {
+    std::ostringstream ss{""};
+    ss << id << ':' << type << ':' << name;
+    return ss.str();
 }
 
 } // namespace ispc

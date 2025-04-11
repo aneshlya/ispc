@@ -127,6 +127,9 @@ std::string DeclSpecs::GetTypeQualifiersString(int typeQualifiers) {
     if (typeQualifiers & TYPEQUAL_UNMASKED) {
         result += "unmasked ";
     }
+    if (typeQualifiers & TYPEQUAL_SPECCONST) {
+        result += "specconst ";
+    }
 
     return result;
 }
@@ -147,8 +150,16 @@ static const Type *lApplyTypeQualifiers(int typeQualifiers, const Type *type, So
         type = type->GetAsConstType();
     }
 
+    if ((typeQualifiers & TYPEQUAL_SPECCONST) != 0) {
+        type = type->GetAsSpecConstType();
+    }
+
     if (((typeQualifiers & TYPEQUAL_UNIFORM) != 0) && ((typeQualifiers & TYPEQUAL_VARYING) != 0)) {
         Error(pos, "Type \"%s\" cannot be qualified with both uniform and varying.", type->GetString().c_str());
+    }
+
+    if (((typeQualifiers & TYPEQUAL_CONST) != 0) && ((typeQualifiers & TYPEQUAL_SPECCONST) != 0)) {
+        Warning(pos, "Type \"%s\" cannot be qualified with both const and specconst.", type->GetString().c_str());
     }
 
     if ((typeQualifiers & TYPEQUAL_UNIFORM) != 0) {
@@ -835,6 +846,7 @@ void Declarator::InitFromType(const Type *baseType, DeclSpecs *ds) {
     bool hasUniformQual = ((typeQualifiers & TYPEQUAL_UNIFORM) != 0);
     bool hasVaryingQual = ((typeQualifiers & TYPEQUAL_VARYING) != 0);
     bool isConst = ((typeQualifiers & TYPEQUAL_CONST) != 0);
+    bool isSpecConst = ((typeQualifiers & TYPEQUAL_SPECCONST) != 0);
 
     if (hasUniformQual && hasVaryingQual) {
         Error(pos, "Can't provide both \"uniform\" and \"varying\" qualifiers.");
@@ -880,6 +892,10 @@ void Declarator::InitFromType(const Type *baseType, DeclSpecs *ds) {
         }
         if (isConst) {
             Error(pos, "\"const\" qualifier is to illegal apply to references.");
+            return;
+        }
+        if (isSpecConst) {
+            Error(pos, "\"specconst\" qualifier is to illegal apply to references.");
             return;
         }
         // The parser should disallow this already, but double check.

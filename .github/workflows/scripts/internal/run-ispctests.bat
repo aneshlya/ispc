@@ -24,5 +24,5 @@ popd
 
 :: Run tests for one configuration only to save time
 pushd ..\x86_64
-ISPCTest-release.exe --benchmark_min_time=0.1 --benchmark_repetitions=1 --benchmark_out=validate.json --benchmark_out_format=json --benchmark_report_aggregates_only=true
+ISPCTest-release.exe --benchmark_min_time=0.1s --benchmark_repetitions=1 --benchmark_out=validate.json --benchmark_out_format=json --benchmark_report_aggregates_only=true
 popd

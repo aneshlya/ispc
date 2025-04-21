@@ -14,7 +14,7 @@
     {
       "name": "dependency-versions-int",
       "cacheVariables": {
-        "LLVM_VERSION": "18.1",
+        "LLVM_VERSION": "20.1",
         "LLVM_URL": "https://github.com/llvm/llvm-project.git",
         "VC_INTRINSICS_URL": "https://github.com/intel-innersource/drivers.gpu.compute.vc-intrinsics.git",
         "VC_INTRINSICS_SHA": "279147bb102eafc1ba3a36bd10798489da5133a8",

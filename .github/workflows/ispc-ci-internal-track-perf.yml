@@ -1,0 +1,180 @@
+# Copyright (c) 2025, Intel Corporation
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: (INTERNAL) Track ISPC and LLVM performance
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Runs at 00:05 UTC every day
+    - cron: '5 0 * * *'
+
+env:
+  ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+jobs:
+  build-ispc:
+    runs-on: 'sctpiel1'
+    container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
+    steps:
+      - name: Clean up
+        run: |
+          rm -rf build-perf install ispc
+
+      - name: Checkout ISPC repo
+        uses: actions/checkout@v4
+        with:
+          repository: ispc/ispc
+          path: ispc
+          fetch-depth: 0
+          ref: main
+
+      - name: Install prerequisites
+        run: |
+          apt-get update
+          apt-get -y install ninja-build git curl cmake xz-utils m4 flex bison python3 python3-dev libtbb-dev g++-multilib
+
+      - name: Build LLVM and ISPC
+        run: |
+          cmake ispc/superbuild \
+              --preset os \
+              -B build-perf \
+              -DLLVM_VERSION=trunk \
+              -DCMAKE_INSTALL_PREFIX=install \
+              -DINSTALL_TOOLCHAIN=ON \
+              -DINSTALL_ISPC=ON \
+              -DXE_DEPS=OFF
+          cmake --build build-perf
+
+      - name: Pack ISPC and LLVM
+        run: |
+          tar -cf ispc-and-llvm.tar -C install .
+
+      - name: Upload ISPC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ispc_and_llvm
+          path: ispc-and-llvm.tar
+
+  perf:
+    needs: build-ispc
+    container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [sctpiel1, sctpiel5]
+        arch: [avx512skx-i32x8, avx2]
+        exclude:
+          # We only want to run avx512 on sctpiel1 and avx2 on sctpiel5
+          - runner: sctpiel1
+            arch: avx2
+          - runner: sctpiel5
+            arch: avx512skx-i32x8
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Clean up
+        run: |
+          rm -rf install ispctest
+
+      - name: Download ISPC
+        uses: actions/download-artifact@v4
+        with:
+          name: ispc_and_llvm
+
+      - name: Checkout ISPCTest repo
+        uses: actions/checkout@v4
+        with:
+          repository: intel-innersource/applications.gaming.ispctest
+          path: ispctest
+          fetch-depth: 0
+          ref: master
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Unpack ISPC and LLVM and show ISPC version
+        run: |
+          mkdir install && tar xf ispc-and-llvm.tar -C install
+          ./install/bin/ispc -v
+
+      - name: Build ISPCTest
+        run: |
+          export PATH=`pwd`/install/bin:$PATH
+          cd ispctest/Scripts
+          ./GenerateProjectFiles.sh
+          ./build.sh "${{ matrix.arch }}_x86_64"
+
+      - name: Run ISPCTest
+        run: |
+          cd ispctest/x86_64
+          taskset --cpu-list 0 "./ISPCTest-${{ matrix.arch }}"  \
+              --benchmark_repetitions=3 \
+              --benchmark_filter=.*UE5* \
+              --benchmark_out=result.json  --benchmark_out_format=json \
+              --benchmark_report_aggregates_only=true
+
+      - name: Upload ISPCTest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ispctest_${{ matrix.arch }}
+          path: ispctest/x86_64/ISPCTest-${{ matrix.arch }}
+
+      - name: Upload json with results
+        uses: actions/upload-artifact@v4
+        with:
+          name: result_${{ matrix.arch }}
+          path: ispctest/x86_64/result.json
+
+  push_results:
+    runs-on: 'Linux'
+    needs: perf
+    container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
+    steps:
+      - name: Clean up
+        run: |
+          rm -rf install ispctest-results *.json
+
+      - name: Checkout ispctest-result repo
+        uses: actions/checkout@v4
+        with:
+          repository: intel-sandbox/applications.compilers.ispc.ispctest-result
+          path: ispctest-result
+          fetch-dept: 0
+          ref: main
+          token: ${{ secrets.ISPCTEST_RESULT_TOKEN }}
+
+      - name: Download ISPC
+        uses: actions/download-artifact@v4
+        with:
+          name: ispc_and_llvm
+
+      - name: Download result_avx2
+        uses: actions/download-artifact@v4
+        with:
+          name: result_avx2
+          path: result-avx2
+
+      - name: Download result_avx512skx-i32x8
+        uses: actions/download-artifact@v4
+        with:
+          name: result_avx512skx-i32x8
+          path: result-avx512
+
+      - name: Set up git identity
+        run: |
+          cd ispctest-result
+          git config user.name "Github Action Bot"
+          git config user.email "aleksei.nurmukhametov@intel.com"
+
+      - name: Rename artifacts and push them to ispctest-results repo
+        run: |
+          DATE=$(date +"%Y-%m-%d")
+          echo "date is $DATE"
+          mkdir install && tar xf ispc-and-llvm.tar -C install
+          ./install/bin/ispc -v | tee ispctest-result/versions/$DATE.txt
+          ./install/bin/clang -v 2>&1 | tee -a ispctest-result/versions/$DATE.txt
+          mv result-avx2/result.json ispctest-result/gamedev/avx2/$DATE.json
+          mv result-avx512/result.json ispctest-result/gamedev/avx512/$DATE.json
+          cd ispctest-result
+          git add ./
+          git commit -m "Add results for $DATE"
+          git push origin main
+          # TODO:! compare results

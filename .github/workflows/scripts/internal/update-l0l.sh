@@ -28,9 +28,7 @@ TOP_TAG=$(cd level-zero; git tag --sort=committerdate | tail -n1)
 
 any_updated=false
 # Try to update version in all preset files
-check_sha intPresets.json
 check_sha osPresets.json
-check_sha os-intPresets.json
 
 if [ "$any_updated" = true ]; then
     BRANCH_NAME=robotex/update-l0l-$TOP_TAG

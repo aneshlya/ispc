@@ -31,9 +31,7 @@ source $SCRIPTS_DIR/update-common.sh
 SHA_BRANCH_NAME=
 any_updated=false
 # Try to update version in all preset files
-check_sha intPresets.json SPIRV-LLVM-Translator-int
 check_sha osPresets.json SPIRV-LLVM-Translator
-check_sha os-intPresets.json SPIRV-LLVM-Translator
 
 if [ "$any_updated" = true ]; then
     BRANCH_NAME=robotex/update-spirv-translator$SHA_BRANCH_NAME

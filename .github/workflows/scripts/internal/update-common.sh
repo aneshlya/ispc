@@ -19,9 +19,6 @@ function create_pr() {
     # It is safe git add non-changed file.
     git add ./superbuild/osPresets.json
     git commit -m "$COMMIT_MESSAGE" || true
-    git add ./superbuild/intPresets.json
-    git add ./superbuild/os-intPresets.json
-    git commit -m "CI (internal): $COMMIT_MESSAGE" || true
     git push origin $BRANCH_NAME
 
     # create PR

@@ -1,15 +1,20 @@
 #define MAX_TILE_SIZE 1024
-#define MAX_HEAD_DIM 1024
+#if TARGET_WIDTH == 8
 #define TILE_SIZE 16
+#elif TARGET_WIDTH == 16
+#define TILE_SIZE 32
+#endif
 
-export void single_head_attention(uniform float Q[], uniform float K[], uniform float V[], uniform float output[],
-                                  uniform int seq_len, uniform int d_k) {
-    // Calculate number of tiles needed
-    uniform int num_tiles = (seq_len + TILE_SIZE - 1) / TILE_SIZE;
+task void flash_attention(uniform float Q[], uniform float K[], uniform float V[], uniform float output[],
+                          uniform int seq_len, uniform int d_k, uniform int num_tiles) {
     uniform float sm_scale = rsqrt((uniform float)d_k); // Softmax scaling factor
+    // Calculate work distribution
+    uniform int tiles_per_task = (num_tiles + taskCount - 1) / taskCount;
+    uniform int start_tile = taskIndex * tiles_per_task;
+    uniform int end_tile = min(start_tile + tiles_per_task, num_tiles);
 
-    // Process each query tile
-    for (uniform int tile_q = 0; tile_q < num_tiles; tile_q++) {
+    // Process assigned range of query tiles
+    for (uniform int tile_q = start_tile; tile_q < end_tile; tile_q++) {
         uniform int q_start = tile_q * TILE_SIZE;
         uniform int q_end = min(q_start + TILE_SIZE, seq_len);
         uniform int q_tile_len = q_end - q_start;
@@ -19,10 +24,10 @@ export void single_head_attention(uniform float Q[], uniform float K[], uniform 
 
             // Initialize tracking variables for numerically stable softmax
             uniform float max_score = -1e30f; // Running maximum value
-            uniform float sum_exp = 0.0f;   // Running softmax denominator
+            uniform float sum_exp = 0.0f;     // Running softmax denominator
 
             // Initialize output accumulator
-            uniform float acc[MAX_HEAD_DIM];
+            uniform float acc[MAX_TILE_SIZE];
 
             foreach (i = 0 ... d_k) {
                 acc[i] = 0.0f;
@@ -35,14 +40,14 @@ export void single_head_attention(uniform float Q[], uniform float K[], uniform 
                 uniform int k_tile_len = k_end - k_start;
 
                 // Arrays to store current tile's attention scores and vectors
-                uniform float scores[MAX_TILE_SIZE]; // QK^T scores before exp
-                uniform float exp_scores[MAX_TILE_SIZE];  // Attention weights after exp
+                uniform float scores[MAX_TILE_SIZE];     // QK^T scores before exp
+                uniform float exp_scores[MAX_TILE_SIZE]; // Attention weights after exp
 
                 // Step 1: Compute attention scores for each key in the tile
                 uniform float tile_max_score = -1e30f; // Maximum score for this tile
 
                 // Compute dot products (Q[q_idx], K[k_start:k_end])
-                for (uniform int k_idx = k_start; k_idx< k_end; k_idx++) {
+                for (uniform int k_idx = k_start; k_idx < k_end; k_idx++) {
                     varying float dot_product = 0.0f;
 
                     foreach (dim = 0 ... d_k) {
@@ -102,4 +107,12 @@ export void single_head_attention(uniform float Q[], uniform float K[], uniform 
             }
         }
     }
+}
+
+export void single_head_attention(uniform float Q[], uniform float K[], uniform float V[], uniform float output[],
+                                  uniform int seq_len, uniform int d_k) {
+    uniform int num_tiles = (seq_len + TILE_SIZE - 1) / TILE_SIZE;
+    uniform int numTasks = seq_len / programCount;
+    launch[numTasks] flash_attention(Q, K, V, output, seq_len, d_k, num_tiles);
+    sync;
 }

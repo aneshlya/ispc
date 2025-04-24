@@ -36,7 +36,7 @@ if(NOT NANOBIND_FOUND)
 endif()
 
 # Define ISPC compilation settings
-set(ISPC_SRC ${CMAKE_CURRENT_SOURCE_DIR}/attention.ispc)
+set(ISPC_SRC ${CMAKE_CURRENT_SOURCE_DIR}/flash_attention.ispc)
 set(ISPC_OBJ ${CMAKE_CURRENT_BINARY_DIR}/attention.o)
 set(ISPC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/attention_ispc.h)
 

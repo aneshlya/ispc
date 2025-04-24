@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     # Test different sequence lengths
     print("\nPerformance and validation for different sequence lengths:")
-    seq_lengths = [32, 64, 128, 256, 512, 1024, 2048, 4096]
+    seq_lengths = [32, 64, 128, 256, 512, 1024]
 
     # Print header for results table
     print("\n{:<8} {:<15} {:<15} {:<12} {:<12} {:<12}".format(

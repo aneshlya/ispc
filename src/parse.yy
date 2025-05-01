@@ -1014,27 +1014,27 @@ new_expression
 assignment_expression
     : new_expression
     | unary_expression '=' assignment_expression
-      { $$ = new AssignExpr(AssignExpr::Assign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::Assign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_MUL_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::MulAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::MulAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_DIV_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::DivAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::DivAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_MOD_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::ModAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::ModAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_ADD_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::AddAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::AddAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_SUB_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::SubAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::SubAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_LEFT_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::ShlAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::ShlAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_RIGHT_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::ShrAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::ShrAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_AND_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::AndAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::AndAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_XOR_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::XorAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::XorAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_OR_ASSIGN assignment_expression
-      { $$ = new AssignExpr(AssignExpr::OrAssign, $1, $3, Union(@1, @3)); }
+      { $$ = MakeAssignExpr(AssignExpr::OrAssign, $1, $3, Union(@1, @3)); }
     | template_identifier {
         // It looks like the proper place is under primary_expression, but
         // there are shift/reduce conflicts there. So, we handle it here.

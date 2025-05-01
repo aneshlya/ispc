@@ -11,7 +11,7 @@ struct S operator++(struct S &rs) {
 }
 
 // Prefix decrement (--x)
-struct S operator--(struct S &rs) {
+struct S& operator--(struct S &rs) {
     rs.a = rs.a - 1;
     return rs;
 }
@@ -25,7 +25,7 @@ struct S operator++(struct S &rs, int) {
 }
 
 // Postfix decrement (x--)
-struct S operator--(struct S &rs, int) {
+struct S& operator--(struct S &rs, int) {
     struct S temp;
     temp.a = rs.a;
     rs.a = rs.a - 1;

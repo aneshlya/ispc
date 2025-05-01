@@ -936,6 +936,13 @@ bool CanConvertTypes(const Type *fromType, const Type *toType, const char *error
  */
 Expr *TypeConvertExpr(Expr *expr, const Type *toType, const char *errorMsgBase);
 
+/** This function creates a assign expression, checking for operator overloading
+    possibilities before falling back to the default assign expression creation.
+    If an operator is overloaded for the given types, a function call to the
+    overloaded operator will be returned instead of a AssignExpr.
+ */
+Expr *MakeAssignExpr(AssignExpr::Op o, Expr *a, Expr *b, SourcePos p);
+
 /** This function creates a binary expression, checking for operator overloading
     possibilities before falling back to the default binary expression creation.
     If an operator is overloaded for the given types, a function call to the

@@ -39,4 +39,4 @@ task void f_f(uniform float RET[], uniform float aFOO[]) {
 
 }
 
-task void result(uniform float RET[16]) { RET[programIndex] = -3 - (2 * programIndex); }
+task void result(uniform float RET[4]) { RET[programIndex] = -3 - (2 * programIndex); }

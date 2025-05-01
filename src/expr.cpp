@@ -3463,6 +3463,73 @@ AssignExpr::AssignExpr(AssignExpr::Op o, Expr *a, Expr *b, SourcePos p) : Expr(p
     rvalue = b;
 }
 
+bool lCreateAssignOperatorCall(const AssignExpr::Op bop, Expr *lvalue, Expr *rvalue, Expr *&op, const SourcePos &sp) {
+    bool abort = false;
+    if ((lvalue == nullptr) || (rvalue == nullptr)) {
+        return abort;
+    }
+    Expr *arg0 = lvalue;
+    Expr *arg1 = rvalue;
+    const Type *type0 = arg0->GetType();
+    const Type *type1 = arg1->GetType();
+
+    // If either operand is a reference, dereference it before we move
+    // forward
+    bool lvalueIsReference = CastType<ReferenceType>(lvalue->GetType()) != nullptr;
+    if (lvalueIsReference) {
+        lvalue = new RefDerefExpr(lvalue, lvalue->pos);
+        type1 = lvalue->GetType();
+    }
+    if ((type0 == nullptr) || (type1 == nullptr)) {
+        return abort;
+    }
+    if (CastType<StructType>(type0) != nullptr || CastType<StructType>(type1) != nullptr) {
+        std::string opName = std::string("operator") + lOpString(bop);
+        std::vector<Symbol *> funcs;
+        bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
+        std::vector<TemplateSymbol *> funcTempls;
+        bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
+        if (foundAnyFunction || foundAnyTemplate) {
+            FunctionSymbolExpr *functionSymbolExpr =
+                new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), sp);
+            Assert(functionSymbolExpr != nullptr);
+            ExprList *args = new ExprList(sp);
+            args->exprs.push_back(arg0);
+            args->exprs.push_back(arg1);
+            op = new FunctionCallExpr(functionSymbolExpr, args, sp);
+            return abort;
+        }
+        /*if (funcs.size() == 0 && funcTempls.size() == 0) {
+            Error(sp, "operator %s(%s, %s) is not defined.", opName.c_str(), (type0->GetString()).c_str(),
+                  (type1->GetString()).c_str());
+            abort = true;
+            return abort;
+        }*/
+
+        return abort;
+    }
+    return abort;
+}
+
+Expr *ispc::MakeAssignExpr(AssignExpr::Op o, Expr *a, Expr *b, SourcePos p) {
+    Expr *op = nullptr;
+    bool abort = lCreateAssignOperatorCall(o, a, b, op, p);
+    if (op != nullptr) {
+        return op;
+    }
+
+    // lCreateBinaryOperatorCall can return nullptr for 2 cases:
+    // 1. When there is an error.
+    // 2. We have to create a new BinaryExpr.
+    if (abort) {
+        AssertPos(p, m->errorCount > 0);
+        return nullptr;
+    }
+
+    op = new AssignExpr(o, a, b, p);
+    return op;
+}
+
 llvm::Value *AssignExpr::GetValue(FunctionEmitContext *ctx) const {
     const Type *type = nullptr;
     if (lvalue == nullptr || rvalue == nullptr || (type = GetType()) == nullptr) {
@@ -7904,9 +7971,20 @@ const Type *TypeCastExpr::GetType() const {
 }
 
 const Type *TypeCastExpr::GetLValueType() const {
-    AssertPos(pos, type->HasUnboundVariability() == false);
+    const Type *toType = type, *fromType = expr->GetType();
+    if (toType == nullptr || fromType == nullptr) {
+        return nullptr;
+    }
+    if (toType->HasUnboundVariability()) {
+        if (fromType->IsUniformType()) {
+            toType = type->ResolveUnboundVariability(Variability::Uniform);
+        } else {
+            toType = type->ResolveUnboundVariability(Variability::Varying);
+        }
+    }
+    AssertPos(pos, toType->HasUnboundVariability() == false);
     if (CastType<PointerType>(GetType()) != nullptr) {
-        return type;
+        return toType;
     } else {
         return nullptr;
     }

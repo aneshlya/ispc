@@ -2949,6 +2949,38 @@ Expr *BinaryExpr::TypeCheck() {
         return nullptr;
     }
 
+    if (CastType<StructType>(type0) != nullptr || CastType<StructType>(type1) != nullptr) {
+        // Look up operator overloads
+        std::string opName = std::string("operator") + lOpString(op);
+        std::vector<Symbol *> funcs;
+        std::vector<TemplateSymbol *> funcTempls;
+
+        bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
+        bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
+
+        if (foundAnyFunction || foundAnyTemplate) {
+            FunctionSymbolExpr *functionSymbolExpr =
+                new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), pos);
+            Assert(functionSymbolExpr != nullptr);
+            ExprList *args = new ExprList(pos);
+            args->exprs.push_back(arg0);
+            args->exprs.push_back(arg1);
+            Expr *functionCallExpr = new FunctionCallExpr(functionSymbolExpr, args, pos);
+            printf("%s\n", functionCallExpr->GetString().c_str());
+            functionCallExpr = ::TypeCheck(functionCallExpr);
+            if (functionCallExpr == nullptr) {
+                return nullptr;
+            }
+            return functionCallExpr;
+
+        }
+        // Error handling
+        if (funcs.size() == 0 && funcTempls.size() == 0) {
+            Error(pos, "operator %s(%s, %s) is not defined.", opName.c_str(), (type0->GetString()).c_str(),
+                (type1->GetString()).c_str());
+            return nullptr;
+        }
+    }
     const PointerType *pt0 = CastType<PointerType>(type0);
     const PointerType *pt1 = CastType<PointerType>(type1);
     if (pt0 != nullptr && pt1 != nullptr && op == Sub) {
@@ -3691,7 +3723,13 @@ Expr *AssignExpr::TypeCheck() {
             ExprList *args = new ExprList(pos);
             args->exprs.push_back(lvalue);
             args->exprs.push_back(rvalue);
-            return new FunctionCallExpr(functionSymbolExpr, args, pos);
+            Expr *functionCallExpr = new FunctionCallExpr(functionSymbolExpr, args, pos);
+            printf("%s\n", functionCallExpr->GetString().c_str());
+            functionCallExpr = ::TypeCheck(functionCallExpr);
+            if (functionCallExpr == nullptr) {
+                return nullptr;
+            }
+            return functionCallExpr;
         }
     }
 

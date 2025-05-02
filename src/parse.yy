@@ -863,77 +863,77 @@ cast_expression
 multiplicative_expression
     : cast_expression
     | multiplicative_expression '*' cast_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Mul, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Mul, $1, $3, Union(@1, @3)); }
     | multiplicative_expression '/' cast_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Div, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Div, $1, $3, Union(@1, @3)); }
     | multiplicative_expression '%' cast_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Mod, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Mod, $1, $3, Union(@1, @3)); }
     ;
 
 additive_expression
     : multiplicative_expression
     | additive_expression '+' multiplicative_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Add, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Add, $1, $3, Union(@1, @3)); }
     | additive_expression '-' multiplicative_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Sub, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Sub, $1, $3, Union(@1, @3)); }
     ;
 
 shift_expression
     : additive_expression
     | shift_expression TOKEN_LEFT_OP additive_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Shl, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Shl, $1, $3, Union(@1, @3)); }
     | shift_expression TOKEN_RIGHT_OP additive_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Shr, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Shr, $1, $3, Union(@1, @3)); }
     ;
 
 relational_expression
     : shift_expression
     | relational_expression '<' shift_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Lt, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Lt, $1, $3, Union(@1, @3)); }
     | relational_expression '>' shift_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Gt, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Gt, $1, $3, Union(@1, @3)); }
     | relational_expression TOKEN_LE_OP shift_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Le, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Le, $1, $3, Union(@1, @3)); }
     | relational_expression TOKEN_GE_OP shift_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Ge, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Ge, $1, $3, Union(@1, @3)); }
     ;
 
 equality_expression
     : relational_expression
     | equality_expression TOKEN_EQ_OP relational_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::Equal, $1, $3, Union(@1,@3)); }
+      { $$ = new BinaryExpr(BinaryExpr::Equal, $1, $3, Union(@1,@3)); }
     | equality_expression TOKEN_NE_OP relational_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::NotEqual, $1, $3, Union(@1,@3)); }
+      { $$ = new BinaryExpr(BinaryExpr::NotEqual, $1, $3, Union(@1,@3)); }
     ;
 
 and_expression
     : equality_expression
     | and_expression '&' equality_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::BitAnd, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::BitAnd, $1, $3, Union(@1, @3)); }
     ;
 
 exclusive_or_expression
     : and_expression
     | exclusive_or_expression '^' and_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::BitXor, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::BitXor, $1, $3, Union(@1, @3)); }
     ;
 
 inclusive_or_expression
     : exclusive_or_expression
     | inclusive_or_expression '|' exclusive_or_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::BitOr, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::BitOr, $1, $3, Union(@1, @3)); }
     ;
 
 logical_and_expression
     : inclusive_or_expression
     | logical_and_expression TOKEN_AND_OP inclusive_or_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::LogicalAnd, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::LogicalAnd, $1, $3, Union(@1, @3)); }
     ;
 
 logical_or_expression
     : logical_and_expression
     | logical_or_expression TOKEN_OR_OP logical_and_expression
-      { $$ = MakeBinaryExpr(BinaryExpr::LogicalOr, $1, $3, Union(@1, @3)); }
+      { $$ = new BinaryExpr(BinaryExpr::LogicalOr, $1, $3, Union(@1, @3)); }
     ;
 
 conditional_expression

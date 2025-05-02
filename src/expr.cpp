@@ -613,6 +613,71 @@ bool ispc::PossiblyResolveFunctionOverloads(Expr *expr, const Type *type) {
     return true;
 }
 
+// Helper function to handle operator overloading for struct types
+Expr *PossiblyResolveStructOperatorOverloads(const char *baseOpName, const std::vector<Type *> &argTypes,
+                                             const std::vector<Expr *> &args, SourcePos pos, bool isPostfix) {
+    // Check if any of the argument types are struct types
+    bool hasStructType = false;
+    for (const auto &type : argTypes) {
+        if (CastType<StructType>(type) != nullptr) {
+            hasStructType = true;
+            break;
+        }
+    }
+
+    if (!hasStructType) {
+        return nullptr; // No struct types, so no operator overloading needed
+    }
+
+    // Construct operator name (e.g., "operator+")
+    std::string opName = std::string("operator") + baseOpName;
+
+    // Look up operator overloads
+    std::vector<Symbol *> funcs;
+    std::vector<TemplateSymbol *> funcTempls;
+
+    bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
+    bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
+
+    if (foundAnyFunction || foundAnyTemplate) {
+        // Create function symbol expression
+        FunctionSymbolExpr *functionSymbolExpr =
+            new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), pos);
+        Assert(functionSymbolExpr != nullptr);
+
+        // Create argument list
+        ExprList *exprList = new ExprList(pos);
+        for (const auto &arg : args) {
+            exprList->exprs.push_back(arg);
+        }
+
+        // For postfix operators, add dummy int argument if not already added
+        if (isPostfix && args.size() == 1) {
+            ConstExpr *dummyInt = new ConstExpr(AtomicType::UniformInt32, 1, pos);
+            exprList->exprs.push_back(dummyInt);
+        }
+
+        // Create and type-check function call
+        Expr *functionCallExpr = new FunctionCallExpr(functionSymbolExpr, exprList, pos);
+        functionCallExpr = ::TypeCheck(functionCallExpr);
+
+        return functionCallExpr; // Could be nullptr if type checking failed
+    }
+
+    // Error handling - if we were looking for functions but didn't find any
+    if (hasStructType && funcs.size() == 0 && funcTempls.size() == 0) {
+        // Format error message based on number of arguments
+        if (argTypes.size() == 1) {
+            Error(pos, "operator %s(%s) is not defined.", opName.c_str(), (argTypes[0]->GetString()).c_str());
+        } else if (argTypes.size() == 2) {
+            Error(pos, "operator %s(%s, %s) is not defined.", opName.c_str(), (argTypes[0]->GetString()).c_str(),
+                  (argTypes[1]->GetString()).c_str());
+        }
+        return nullptr;
+    }
+
+    return nullptr;
+}
 static llvm::Value *lTypeConvAtomicOrUniformVector(FunctionEmitContext *ctx, llvm::Value *exprVal, const Type *toType,
                                                    const Type *fromType, SourcePos pos);
 /** Utility routine that emits code to initialize a symbol given an

@@ -5,13 +5,13 @@ struct S {
 };
 
 // Prefix increment (++x)
-struct S operator++(struct S &rs) {
+struct S& operator++(struct S &rs) {
     rs.a = rs.a + 1;
     return rs;
 }
 
 // Prefix decrement (--x)
-struct S operator--(struct S &rs) {
+struct S& operator--(struct S &rs) {
     rs.a = rs.a - 1;
     return rs;
 }

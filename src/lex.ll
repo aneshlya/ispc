@@ -427,6 +427,8 @@ while { return TOKEN_WHILE; }
 "operator|=" { return lParseOperator(yytext); }
 "operator^=" { return lParseOperator(yytext); }
 
+"operator=" { return lParseOperator(yytext); }
+
 L?\"(\\.|[^\\"])*\" { lStringConst(&yylval, &yylloc); return TOKEN_STRING_LITERAL; }
 
 {IDENT} {

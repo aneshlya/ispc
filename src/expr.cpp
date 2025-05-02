@@ -1487,7 +1487,49 @@ Expr *UnaryExpr::TypeCheck() {
         Error(pos, "Can't apply unary operator to SOA type \"%s\".", type->GetString().c_str());
         return nullptr;
     }
+    bool isIncDecOp =
+        (op == UnaryExpr::PreInc || op == UnaryExpr::PreDec || op == UnaryExpr::PostInc || op == UnaryExpr::PostDec);
 
+    Expr *arg = expr;
+    // Handle reference dereferencing, skipping for inc/dec operators
+    if (!isIncDecOp && CastType<ReferenceType>(type) != nullptr) {
+        arg = new RefDerefExpr(arg, arg->pos);
+        type = arg->GetType();
+    }
+    if (CastType<StructType>(type)) {
+        // Look up operator overloads
+        std::string opName = std::string("operator") + lOpString(op);
+        std::vector<Symbol *> funcs;
+        std::vector<TemplateSymbol *> funcTempls;
+
+        bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
+        bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
+
+        if (foundAnyFunction || foundAnyTemplate) {
+            FunctionSymbolExpr *functionSymbolExpr =
+                new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), pos);
+            Assert(functionSymbolExpr != nullptr);
+            ExprList *args = new ExprList(pos);
+            args->exprs.push_back(expr);
+            // For postfix operators, add dummy int argument
+            if (op == UnaryExpr::PostInc || op == UnaryExpr::PostDec) {
+                ConstExpr *dummyInt = new ConstExpr(AtomicType::UniformInt32, 1, pos);
+                args->exprs.push_back(dummyInt);
+            }
+            Expr *functionCallExpr = new FunctionCallExpr(functionSymbolExpr, args, pos);
+            printf("%s\n", functionCallExpr->GetString().c_str());
+            functionCallExpr = ::TypeCheck(functionCallExpr);
+            if (functionCallExpr == nullptr) {
+                return nullptr;
+            }
+            return functionCallExpr;
+        }
+        // Error handling
+        if (funcs.size() == 0 && funcTempls.size() == 0) {
+            Error(pos, "operator %s(%s) is not defined.", opName.c_str(), (type->GetString()).c_str());
+            return nullptr;
+        }
+    }
     if (op == PreInc || op == PreDec || op == PostInc || op == PostDec) {
         if (type->IsConstType()) {
             Error(pos,
@@ -1526,10 +1568,10 @@ Expr *UnaryExpr::TypeCheck() {
     }
 
     // don't do this for pre/post increment/decrement
-    if (CastType<ReferenceType>(type)) {
+    /*if (CastType<ReferenceType>(type)) {
         expr = new RefDerefExpr(expr, pos);
         type = expr->GetType();
-    }
+    }*/
 
     if (op == Negate) {
         if (!type->IsNumericType()) {
@@ -3483,31 +3525,7 @@ bool lCreateAssignOperatorCall(const AssignExpr::Op bop, Expr *lvalue, Expr *rva
     if ((type0 == nullptr) || (type1 == nullptr)) {
         return abort;
     }
-    if (CastType<StructType>(type0) != nullptr || CastType<StructType>(type1) != nullptr) {
-        std::string opName = std::string("operator") + lOpString(bop);
-        std::vector<Symbol *> funcs;
-        bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
-        std::vector<TemplateSymbol *> funcTempls;
-        bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
-        if (foundAnyFunction || foundAnyTemplate) {
-            FunctionSymbolExpr *functionSymbolExpr =
-                new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), sp);
-            Assert(functionSymbolExpr != nullptr);
-            ExprList *args = new ExprList(sp);
-            args->exprs.push_back(arg0);
-            args->exprs.push_back(arg1);
-            op = new FunctionCallExpr(functionSymbolExpr, args, sp);
-            return abort;
-        }
-        /*if (funcs.size() == 0 && funcTempls.size() == 0) {
-            Error(sp, "operator %s(%s, %s) is not defined.", opName.c_str(), (type0->GetString()).c_str(),
-                  (type1->GetString()).c_str());
-            abort = true;
-            return abort;
-        }*/
 
-        return abort;
-    }
     return abort;
 }
 
@@ -3659,6 +3677,22 @@ Expr *AssignExpr::TypeCheck() {
     bool lvalueIsReference = CastType<ReferenceType>(lvalue->GetType()) != nullptr;
     if (lvalueIsReference) {
         lvalue = new RefDerefExpr(lvalue, lvalue->pos);
+    }
+    if (CastType<StructType>(ltype) != nullptr || CastType<StructType>(rtype) != nullptr) {
+        std::string opName = std::string("operator") + lOpString(op);
+        std::vector<Symbol *> funcs;
+        bool foundAnyFunction = m->symbolTable->LookupFunction(opName.c_str(), &funcs);
+        std::vector<TemplateSymbol *> funcTempls;
+        bool foundAnyTemplate = m->symbolTable->LookupFunctionTemplate(opName.c_str(), &funcTempls);
+        if (foundAnyFunction || foundAnyTemplate) {
+            FunctionSymbolExpr *functionSymbolExpr =
+                new FunctionSymbolExpr(opName.c_str(), funcs, funcTempls, TemplateArgs(), pos);
+            Assert(functionSymbolExpr != nullptr);
+            ExprList *args = new ExprList(pos);
+            args->exprs.push_back(lvalue);
+            args->exprs.push_back(rvalue);
+            return new FunctionCallExpr(functionSymbolExpr, args, pos);
+        }
     }
 
     if (PossiblyResolveFunctionOverloads(rvalue, lvalue->GetType()) == false) {
@@ -7971,23 +8005,8 @@ const Type *TypeCastExpr::GetType() const {
 }
 
 const Type *TypeCastExpr::GetLValueType() const {
-    const Type *toType = type, *fromType = expr->GetType();
-    if (toType == nullptr || fromType == nullptr) {
-        return nullptr;
-    }
-    if (toType->HasUnboundVariability()) {
-        if (fromType->IsUniformType()) {
-            toType = type->ResolveUnboundVariability(Variability::Uniform);
-        } else {
-            toType = type->ResolveUnboundVariability(Variability::Varying);
-        }
-    }
-    AssertPos(pos, toType->HasUnboundVariability() == false);
-    if (CastType<PointerType>(GetType()) != nullptr) {
-        return toType;
-    } else {
-        return nullptr;
-    }
+    AssertPos(pos, type->HasUnboundVariability() == false);
+    return type;
 }
 
 static const Type *lDeconstifyType(const Type *t) {

@@ -705,9 +705,9 @@ postfix_expression
           lCleanUpString($3);
       }
     | postfix_expression TOKEN_INC_OP
-      { $$ = MakeUnaryExpr(UnaryExpr::PostInc, $1, Union(@1,@2)); }
+      { $$ = new UnaryExpr(UnaryExpr::PostInc, $1, Union(@1,@2)); }
     | postfix_expression TOKEN_DEC_OP
-      { $$ = MakeUnaryExpr(UnaryExpr::PostDec, $1, Union(@1,@2)); }
+      { $$ = new UnaryExpr(UnaryExpr::PostDec, $1, Union(@1,@2)); }
     ;
 
 intrinsic_name
@@ -827,9 +827,9 @@ unary_expression
     | intrincall_expression
     | invoke_sycl_expression
     | TOKEN_INC_OP unary_expression
-      { $$ = MakeUnaryExpr(UnaryExpr::PreInc, $2, Union(@1, @2)); }
+      { $$ = new UnaryExpr(UnaryExpr::PreInc, $2, Union(@1, @2)); }
     | TOKEN_DEC_OP unary_expression
-      { $$ = MakeUnaryExpr(UnaryExpr::PreDec, $2, Union(@1, @2)); }
+      { $$ = new UnaryExpr(UnaryExpr::PreDec, $2, Union(@1, @2)); }
     | '&' unary_expression
       { $$ = new AddressOfExpr($2, Union(@1, @2)); }
     | '*' unary_expression
@@ -837,11 +837,11 @@ unary_expression
     | '+' cast_expression
       { $$ = $2; }
     | '-' cast_expression
-      { $$ = MakeUnaryExpr(UnaryExpr::Negate, $2, Union(@1, @2)); }
+      { $$ = new UnaryExpr(UnaryExpr::Negate, $2, Union(@1, @2)); }
     | '~' cast_expression
-      { $$ = MakeUnaryExpr(UnaryExpr::BitNot, $2, Union(@1, @2)); }
+      { $$ = new UnaryExpr(UnaryExpr::BitNot, $2, Union(@1, @2)); }
     | '!' cast_expression
-      { $$ = MakeUnaryExpr(UnaryExpr::LogicalNot, $2, Union(@1, @2)); }
+      { $$ = new UnaryExpr(UnaryExpr::LogicalNot, $2, Union(@1, @2)); }
     | TOKEN_SIZEOF unary_expression
       { $$ = new SizeOfExpr($2, Union(@1, @2)); }
     | TOKEN_SIZEOF '(' type_name ')'
@@ -1016,25 +1016,25 @@ assignment_expression
     | unary_expression '=' assignment_expression
       { $$ = new AssignExpr(AssignExpr::Assign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_MUL_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::MulAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::MulAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_DIV_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::DivAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::DivAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_MOD_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::ModAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::ModAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_ADD_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::AddAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::AddAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_SUB_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::SubAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::SubAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_LEFT_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::ShlAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::ShlAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_RIGHT_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::ShrAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::ShrAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_AND_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::AndAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::AndAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_XOR_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::XorAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::XorAssign, $1, $3, Union(@1, @3)); }
     | unary_expression TOKEN_OR_ASSIGN assignment_expression
-      { $$ = MakeAssignExpr(AssignExpr::OrAssign, $1, $3, Union(@1, @3)); }
+      { $$ = new AssignExpr(AssignExpr::OrAssign, $1, $3, Union(@1, @3)); }
     | template_identifier {
         // It looks like the proper place is under primary_expression, but
         // there are shift/reduce conflicts there. So, we handle it here.

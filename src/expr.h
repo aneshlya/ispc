@@ -83,16 +83,6 @@ class Expr : public ASTNode {
     virtual Expr *Instantiate(TemplateInstantiation &templInst) const = 0;
 
     virtual bool HasAmbiguousVariability(std::vector<const Expr *> &warn) const;
-    virtual void MarkAsFunctionArgument() {
-      isFunctionArgument = true;
-    }
-  
-    virtual bool IsFunctionArgument() const {
-      return isFunctionArgument;
-    }
-  protected:
-    bool isFunctionArgument = false;
-
 };
 
 /** @brief Unary expression */
@@ -172,7 +162,6 @@ class BinaryExpr : public Expr {
     std::pair<llvm::Constant *, bool> GetStorageConstant(const Type *type) const;
     std::pair<llvm::Constant *, bool> GetConstant(const Type *type) const;
     bool HasAmbiguousVariability(std::vector<const Expr *> &warn) const;
-    void MarkAsFunctionArgument();
 
     const Op op;
     Expr *arg0, *arg1;

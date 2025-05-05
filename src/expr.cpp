@@ -2207,15 +2207,6 @@ bool BinaryExpr::HasAmbiguousVariability(std::vector<const Expr *> &warn) const 
     return false;
 }
 
-void BinaryExpr::MarkAsFunctionArgument() {
-    // Mark this expression
-    Expr::MarkAsFunctionArgument();
-    
-    // Recursively mark children
-    if (arg0) arg0->MarkAsFunctionArgument();
-    if (arg1) arg1->MarkAsFunctionArgument();
-}
-
 llvm::Value *BinaryExpr::GetValue(FunctionEmitContext *ctx) const {
     if (!arg0 || !arg1) {
         AssertPos(pos, m->errorCount > 0);
@@ -2759,14 +2750,6 @@ Expr *BinaryExpr::TypeCheck() {
 
     if (type0->IsDependent() || type1->IsDependent()) {
         return this;
-    }
-
-     std::vector<const Expr *> warn;
-     if (IsFunctionArgument() && HasAmbiguousVariability(warn)) {
-        for (auto w : warn) {
-            const TypeCastExpr *tExpr = llvm::dyn_cast<TypeCastExpr>(w);
-            tExpr->PrintAmbiguousVariability();
-        }
     }
 
     // If either operand is a reference, dereference it before we move
@@ -4062,11 +4045,11 @@ FunctionCallExpr::FunctionCallExpr(Expr *f, ExprList *a, SourcePos p, bool il, E
     : Expr(p, FunctionCallExprID), isLaunch(il), isInvoke(iis) {
     func = f;
     args = a;
-    if (args) {
-        for (auto &expr : args->exprs) {
-            if (expr) {
-                expr->MarkAsFunctionArgument();
-            }
+    std::vector<const Expr *> warn;
+    if (a && a->HasAmbiguousVariability(warn)) {
+        for (auto w : warn) {
+            const TypeCastExpr *tExpr = llvm::dyn_cast<TypeCastExpr>(w);
+            tExpr->PrintAmbiguousVariability();
         }
     }
     if (lce != nullptr) {
@@ -7839,13 +7822,6 @@ Expr *TypeCastExpr::TypeCheck() {
         return this;
     }
 
-    std::vector<const Expr *> warn;
-    if (IsFunctionArgument() && HasAmbiguousVariability(warn)) {
-       for (auto w : warn) {
-           const TypeCastExpr *tExpr = llvm::dyn_cast<TypeCastExpr>(w);
-           tExpr->PrintAmbiguousVariability();
-       }
-    }
     if (toType->HasUnboundVariability() && fromType->IsUniformType()) {
         TypeCastExpr *tce = new TypeCastExpr(toType->GetAsUniformType(), expr, pos);
         return ::TypeCheck(tce);

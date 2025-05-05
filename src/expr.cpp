@@ -614,12 +614,12 @@ bool ispc::PossiblyResolveFunctionOverloads(Expr *expr, const Type *type) {
 }
 
 // Helper function to handle operator overloading for struct types
-Expr *ispc::PossiblyResolveStructOperatorOverloads(const char *baseOpName, const std::vector<const Type *> &argTypes,
-                                                   const std::vector<Expr *> &args, SourcePos pos, bool isPostfix) {
+Expr *ispc::PossiblyResolveStructOperatorOverloads(const char *baseOpName, const std::vector<Expr *> &args,
+                                                   SourcePos pos, bool isPostfix) {
     // Check if any of the argument types are struct types
     bool hasStructType = false;
-    for (const auto &type : argTypes) {
-        if (CastType<StructType>(type) != nullptr) {
+    for (const auto &a : args) {
+        if (CastType<StructType>(a->GetType()) != nullptr) {
             hasStructType = true;
             break;
         }
@@ -667,11 +667,11 @@ Expr *ispc::PossiblyResolveStructOperatorOverloads(const char *baseOpName, const
     // Error handling - if we were looking for functions but didn't find any
     if (hasStructType && funcs.size() == 0 && funcTempls.size() == 0) {
         // Format error message based on number of arguments
-        if (argTypes.size() == 1) {
-            Error(pos, "operator %s(%s) is not defined.", opName.c_str(), (argTypes[0]->GetString()).c_str());
-        } else if (argTypes.size() == 2) {
-            Error(pos, "operator %s(%s, %s) is not defined.", opName.c_str(), (argTypes[0]->GetString()).c_str(),
-                  (argTypes[1]->GetString()).c_str());
+        if (args.size() == 1) {
+            Error(pos, "operator %s(%s) is not defined.", opName.c_str(), (args[0]->GetType()->GetString()).c_str());
+        } else if (args.size() == 2) {
+            Error(pos, "operator %s(%s, %s) is not defined.", opName.c_str(), (args[0]->GetType()->GetString()).c_str(),
+                  (args[1]->GetType()->GetString()).c_str());
         }
         return nullptr;
     }
@@ -2778,7 +2778,7 @@ Expr *BinaryExpr::TypeCheck() {
     // Resolve expression to operator overload if necessary
     const std::vector<const Type *> argTypes = {type0, type1};
     const std::vector<Expr *> args = {arg0, arg1};
-    Expr *opExpr = PossiblyResolveStructOperatorOverloads(lOpString(op), argTypes, args, pos, false);
+    Expr *opExpr = PossiblyResolveStructOperatorOverloads(lOpString(op), args, pos, false);
     if (opExpr != nullptr) {
         return opExpr;
     }

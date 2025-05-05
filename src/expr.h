@@ -954,6 +954,6 @@ bool PossiblyResolveFunctionOverloads(Expr *expr, const Type *type);
     overloaded operators when at least one of the operands is a struct type.
     It supports assign, unary and binary operators.
 */
-Expr *PossiblyResolveStructOperatorOverloads(const char *baseOpName, const std::vector<const Type *> &argTypes,
-                                             const std::vector<Expr *> &args, SourcePos pos, bool isPostfix = false);
+Expr *PossiblyResolveStructOperatorOverloads(const char *baseOpName, const std::vector<Expr *> &args, SourcePos pos,
+                                             bool isPostfix = false);
 } // namespace ispc

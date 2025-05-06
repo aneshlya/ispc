@@ -6,8 +6,8 @@ name: (INTERNAL) Track ISPC and LLVM performance
 on:
   workflow_dispatch:
   schedule:
-    # Runs at 00:05 UTC every day
-    - cron: '5 0 * * *'
+    # Runs at 04:05 UTC every day
+    - cron: '5 4 * * *'
 
 env:
   ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}

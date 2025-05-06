@@ -12,6 +12,8 @@ struct Foo {
 void foo3(uniform Foo uf) {
     soa<4> Foo xyz;
 
+// CHECK: Error: Illegal to use binary operator - with SOA type "soa<4> float"
+
 // CHECK: Error: Can't convert between types "uniform struct Foo" and "soa<4> struct Foo" with different SOA widths
     xyz= uf;
 
@@ -27,6 +29,5 @@ void foo3(uniform Foo uf) {
 // CHECK: Error: Can't apply unary operator to SOA type "soa<4> float"
     -xyz.x;
 
-// CHECK: Error: Illegal to use binary operator - with SOA type "soa<4> float"
     xyz.x = xyz.y-xyz.x;
 }

@@ -3464,24 +3464,29 @@ AssignExpr::AssignExpr(AssignExpr::Op o, Expr *a, Expr *b, SourcePos p) : Expr(p
 }
 
 bool lCreateAssignOperatorCall(const AssignExpr::Op bop, Expr *lvalue, Expr *rvalue, Expr *&op, const SourcePos &sp) {
-    bool abort = false;
     if ((lvalue == nullptr) || (rvalue == nullptr)) {
-        return abort;
+        return false;
     }
-    Expr *arg0 = lvalue;
-    Expr *arg1 = rvalue;
+    Expr *arg0 = TypeCheck(lvalue);
+    // printf("rvalue %s\n", rvalue->GetString().c_str());
+    Expr *arg1 = TypeCheck(rvalue);
+
+    if (arg0 == nullptr || arg1 == nullptr) {
+        return false;
+    }
     const Type *type0 = arg0->GetType();
+    // printf("arg1 %s\n", arg1->GetString().c_str());
     const Type *type1 = arg1->GetType();
 
     // If either operand is a reference, dereference it before we move
     // forward
-    bool lvalueIsReference = CastType<ReferenceType>(lvalue->GetType()) != nullptr;
+    bool lvalueIsReference = CastType<ReferenceType>(arg0->GetType()) != nullptr;
     if (lvalueIsReference) {
-        lvalue = new RefDerefExpr(lvalue, lvalue->pos);
-        type1 = lvalue->GetType();
+        arg0 = new RefDerefExpr(arg0, arg0->pos);
+        type0 = arg0->GetType();
     }
     if ((type0 == nullptr) || (type1 == nullptr)) {
-        return abort;
+        return false;
     }
     if (CastType<StructType>(type0) != nullptr || CastType<StructType>(type1) != nullptr) {
         std::string opName = std::string("operator") + lOpString(bop);
@@ -3497,18 +3502,17 @@ bool lCreateAssignOperatorCall(const AssignExpr::Op bop, Expr *lvalue, Expr *rva
             args->exprs.push_back(arg0);
             args->exprs.push_back(arg1);
             op = new FunctionCallExpr(functionSymbolExpr, args, sp);
-            return abort;
+            return false;
         }
         /*if (funcs.size() == 0 && funcTempls.size() == 0) {
             Error(sp, "operator %s(%s, %s) is not defined.", opName.c_str(), (type0->GetString()).c_str(),
                   (type1->GetString()).c_str());
-            abort = true;
-            return abort;
+            return true;
         }*/
 
-        return abort;
+        return false;
     }
-    return abort;
+    return false;
 }
 
 Expr *ispc::MakeAssignExpr(AssignExpr::Op o, Expr *a, Expr *b, SourcePos p) {
@@ -8459,7 +8463,10 @@ const Type *PtrDerefExpr::GetType() const {
         AssertPos(pos, m->errorCount > 0);
         return nullptr;
     }
-    AssertPos(pos, CastType<PointerType>(type) != nullptr);
+    if (CastType<PointerType>(type) == nullptr) {
+        // This should be caught in typechecking
+        return nullptr;
+    }
 
     if (type->IsDependent()) {
         return AtomicType::Dependent;

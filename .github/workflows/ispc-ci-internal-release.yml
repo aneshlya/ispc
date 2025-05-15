@@ -46,6 +46,7 @@ jobs:
       runs-on: 'Linux'
       container: amr-registry.caas.intel.com/ispc/ubuntu:22.04
       outputs:
+        ispc_version: ${{ steps.define-package.outputs.ispc_version }}
         package_name: ${{ steps.define-package.outputs.package_name }}
         package_macos_name_uni: ${{ steps.define-package.outputs.package_macos_name_uni }}
         package_macos_name_arm64: ${{ steps.define-package.outputs.package_macos_name_arm64 }}
@@ -72,11 +73,26 @@ jobs:
             PACKAGE_NAME="ispc-trunk"
             PACKAGE_EXAMPLES_NAME="ispc-examples-trunk"
             DOCKER_PATH="ispc/docker/ubuntu/18.04/xpu_ispc_build"
-            if [[ ${{ inputs.core_ref}} =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              PACKAGE_NAME="ispc-${{ inputs.core_ref}}"
-              PACKAGE_EXAMPLES_NAME="ispc-examples-${{ inputs.core_ref }}"
-              DOCKER_PATH="ispc/docker/${{ inputs.core_ref}}/ubuntu18.04"
+            file_path="ispc/common/version.h"
+            version_line=$(grep '#define ISPC_VERSION ' "$file_path")
+            if [[ -n $version_line ]]; then
+              # Extract the version number
+              full_version=$(echo "$version_line" | awk -F'"' '{print $2}')
+              if [[ $full_version == *"dev"* ]]; then
+                echo "Version has a dev suffix, so it is a trunk archive"
+                VERSION="$full_version"
+              else
+                echo "Version does not have a dev suffix, so it is a release archive"
+                VERSION=$full_version
+                PACKAGE_NAME="ispc-v$VERSION"
+                PACKAGE_EXAMPLES_NAME="ispc-examples-v$VERSION"
+                DOCKER_PATH="ispc/docker/v$VERSION/ubuntu18.04"
+              fi
+            else
+              echo "Version line not found in the file."
             fi
+            echo "ispc_version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "ispc_version=${VERSION}" >> $GITHUB_STEP_SUMMARY
             echo "package_name=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
             echo "package_name=${PACKAGE_NAME}" >> $GITHUB_STEP_SUMMARY
             echo "package_macos_name_uni=${PACKAGE_NAME}-macOS.universal.tar.gz" >> $GITHUB_OUTPUT
@@ -225,8 +241,6 @@ jobs:
       needs: [define-package-params, linux-package]
       container:
         image: ubuntu:22.04
-      env:
-        ispc_version: '1.25.0dev'
       steps:
         - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
           with:
@@ -254,12 +268,8 @@ jobs:
           run: |
             export PATH=$GITHUB_WORKSPACE/artifacts/${{ needs.define-package-params.outputs.package_name }}-linux/bin:$PATH
             mkdir build && cd build
-            # Remove "v" from ISPC tag
-            ispc_version=${{ env.ispc_version }}
-            if [[ ${{ inputs.core_ref}} =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              ispc_version=$(echo "${{ inputs.core_ref}}" | sed 's/v//g')
-            fi
-            echo $ispc_version
+            ispc_version=${{ needs.define-package-params.outputs.ispc_version }}
+            echo "ISPC version: $ispc_version"
             cmake -DISPC_URL=$GITHUB_WORKSPACE/artifacts/${{ needs.define-package-params.outputs.package_linux_name }} -DISPC_VERSION=$ispc_version ..
             cmake --build .
           shell: bash

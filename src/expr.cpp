@@ -4320,6 +4320,9 @@ Expr *FunctionCallExpr::TypeCheck() {
             return nullptr;
         }
 
+        if (func->GetType() != nullptr && func->GetType()->IsDependent()) {
+            return this;
+        }
         funcType = CastType<FunctionType>(func->GetType());
         if (funcType == nullptr) {
             const PointerType *pt = CastType<PointerType>(func->GetType());

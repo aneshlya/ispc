@@ -5424,22 +5424,51 @@ static int lIdentifierToVectorElement(char id) {
 StructMemberExpr::StructMemberExpr(Expr *e, const char *id, SourcePos p, SourcePos idpos, bool derefLValue)
     : MemberExpr(e, id, p, idpos, derefLValue, StructMemberExprID) {}
 
+/* This function checks whether the provided expression is a temporary,
+   such as a direct function call, or a member/index access on a temporary
+   (recursively).
+ */
+static bool lIsTemporaryExpression(const Expr *expr) {
+    if (expr == nullptr) {
+        return false;
+    }
+
+    // Direct function call
+    if (llvm::dyn_cast<FunctionCallExpr>(expr) != nullptr) {
+        return true;
+    }
+
+    // Member access on a temporary
+    const MemberExpr *memberExpr = llvm::dyn_cast<MemberExpr>(expr);
+    if (memberExpr != nullptr && !memberExpr->dereferenceExpr) {
+        return lIsTemporaryExpression(memberExpr->expr);
+    }
+
+    // Array/index access on a temporary
+    const IndexExpr *indexExpr = llvm::dyn_cast<IndexExpr>(expr);
+    if (indexExpr != nullptr) {
+        return lIsTemporaryExpression(indexExpr->baseExpr);
+    }
+
+    return false;
+}
+
 const Type *StructMemberExpr::GetTypeImpl() const {
     if (type != nullptr) {
         return type;
     }
 
-    // It's a struct, and the result type is the element type, possibly
-    // promoted to varying if the struct type / lvalue is varying.
-    const Type *exprType = nullptr, *lvalueType = nullptr;
+    const Type *exprType = nullptr;
     const StructType *structType = nullptr;
-    if (expr == nullptr || ((exprType = expr->GetType()) == nullptr) || ((structType = getStructType()) == nullptr) ||
-        ((lvalueType = GetLValueType()) == nullptr)) {
+
+    // It's a struct, and the result type is the element type, possibly
+    // promoted to varying if the struct type is varying.
+    if (expr == nullptr || ((exprType = expr->GetType()) == nullptr) || ((structType = getStructType()) == nullptr)) {
         AssertPos(pos, m->errorCount > 0);
         return nullptr;
     }
 
-    if (exprType->IsDependent() || structType->IsDependent() || lvalueType->IsDependent()) {
+    if (exprType->IsDependent() || structType->IsDependent()) {
         return AtomicType::Dependent;
     }
 
@@ -5449,7 +5478,26 @@ const Type *StructMemberExpr::GetTypeImpl() const {
               structType->GetString().c_str(), getCandidateNearMatches().c_str());
         return nullptr;
     }
-    AssertPos(pos, Type::Equal(lvalueType->GetBaseType(), elementType));
+
+    // For temporary expressions, determine type directly from struct definition
+    if (!dereferenceExpr && lIsTemporaryExpression(expr)) {
+        // Member access on temporary - type is just the element type
+        // with appropriate variability from the expression
+        type = exprType->IsVaryingType() ? elementType->GetAsVaryingType() : elementType;
+        return type;
+    }
+
+    const Type *lvalueType = GetLValueType();
+    if (lvalueType == nullptr) {
+        // This should only happen for temporaries, which we handled above
+        AssertPos(pos, m->errorCount > 0);
+        return nullptr;
+    }
+    if (lvalueType->IsDependent()) {
+        // If the lvalue type is dependent, then the result type is also
+        // dependent.
+        return AtomicType::Dependent;
+    }
 
     bool isSlice = (CastType<PointerType>(lvalueType) && CastType<PointerType>(lvalueType)->IsSlice());
     if (isSlice) {
@@ -5488,7 +5536,6 @@ const Type *StructMemberExpr::GetLValueType() const {
 
     const Type *exprLValueType = dereferenceExpr ? expr->GetType() : expr->GetLValueType();
     if (exprLValueType == nullptr) {
-        AssertPos(pos, m->errorCount > 0);
         return nullptr;
     }
 
@@ -5537,24 +5584,51 @@ const Type *StructMemberExpr::getElementType() const {
 /** Returns the type of the underlying struct that we're returning a member
     of. */
 const StructType *StructMemberExpr::getStructType() const {
-    const Type *type = dereferenceExpr ? expr->GetType() : expr->GetLValueType();
+    if (expr == nullptr) {
+        return nullptr;
+    }
+
+    const Type *type = nullptr;
+
+    // Determine which type to use based on expression kind
+    // For -> operator or . operator on temporaries, always use the expression's type
+    if (dereferenceExpr || lIsTemporaryExpression(expr)) {
+        type = expr->GetType();
+    } else {
+        // For . operator on lvalues, use the lvalue type
+        type = expr->GetLValueType();
+    }
+
     if (type == nullptr) {
         return nullptr;
     }
 
-    const Type *structType = nullptr;
+    // Handle reference types
     const ReferenceType *rt = CastType<ReferenceType>(type);
     if (rt != nullptr) {
-        structType = rt->GetReferenceTarget();
-    } else {
-        const PointerType *pt = CastType<PointerType>(type);
-        AssertPos(pos, pt != nullptr);
-        structType = pt->GetBaseType();
+        const StructType *st = CastType<StructType>(rt->GetReferenceTarget());
+        if (st == nullptr) {
+            AssertPos(pos, m->errorCount > 0);
+            return nullptr;
+        }
+        return CastType<StructType>(rt->GetReferenceTarget());
     }
 
-    const StructType *ret = CastType<StructType>(structType);
-    AssertPos(pos, ret != nullptr);
-    return ret;
+    // Handle pointer types
+    const PointerType *pt = CastType<PointerType>(type);
+    if (pt != nullptr) {
+        if (pt->GetBaseType() == nullptr) {
+            AssertPos(pos, m->errorCount > 0);
+            return nullptr;
+        }
+        return CastType<StructType>(pt->GetBaseType());
+    }
+
+    // Direct struct type (for function call results and temporaries)
+    if (CastType<StructType>(type) != nullptr) {
+        return CastType<StructType>(type);
+    }
+    return nullptr;
 }
 
 //////////////////////////////////////////////////

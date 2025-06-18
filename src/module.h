@@ -559,21 +559,8 @@ class Module {
      *
      * @return Zero on success, non-zero if any file writing operation failed
      */
-    int WriteOutputFiles();
+    int WriteOutputFiles(const CompilationResult& result);
 
-    /**
-     * Writes output files from a CompilationResult.
-     *
-     * This method takes compilation artifacts and writes them to the requested
-     * output formats (object files, headers, etc.), separating file I/O from
-     * the compilation process.
-     *
-     * @param result The compilation result containing artifacts to write
-     * @param output Output configuration specifying file types and paths
-     *
-     * @return Zero on success, non-zero if any file writing operation failed
-     */
-    static int WriteOutputFromResult(const CompilationResult& result, const Output& output);
 
     /** Check if the given output type is valid for the specified file name
       suffix. If not, print a warning message. Correct suffixes are defined in

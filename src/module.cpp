@@ -2281,34 +2281,8 @@ int lValidateXeTargetOutputType(Target *target, Module::OutputType &outputType) 
  * including the main output file (object, assembly, bitcode), header file,
  * dependency information, and stub files for offload compilation.
  */
-int Module::WriteOutputFiles() {
-    // Write the main output file
-    if (!output.out.empty() && !writeOutput()) {
-        return 1;
-    }
-    if (!output.header.empty() && !writeHeader()) {
-        return 1;
-    }
-    if (!output.nbWrap.empty() && !writeNanobindWrapper()) {
-        return 1;
-    }
-    if (!output.deps.empty() || output.flags.isDepsToStdout()) {
-        if (!writeDeps(output)) {
-            return 1;
-        }
-    }
-    if (!output.hostStub.empty() && !writeHostStub()) {
-        return 1;
-    }
-    if (!output.devStub.empty() && !writeDevStub()) {
-        return 1;
-    }
-    return 0;
-}
-
-int Module::WriteOutputFromResult(const CompilationResult& result, const Output& output) {
+int Module::WriteOutputFiles(const CompilationResult& result) {
     if (!result.IsSuccessful()) {
-        // Don't write files if compilation failed
         return result.status;
     }
     
@@ -2318,103 +2292,47 @@ int Module::WriteOutputFromResult(const CompilationResult& result, const Output&
     }
     
     // Temporarily set up global state needed by the write methods
-    // Note: This is a bit of a hack, but necessary since the write methods
-    // expect global state. In the future, these could be refactored to be pure.
-    llvm::Module* prevModule = m ? m->module : nullptr;
-    SymbolTable* prevSymbolTable = m ? m->symbolTable : nullptr;
-    std::vector<std::pair<const Type *, SourcePos>> prevExportedTypes;
-    if (m) {
-        prevExportedTypes = m->exportedTypes;
-        m->module = result.module;
-        m->symbolTable = result.symbolTable;
-        m->exportedTypes = result.exportedTypes;
-    }
+    llvm::Module* prevModule = module;
+    SymbolTable* prevSymbolTable = symbolTable;
+    std::vector<std::pair<const Type *, SourcePos>> prevExportedTypes = exportedTypes;
+    
+    // Set current state to result state for writing
+    module = result.module;
+    symbolTable = result.symbolTable;
+    exportedTypes = result.exportedTypes;
     
     int writeResult = 0;
     
     // Write the main output file
-    if (!output.out.empty()) {
-        // Create temporary Module with result data for writeOutput
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;  // Set the output configuration
-        
-        if (!tempModule.writeOutput()) {
-            writeResult = 1;
-        }
+    if (!output.out.empty() && !writeOutput()) {
+        writeResult = 1;
     }
-    
-    if (writeResult == 0 && !output.header.empty()) {
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;
-        
-        if (!tempModule.writeHeader()) {
-            writeResult = 1;
-        }
+    if (writeResult == 0 && !output.header.empty() && !writeHeader()) {
+        writeResult = 1;
     }
-    
-    if (writeResult == 0 && !output.nbWrap.empty()) {
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;
-        
-        if (!tempModule.writeNanobindWrapper()) {
-            writeResult = 1;
-        }
+    if (writeResult == 0 && !output.nbWrap.empty() && !writeNanobindWrapper()) {
+        writeResult = 1;
     }
-    
     if (writeResult == 0 && (!output.deps.empty() || output.flags.isDepsToStdout())) {
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;
-        
-        if (!tempModule.writeDeps(const_cast<Output&>(output))) {
+        if (!writeDeps(output)) {
             writeResult = 1;
         }
     }
-    
-    if (writeResult == 0 && !output.hostStub.empty()) {
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;
-        
-        if (!tempModule.writeHostStub()) {
-            writeResult = 1;
-        }
+    if (writeResult == 0 && !output.hostStub.empty() && !writeHostStub()) {
+        writeResult = 1;
+    }
+    if (writeResult == 0 && !output.devStub.empty() && !writeDevStub()) {
+        writeResult = 1;
     }
     
-    if (writeResult == 0 && !output.devStub.empty()) {
-        Module tempModule(result.sourceFile.c_str());
-        tempModule.module = result.module;
-        tempModule.symbolTable = result.symbolTable;
-        tempModule.exportedTypes = result.exportedTypes;
-        tempModule.output = output;
-        
-        if (!tempModule.writeDevStub()) {
-            writeResult = 1;
-        }
-    }
-    
-    // Restore previous global state
-    if (m) {
-        m->module = prevModule;
-        m->symbolTable = prevSymbolTable;
-        m->exportedTypes = prevExportedTypes;
-    }
+    // Restore previous state
+    module = prevModule;
+    symbolTable = prevSymbolTable;
+    exportedTypes = prevExportedTypes;
     
     return writeResult;
 }
+
 
 /**
  * Compiles the module for a single target architecture.
@@ -2459,7 +2377,7 @@ int Module::CompileSingleTarget(Arch arch, const char *cpu, ISPCTarget target) {
         }
 
         // Generate the requested output files using the new separated approach
-        if (WriteOutputFiles()) {
+        if (WriteOutputFiles(result)) {
             return 1;
         }
 

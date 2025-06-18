@@ -36,6 +36,62 @@ class raw_string_ostream;
 
 namespace ispc {
 
+/**
+ * @struct CompilationResult
+ * Contains the results of compiling an ISPC module
+ * 
+ * This separates compilation artifacts from file I/O, making the compilation
+ * pipeline more modular and testable.
+ */
+struct CompilationResult {
+    /** Compilation status - 0 for success, >0 for number of errors */
+    int status = 0;
+    
+    /** The compiled LLVM module containing generated IR */
+    llvm::Module* module = nullptr;
+    
+    /** Symbol table with all declared symbols */
+    SymbolTable* symbolTable = nullptr;
+    
+    /** Debug information builder (if debug info was requested) */
+    llvm::DIBuilder* diBuilder = nullptr;
+    
+    /** Debug compile unit */
+    llvm::DICompileUnit* diCompileUnit = nullptr;
+    
+    /** Types that should be exported to header files */
+    std::vector<std::pair<const Type *, SourcePos>> exportedTypes;
+    
+    /** Map of struct names to LLVM struct types */
+    std::map<std::string, llvm::StructType *> structTypeMap;
+    
+    /** Source file path */
+    std::string sourceFile;
+    
+    /** Target architecture used for compilation */
+    Target* target = nullptr;
+    
+    CompilationResult() = default;
+    
+    /** Move constructor */
+    CompilationResult(CompilationResult&& other) noexcept
+        : status(other.status), module(other.module), symbolTable(other.symbolTable),
+          diBuilder(other.diBuilder), diCompileUnit(other.diCompileUnit),
+          exportedTypes(std::move(other.exportedTypes)), 
+          structTypeMap(std::move(other.structTypeMap)),
+          sourceFile(std::move(other.sourceFile)), target(other.target) {
+        // Clear other to avoid double cleanup
+        other.module = nullptr;
+        other.symbolTable = nullptr;
+        other.diBuilder = nullptr;
+        other.diCompileUnit = nullptr;
+        other.target = nullptr;
+    }
+    
+    /** Check if compilation was successful */
+    bool IsSuccessful() const { return status == 0; }
+};
+
 #ifdef ISPC_XE_ENABLED
 // Derived from ocloc_api.h
 using invokePtr = int (*)(unsigned, const char **, const uint32_t, const uint8_t **, const uint64_t *, const char **,
@@ -444,6 +500,20 @@ class Module {
     int CompileSingleTarget(Arch arch, const char *cpu, ISPCTarget target);
 
     /**
+     * Compiles the module and returns compilation artifacts without writing files.
+     *
+     * This method separates compilation from file output, making the pipeline
+     * more modular and enabling different output targets (files, JIT, etc.).
+     *
+     * @param arch       The target architecture
+     * @param cpu        The target CPU  
+     * @param target     The specific ISA target
+     *
+     * @return CompilationResult containing compiled artifacts and status
+     */
+    CompilationResult Compile(Arch arch, const char *cpu, ISPCTarget target);
+
+    /**
      * Compiles the given source file for multiple target ISAs and creates a dispatch module.
      *
      * @param srcFile  Path to the source file to compile
@@ -490,6 +560,20 @@ class Module {
      * @return Zero on success, non-zero if any file writing operation failed
      */
     int WriteOutputFiles();
+
+    /**
+     * Writes output files from a CompilationResult.
+     *
+     * This method takes compilation artifacts and writes them to the requested
+     * output formats (object files, headers, etc.), separating file I/O from
+     * the compilation process.
+     *
+     * @param result The compilation result containing artifacts to write
+     * @param output Output configuration specifying file types and paths
+     *
+     * @return Zero on success, non-zero if any file writing operation failed
+     */
+    static int WriteOutputFromResult(const CompilationResult& result, const Output& output);
 
     /** Check if the given output type is valid for the specified file name
       suffix. If not, print a warning message. Correct suffixes are defined in

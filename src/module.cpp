@@ -2306,6 +2306,116 @@ int Module::WriteOutputFiles() {
     return 0;
 }
 
+int Module::WriteOutputFromResult(const CompilationResult& result, const Output& output) {
+    if (!result.IsSuccessful()) {
+        // Don't write files if compilation failed
+        return result.status;
+    }
+    
+    if (!result.module) {
+        Error(SourcePos(), "No compiled module available for output generation");
+        return 1;
+    }
+    
+    // Temporarily set up global state needed by the write methods
+    // Note: This is a bit of a hack, but necessary since the write methods
+    // expect global state. In the future, these could be refactored to be pure.
+    llvm::Module* prevModule = m ? m->module : nullptr;
+    SymbolTable* prevSymbolTable = m ? m->symbolTable : nullptr;
+    std::vector<std::pair<const Type *, SourcePos>> prevExportedTypes;
+    if (m) {
+        prevExportedTypes = m->exportedTypes;
+        m->module = result.module;
+        m->symbolTable = result.symbolTable;
+        m->exportedTypes = result.exportedTypes;
+    }
+    
+    int writeResult = 0;
+    
+    // Write the main output file
+    if (!output.out.empty()) {
+        // Create temporary Module with result data for writeOutput
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;  // Set the output configuration
+        
+        if (!tempModule.writeOutput()) {
+            writeResult = 1;
+        }
+    }
+    
+    if (writeResult == 0 && !output.header.empty()) {
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;
+        
+        if (!tempModule.writeHeader()) {
+            writeResult = 1;
+        }
+    }
+    
+    if (writeResult == 0 && !output.nbWrap.empty()) {
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;
+        
+        if (!tempModule.writeNanobindWrapper()) {
+            writeResult = 1;
+        }
+    }
+    
+    if (writeResult == 0 && (!output.deps.empty() || output.flags.isDepsToStdout())) {
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;
+        
+        if (!tempModule.writeDeps(const_cast<Output&>(output))) {
+            writeResult = 1;
+        }
+    }
+    
+    if (writeResult == 0 && !output.hostStub.empty()) {
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;
+        
+        if (!tempModule.writeHostStub()) {
+            writeResult = 1;
+        }
+    }
+    
+    if (writeResult == 0 && !output.devStub.empty()) {
+        Module tempModule(result.sourceFile.c_str());
+        tempModule.module = result.module;
+        tempModule.symbolTable = result.symbolTable;
+        tempModule.exportedTypes = result.exportedTypes;
+        tempModule.output = output;
+        
+        if (!tempModule.writeDevStub()) {
+            writeResult = 1;
+        }
+    }
+    
+    // Restore previous global state
+    if (m) {
+        m->module = prevModule;
+        m->symbolTable = prevSymbolTable;
+        m->exportedTypes = prevExportedTypes;
+    }
+    
+    return writeResult;
+}
+
 /**
  * Compiles the module for a single target architecture.
  *
@@ -2332,10 +2442,10 @@ int Module::WriteOutputFiles() {
  *       for each target, and this function is called once per Module.
  */
 int Module::CompileSingleTarget(Arch arch, const char *cpu, ISPCTarget target) {
-    // Compile the file by parsing source, generating IR, and applying optimizations
-    const int compileResult = CompileFile();
-
-    if (compileResult == 0) {
+    // Use the new separated compilation approach
+    CompilationResult result = Compile(arch, cpu, target);
+    
+    if (result.IsSuccessful()) {
         llvm::TimeTraceScope TimeScope("Backend");
 
         if (lValidateXeTargetOutputType(g->target, output.type)) {
@@ -2348,7 +2458,7 @@ int Module::CompileSingleTarget(Arch arch, const char *cpu, ISPCTarget target) {
             resetGlobalInitializers(module, initializers);
         }
 
-        // Generate the requested output files (object, assembly, bitcode, etc.)
+        // Generate the requested output files using the new separated approach
         if (WriteOutputFiles()) {
             return 1;
         }
@@ -2367,6 +2477,39 @@ int Module::CompileSingleTarget(Arch arch, const char *cpu, ISPCTarget target) {
     }
 
     return errorCount;
+}
+
+CompilationResult Module::Compile(Arch arch, const char *cpu, ISPCTarget target) {
+    CompilationResult result;
+    
+    // Set up result with source file info
+    result.sourceFile = srcFile ? srcFile : "";
+    result.target = g->target;
+    
+    // Compile the file by parsing source, generating IR, and applying optimizations
+    const int compileStatus = CompileFile();
+    result.status = compileStatus;
+    
+    if (compileStatus == 0) {
+        // Compilation successful - populate result with artifacts
+        result.module = module;
+        result.symbolTable = symbolTable;
+        result.diBuilder = diBuilder;
+        result.diCompileUnit = diCompileUnit;
+        result.exportedTypes = exportedTypes;
+        result.structTypeMap = structTypeMap;
+        
+        // Note: We don't call WriteOutputFiles() here - that's now separate
+        // Also don't increment errorCount or do cleanup here since we're returning the state
+    } else {
+        // Compilation failed - still populate what we can for debugging
+        result.module = module;  // May be partially constructed
+        result.symbolTable = symbolTable;
+        
+        // Note: Cleanup is responsibility of caller or Module destructor
+    }
+    
+    return result;
 }
 
 int lValidateMultiTargetInputs(const char *srcFile, std::string &outFileName, const char *cpu) {

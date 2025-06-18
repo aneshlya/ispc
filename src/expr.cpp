@@ -5480,14 +5480,16 @@ const Type *StructMemberExpr::GetTypeImpl() const {
     }
 
     // For temporary expressions, determine type directly from struct definition
-    if (!dereferenceExpr && lIsTemporaryExpression(expr)) {
+    // Check if this is a temporary by seeing if we can get an lvalue
+    const Type *lvalueType = GetLValueType();
+    if (!dereferenceExpr && lvalueType == nullptr) {
         // Member access on temporary - type is just the element type
         // with appropriate variability from the expression
         type = exprType->IsVaryingType() ? elementType->GetAsVaryingType() : elementType;
         return type;
     }
 
-    const Type *lvalueType = GetLValueType();
+    // For lvalue expressions, use the existing logic
     if (lvalueType == nullptr) {
         // This should only happen for temporaries, which we handled above
         AssertPos(pos, m->errorCount > 0);
@@ -5536,6 +5538,7 @@ const Type *StructMemberExpr::GetLValueType() const {
 
     const Type *exprLValueType = dereferenceExpr ? expr->GetType() : expr->GetLValueType();
     if (exprLValueType == nullptr) {
+        // Temporaries cannot provide lvalues - return nullptr
         return nullptr;
     }
 
@@ -5592,11 +5595,15 @@ const StructType *StructMemberExpr::getStructType() const {
 
     // Determine which type to use based on expression kind
     // For -> operator or . operator on temporaries, always use the expression's type
-    if (dereferenceExpr || lIsTemporaryExpression(expr)) {
+    if (dereferenceExpr) {
         type = expr->GetType();
     } else {
-        // For . operator on lvalues, use the lvalue type
+        // For . operator, try lvalue type first, fall back to expression type for temporaries
         type = expr->GetLValueType();
+        if (type == nullptr) {
+            // This is a temporary - use the expression's type directly
+            type = expr->GetType();
+        }
     }
 
     if (type == nullptr) {
@@ -5611,7 +5618,7 @@ const StructType *StructMemberExpr::getStructType() const {
             AssertPos(pos, m->errorCount > 0);
             return nullptr;
         }
-        return CastType<StructType>(rt->GetReferenceTarget());
+        return st;
     }
 
     // Handle pointer types

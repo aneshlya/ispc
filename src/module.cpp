@@ -1497,32 +1497,32 @@ void Module::reportInvalidSuffixWarning(std::string filename, Module::OutputType
     }
 }
 
-bool Module::writeOutput() {
+bool Module::writeOutput(const CompilationResult& result) {
     OutputType outputType = output.type;
 
     // This function should not be called for generating outputs not related to
     // LLVM/Clang processing, i.e., header/deps/hostStub/devStub
     Assert(outputType != Header && outputType != Deps && outputType != HostStub && outputType != DevStub);
-    Assert(module);
+    Assert(result.module);
 
     // TODO: probably this is not good place to actually modify something inside the module
-    if (diBuilder) {
-        lStripUnusedDebugInfo(module);
+    if (result.diBuilder) {
+        lStripUnusedDebugInfo(result.module);
     }
 
     if (g->functionSections) {
-        module->addModuleFlag(llvm::Module::Warning, "function-sections", 1);
+        result.module->addModuleFlag(llvm::Module::Warning, "function-sections", 1);
     }
 
     // In LLVM_3_4 after r195494 and r195504 revisions we should pass
     // "Debug Info Version" constant to the module. LLVM will ignore
     // our Debug Info metadata without it.
     if (g->generateDebuggingSymbols == true) {
-        module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+        result.module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
     }
 
     // SIC! (verifyModule() == TRUE) means "failed", see llvm-link code.
-    if ((outputType != CPPStub) && llvm::verifyModule(*module, &llvm::errs())) {
+    if ((outputType != CPPStub) && llvm::verifyModule(*result.module, &llvm::errs())) {
         FATAL("Resulting module verification failed!");
         return false;
     }
@@ -1532,17 +1532,17 @@ bool Module::writeOutput() {
     switch (outputType) {
     case Asm:
     case Object:
-        return writeObjectFileOrAssembly(module, output);
+        return writeObjectFileOrAssembly(result.module, output);
     case Bitcode:
     case BitcodeText:
-        return writeBitcode(module, output.out, outputType);
+        return writeBitcode(result.module, output.out, outputType);
     case CPPStub:
         return writeCPPStub();
 #ifdef ISPC_XE_ENABLED
     case ZEBIN:
         return writeZEBin();
     case SPIRV:
-        return writeSPIRV(module, output.out);
+        return writeSPIRV(result.module, output.out);
 #endif
     // Do not process extra output types here better to call their methods directly
     case Header:
@@ -2291,46 +2291,27 @@ int Module::WriteOutputFiles(const CompilationResult& result) {
         return 1;
     }
     
-    // Temporarily set up global state needed by the write methods
-    llvm::Module* prevModule = module;
-    SymbolTable* prevSymbolTable = symbolTable;
-    std::vector<std::pair<const Type *, SourcePos>> prevExportedTypes = exportedTypes;
-    
-    // Set current state to result state for writing
-    module = result.module;
-    symbolTable = result.symbolTable;
-    exportedTypes = result.exportedTypes;
-    
-    int writeResult = 0;
-    
-    // Write the main output file
-    if (!output.out.empty() && !writeOutput()) {
-        writeResult = 1;
+    // Write various output files
+    if (!output.out.empty() && !writeOutput(result)) {
+        return 1;
     }
-    if (writeResult == 0 && !output.header.empty() && !writeHeader()) {
-        writeResult = 1;
+    if (!output.header.empty() && !writeHeader(result)) {
+        return 1;
     }
-    if (writeResult == 0 && !output.nbWrap.empty() && !writeNanobindWrapper()) {
-        writeResult = 1;
+    if (!output.nbWrap.empty() && !writeNanobindWrapper(result)) {
+        return 1;
     }
-    if (writeResult == 0 && (!output.deps.empty() || output.flags.isDepsToStdout())) {
-        if (!writeDeps(output)) {
-            writeResult = 1;
-        }
+    if ((!output.deps.empty() || output.flags.isDepsToStdout()) && !writeDeps(result, output)) {
+        return 1;
     }
-    if (writeResult == 0 && !output.hostStub.empty() && !writeHostStub()) {
-        writeResult = 1;
+    if (!output.hostStub.empty() && !writeHostStub(result)) {
+        return 1;
     }
-    if (writeResult == 0 && !output.devStub.empty() && !writeDevStub()) {
-        writeResult = 1;
+    if (!output.devStub.empty() && !writeDevStub(result)) {
+        return 1;
     }
     
-    // Restore previous state
-    module = prevModule;
-    symbolTable = prevSymbolTable;
-    exportedTypes = prevExportedTypes;
-    
-    return writeResult;
+    return 0;
 }
 
 
@@ -2479,7 +2460,14 @@ int Module::WriteDispatchOutputFiles(llvm::Module *dispatchModule, Module::Outpu
     }
 
     if (!output.deps.empty() || output.flags.isDepsToStdout()) {
-        if (!m->writeDeps(output)) {
+        // Create CompilationResult from current module state for writeDeps
+        CompilationResult result;
+        result.module = m->module;
+        result.symbolTable = m->symbolTable;
+        result.exportedTypes = m->exportedTypes;
+        result.status = 0; // Successful compilation
+        
+        if (!m->writeDeps(result, output)) {
             return 1;
         }
     }
@@ -2607,8 +2595,17 @@ int Module::GenerateDispatch(const char *srcFile, std::vector<ISPCTarget> &targe
             // only print backmatter on the last target.
             DHI.EmitBackMatter = true;
         }
-        if (!output.header.empty() && !m->writeDispatchHeader(&DHI)) {
-            return 1;
+        if (!output.header.empty()) {
+            // Create CompilationResult from current module state for writeDispatchHeader
+            CompilationResult result;
+            result.module = m->module;
+            result.symbolTable = m->symbolTable;
+            result.exportedTypes = m->exportedTypes;
+            result.status = 0; // Successful compilation
+            
+            if (!m->writeDispatchHeader(result, &DHI)) {
+                return 1;
+            }
         }
 
         // Just precausiously reset observers to nullptr to avoid dangling pointers.

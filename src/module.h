@@ -571,12 +571,12 @@ class Module {
         true on success, false if there has been an error.  The given
         filename may be nullptr, indicating that output should go to standard
         output. */
-    bool writeOutput();
+    bool writeOutput(const CompilationResult& result);
 
-    bool writeHeader();
-    void writeHeader(FILE *f);
-    bool writeNanobindWrapper();
-    bool writeDispatchHeader(DispatchHeaderInfo *DHI);
+    bool writeHeader(const CompilationResult& result);
+    void writeHeader(const CompilationResult& result, FILE *f);
+    bool writeNanobindWrapper(const CompilationResult& result);
+    bool writeDispatchHeader(const CompilationResult& result, DispatchHeaderInfo *DHI);
 
     /**
      * Generates a dependency file in make-compatible format.
@@ -586,9 +586,9 @@ class Module {
      *
      * @return True on success, false if file creation or writing failed
      */
-    bool writeDeps(Output &customOutput);
-    bool writeDevStub();
-    bool writeHostStub();
+    bool writeDeps(const CompilationResult& result, Output &customOutput);
+    bool writeDevStub(const CompilationResult& result);
+    bool writeHostStub(const CompilationResult& result);
     bool writeCPPStub();
     bool writeObjectFileOrAssembly(llvm::Module *module, Output &customOutput);
 #ifdef ISPC_XE_ENABLED

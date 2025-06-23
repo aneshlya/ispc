@@ -13710,25 +13710,32 @@ class mm_castpd_ps : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new float[Iterations];
-        Source1 = new float[Iterations];
+        Source1 = new double[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (float)k;
+            Source1[k] = (double)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 4) {
+                // Cast 2 doubles to 4 floats (bitwise reinterpretation)
+                uint64_t src_bits1 = *(uint64_t*)&Source1[k];
+                uint64_t src_bits2 = *(uint64_t*)&Source1[k+1];
+                
+                *(uint32_t*)&Result[k] = (uint32_t)(src_bits1 & 0xFFFFFFFF);
+                *(uint32_t*)&Result[k+1] = (uint32_t)(src_bits1 >> 32);
+                *(uint32_t*)&Result[k+2] = (uint32_t)(src_bits2 & 0xFFFFFFFF);
+                *(uint32_t*)&Result[k+3] = (uint32_t)(src_bits2 >> 32);
             }
             break;
 #ifdef IS_X86_ARCH
         case 1:
             for (int k = 0; k < Iterations; k += 4) {
-                const __m128d S1 = _mm_loadu_pd((double *)&Source1[k]);
+                const __m128d S1 = _mm_loadu_pd(&Source1[k]);
                 const __m128 R = _mm_castpd_ps(S1);
                 _mm_storeu_ps(&Result[k], R);
             }
@@ -13741,12 +13748,23 @@ class mm_castpd_ps : public TestBase {
     }
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
-        for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+        for (int k = 0; k < Iterations; k += 4) {
+            // Verify cast from 2 doubles to 4 floats
+            uint64_t src1_bits = *(uint64_t*)&Source1[k];
+            uint64_t src2_bits = *(uint64_t*)&Source1[k+1];
+            
+            uint32_t res1_bits = *(uint32_t*)&Result[k];
+            uint32_t res2_bits = *(uint32_t*)&Result[k+1];
+            uint32_t res3_bits = *(uint32_t*)&Result[k+2];
+            uint32_t res4_bits = *(uint32_t*)&Result[k+3];
+            
+            if (res1_bits != (uint32_t)(src1_bits & 0xFFFFFFFF) ||
+                res2_bits != (uint32_t)(src1_bits >> 32) ||
+                res3_bits != (uint32_t)(src2_bits & 0xFFFFFFFF) ||
+                res4_bits != (uint32_t)(src2_bits >> 32)) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -13762,7 +13780,7 @@ class mm_castpd_ps : public TestBase {
     int Iterations;
 
     float *Result;
-    float *Source1;
+    double *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castpd_ps, CPP, 0);
@@ -13777,25 +13795,32 @@ class mm_castpd_si128 : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new int32[Iterations];
-        Source1 = new int32[Iterations];
+        Source1 = new double[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (int32)k;
+            Source1[k] = (double)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 4) {
+                // Cast 2 doubles to 4 int32s (bitwise reinterpretation)
+                uint64_t src_bits1 = *(uint64_t*)&Source1[k];
+                uint64_t src_bits2 = *(uint64_t*)&Source1[k+1];
+                
+                *(uint32_t*)&Result[k] = (uint32_t)(src_bits1 & 0xFFFFFFFF);
+                *(uint32_t*)&Result[k+1] = (uint32_t)(src_bits1 >> 32);
+                *(uint32_t*)&Result[k+2] = (uint32_t)(src_bits2 & 0xFFFFFFFF);
+                *(uint32_t*)&Result[k+3] = (uint32_t)(src_bits2 >> 32);
             }
             break;
 #ifdef IS_X86_ARCH
         case 1:
             for (int k = 0; k < Iterations; k += 4) {
-                const __m128d S1 = _mm_loadu_pd((double *)&Source1[k]);
+                const __m128d S1 = _mm_loadu_pd(&Source1[k]);
                 const __m128i R = _mm_castpd_si128(S1);
                 _mm_storeu_si128((__m128i *)&Result[k], R);
             }
@@ -13808,12 +13833,23 @@ class mm_castpd_si128 : public TestBase {
     }
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
-        for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+        for (int k = 0; k < Iterations; k += 4) {
+            // Verify cast from 2 doubles to 4 int32s
+            uint64_t src1_bits = *(uint64_t*)&Source1[k];
+            uint64_t src2_bits = *(uint64_t*)&Source1[k+1];
+            
+            uint32_t res1_bits = *(uint32_t*)&Result[k];
+            uint32_t res2_bits = *(uint32_t*)&Result[k+1];
+            uint32_t res3_bits = *(uint32_t*)&Result[k+2];
+            uint32_t res4_bits = *(uint32_t*)&Result[k+3];
+            
+            if (res1_bits != (uint32_t)(src1_bits & 0xFFFFFFFF) ||
+                res2_bits != (uint32_t)(src1_bits >> 32) ||
+                res3_bits != (uint32_t)(src2_bits & 0xFFFFFFFF) ||
+                res4_bits != (uint32_t)(src2_bits >> 32)) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -13829,7 +13865,7 @@ class mm_castpd_si128 : public TestBase {
     int Iterations;
 
     int32 *Result;
-    int32 *Source1;
+    double *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castpd_si128, CPP, 0);
@@ -13844,25 +13880,35 @@ class mm_castps_pd : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new double[Iterations];
-        Source1 = new double[Iterations];
+        Source1 = new float[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (double)k;
+            Source1[k] = (float)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 2) {
+                // Cast 4 floats to 2 doubles (bitwise reinterpretation)
+                uint32_t src_bits1 = *(uint32_t*)&Source1[k];
+                uint32_t src_bits2 = *(uint32_t*)&Source1[k+1];
+                uint32_t src_bits3 = *(uint32_t*)&Source1[k+2];
+                uint32_t src_bits4 = *(uint32_t*)&Source1[k+3];
+                
+                uint64_t combined1 = ((uint64_t)src_bits2 << 32) | src_bits1;
+                uint64_t combined2 = ((uint64_t)src_bits4 << 32) | src_bits3;
+                
+                *(uint64_t*)&Result[k] = combined1;
+                *(uint64_t*)&Result[k+1] = combined2;
             }
             break;
 #ifdef IS_X86_ARCH
         case 1:
             for (int k = 0; k < Iterations; k += 2) {
-                const __m128 S1 = _mm_loadu_ps((float *)&Source1[k]);
+                const __m128 S1 = _mm_loadu_ps(&Source1[k]);
                 const __m128d R = _mm_castps_pd(S1);
                 _mm_storeu_pd(&Result[k], R);
             }
@@ -13875,12 +13921,23 @@ class mm_castps_pd : public TestBase {
     }
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
-        for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+        for (int k = 0; k < Iterations; k += 2) {
+            // Verify cast from 4 floats to 2 doubles
+            uint32_t src1_bits = *(uint32_t*)&Source1[k];
+            uint32_t src2_bits = *(uint32_t*)&Source1[k+1];
+            uint32_t src3_bits = *(uint32_t*)&Source1[k+2];
+            uint32_t src4_bits = *(uint32_t*)&Source1[k+3];
+            
+            uint64_t res1_bits = *(uint64_t*)&Result[k];
+            uint64_t res2_bits = *(uint64_t*)&Result[k+1];
+            
+            uint64_t expected1 = ((uint64_t)src2_bits << 32) | src1_bits;
+            uint64_t expected2 = ((uint64_t)src4_bits << 32) | src3_bits;
+            
+            if (res1_bits != expected1 || res2_bits != expected2) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -13896,7 +13953,7 @@ class mm_castps_pd : public TestBase {
     int Iterations;
 
     double *Result;
-    double *Source1;
+    float *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castps_pd, CPP, 0);
@@ -13911,25 +13968,29 @@ class mm_castps_si128 : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new int32[Iterations];
-        Source1 = new int32[Iterations];
+        Source1 = new float[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (int32)k;
+            Source1[k] = (float)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 4) {
+                // Cast 4 floats to 4 int32s (bitwise reinterpretation)
+                *(uint32_t*)&Result[k] = *(uint32_t*)&Source1[k];
+                *(uint32_t*)&Result[k+1] = *(uint32_t*)&Source1[k+1];
+                *(uint32_t*)&Result[k+2] = *(uint32_t*)&Source1[k+2];
+                *(uint32_t*)&Result[k+3] = *(uint32_t*)&Source1[k+3];
             }
             break;
 #ifdef IS_X86_ARCH
         case 1:
             for (int k = 0; k < Iterations; k += 4) {
-                const __m128 S1 = _mm_loadu_ps((float *)&Source1[k]);
+                const __m128 S1 = _mm_loadu_ps(&Source1[k]);
                 const __m128i R = _mm_castps_si128(S1);
                 _mm_storeu_si128((__m128i *)&Result[k], R);
             }
@@ -13943,7 +14004,10 @@ class mm_castps_si128 : public TestBase {
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
         for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+            // Verify cast from float to int32 (1:1 bitwise reinterpretation)
+            uint32_t src_bits = *(uint32_t*)&Source1[k];
+            uint32_t result_bits = *(uint32_t*)&Result[k];
+            if (result_bits != src_bits) {
                 return false;
             }
         }
@@ -13963,7 +14027,7 @@ class mm_castps_si128 : public TestBase {
     int Iterations;
 
     int32 *Result;
-    int32 *Source1;
+    float *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castps_si128, CPP, 0);
@@ -13978,19 +14042,23 @@ class mm_castsi128_ps : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new float[Iterations];
-        Source1 = new float[Iterations];
+        Source1 = new int32[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (float)k;
+            Source1[k] = (int32)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 4) {
+                // Cast 4 int32s to 4 floats (bitwise reinterpretation)
+                *(uint32_t*)&Result[k] = *(uint32_t*)&Source1[k];
+                *(uint32_t*)&Result[k+1] = *(uint32_t*)&Source1[k+1];
+                *(uint32_t*)&Result[k+2] = *(uint32_t*)&Source1[k+2];
+                *(uint32_t*)&Result[k+3] = *(uint32_t*)&Source1[k+3];
             }
             break;
 #ifdef IS_X86_ARCH
@@ -14010,7 +14078,10 @@ class mm_castsi128_ps : public TestBase {
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
         for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+            // Verify cast from int32 to float (1:1 bitwise reinterpretation)
+            uint32_t src_bits = *(uint32_t*)&Source1[k];
+            uint32_t result_bits = *(uint32_t*)&Result[k];
+            if (result_bits != src_bits) {
                 return false;
             }
         }
@@ -14030,7 +14101,7 @@ class mm_castsi128_ps : public TestBase {
     int Iterations;
 
     float *Result;
-    float *Source1;
+    int32 *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castsi128_ps, CPP, 0);
@@ -14045,19 +14116,29 @@ class mm_castsi128_pd : public TestBase {
         Iterations = (int)state.range(0);
 
         Result = new double[Iterations];
-        Source1 = new double[Iterations];
+        Source1 = new int32[Iterations];
 
         for (int k = 0; k < Iterations; k++) {
             Result[k] = 0;
-            Source1[k] = (double)k;
+            Source1[k] = (int32)k;
         }
     }
 
     virtual void Run(::benchmark::State &state, const unsigned int TestNumber) {
         switch (TestNumber) {
         case 0:
-            for (int k = 0; k < Iterations; k++) {
-                Result[k] = Source1[k];
+            for (int k = 0; k < Iterations; k += 2) {
+                // Cast 4 int32s to 2 doubles (bitwise reinterpretation)
+                uint32_t src_bits1 = *(uint32_t*)&Source1[k];
+                uint32_t src_bits2 = *(uint32_t*)&Source1[k+1];
+                uint32_t src_bits3 = *(uint32_t*)&Source1[k+2];
+                uint32_t src_bits4 = *(uint32_t*)&Source1[k+3];
+                
+                uint64_t combined1 = ((uint64_t)src_bits2 << 32) | src_bits1;
+                uint64_t combined2 = ((uint64_t)src_bits4 << 32) | src_bits3;
+                
+                *(uint64_t*)&Result[k] = combined1;
+                *(uint64_t*)&Result[k+1] = combined2;
             }
             break;
 #ifdef IS_X86_ARCH
@@ -14076,12 +14157,23 @@ class mm_castsi128_pd : public TestBase {
     }
 
     virtual bool ResultsCorrect(const ::benchmark::State &state, const unsigned int TestNumber) {
-        for (int k = 0; k < Iterations; k++) {
-            if (Result[k] != Source1[k]) {
+        for (int k = 0; k < Iterations; k += 2) {
+            // Verify cast from 4 int32s to 2 doubles
+            uint32_t src1_bits = *(uint32_t*)&Source1[k];
+            uint32_t src2_bits = *(uint32_t*)&Source1[k+1];
+            uint32_t src3_bits = *(uint32_t*)&Source1[k+2];
+            uint32_t src4_bits = *(uint32_t*)&Source1[k+3];
+            
+            uint64_t res1_bits = *(uint64_t*)&Result[k];
+            uint64_t res2_bits = *(uint64_t*)&Result[k+1];
+            
+            uint64_t expected1 = ((uint64_t)src2_bits << 32) | src1_bits;
+            uint64_t expected2 = ((uint64_t)src4_bits << 32) | src3_bits;
+            
+            if (res1_bits != expected1 || res2_bits != expected2) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -14097,7 +14189,7 @@ class mm_castsi128_pd : public TestBase {
     int Iterations;
 
     double *Result;
-    double *Source1;
+    int32 *Source1;
 };
 
 BENCHMARK_CASE_POW2(mm_castsi128_pd, CPP, 0);

@@ -890,6 +890,64 @@ configure_ispc_obj(common)
 add_library(frontend OBJECT EXCLUDE_FROM_ALL ${FRONTEND_SOURCES})
 configure_ispc_obj(frontend)
 
+# ISPC Engine Library - Phase 1 implementation
+# Create shared library target with ISPC engine sources and existing core functionality
+add_library(ispc_engine SHARED
+    # ISPCEngine interface files
+    src/ispc_engine.cpp
+    src/ispc_engine.h
+    
+    # Include existing core sources (excluding main.cpp for library)
+    ${COMMON_SOURCES}
+    ${FRONTEND_SOURCES}
+    ${OPT_SOURCES}
+    
+    # Additional core sources needed for library
+    ${STDLIB_FILES}
+    ${BISON_CPP_OUTPUT}
+    ${FLEX_OUTPUT}
+    ${CMAKE_CURRENT_SOURCE_DIR}/stdlib/stdlib.ispc
+    
+    # Generated stdlib header files
+    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/core_isph.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/stdlib_isph.cpp
+)
+
+# Configure the ISPC engine library
+configure_ispc_obj(ispc_engine)
+
+# Set include directories for the library
+target_include_directories(ispc_engine
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src  # Public headers (ispc_engine.h)
+    PRIVATE ${INCLUDE_DIRECTORIES}          # Private includes (internal sources)
+)
+
+# Link with LLVM, Clang and other dependencies
+target_link_libraries(ispc_engine
+    PUBLIC ${LINK_LIBRARIES}
+    PRIVATE stdlib
+)
+
+# Set library properties
+set_target_properties(ispc_engine PROPERTIES
+    VERSION ${ISPC_VERSION_MAJOR}.${ISPC_VERSION_MINOR}.${ISPC_VERSION_PATCH}
+    SOVERSION ${ISPC_VERSION_MAJOR}
+    FOLDER "Libraries"
+)
+
+# Add builtin dependencies for the library
+add_dependencies(ispc_engine builtin builtins-bc stdlib-headers-cpp)
+
+# Create test executable for ISPCEngine library
+add_executable(test_ispc_engine
+    src/test_ispc_engine.cpp
+)
+
+# Configure test executable
+configure_ispc_exe(test_ispc_engine)
+target_link_libraries(test_ispc_engine ispc_engine)
+set_target_properties(test_ispc_engine PROPERTIES FOLDER "Tests")
+
 # builtin target is created in GenerateBuiltins.cmake
 configure_ispc_obj(builtin)
 
@@ -916,6 +974,20 @@ else()
 endif()
 
 install (TARGETS ispc DESTINATION bin)
+
+# Install ISPC Engine library and headers
+install(TARGETS ispc_engine
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+)
+
+# Install ISPCEngine header
+install(FILES src/ispc_engine.h DESTINATION include/ispc)
+
+# Install test executable
+install(TARGETS test_ispc_engine DESTINATION bin)
+
 if (ISPC_SLIM_BINARY)
     foreach (header ${STDLIB_HEADERS})
         install (FILES "stdlib/include/${header}" DESTINATION include)

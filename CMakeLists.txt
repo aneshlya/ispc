@@ -869,6 +869,7 @@ function(add_ispc_slim NAME)
 
     add_executable(${NAME} src/main.cpp src/binary_slim.cpp)
     configure_ispc_exe(${NAME})
+    # Keep ispc-slim independent to avoid circular dependencies with stdlib generation
     target_link_libraries(${NAME} ${LINK_LIBRARIES} optimization common frontend)
     add_dependencies(${NAME} builtins-bc)
     add_dependencies(generic-target-bc ${NAME})
@@ -925,7 +926,6 @@ target_include_directories(ispc_engine
 # Link with LLVM, Clang and other dependencies
 target_link_libraries(ispc_engine
     PUBLIC ${LINK_LIBRARIES}
-    PRIVATE stdlib
 )
 
 # Set library properties
@@ -968,9 +968,10 @@ else()
 
     add_executable(ispc src/main.cpp src/binary_composite.cpp)
     configure_ispc_exe(ispc)
-    target_link_libraries(ispc ${LINK_LIBRARIES} builtin stdlib optimization common frontend generic-target)
+    # Link against the new ISPC engine library instead of individual components
+    target_link_libraries(ispc ispc_engine generic-target)
     add_dependencies(ispc ispc-slim)
-    message(STATUS "ISPC will be built as a composite binary")
+    message(STATUS "ISPC will be built as a composite binary using ispc_engine library")
 endif()
 
 install (TARGETS ispc DESTINATION bin)

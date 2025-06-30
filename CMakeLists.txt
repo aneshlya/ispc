@@ -449,6 +449,8 @@ list(APPEND COMMON_SOURCES
     src/ispc_version.h
     src/llvmutil.cpp
     src/llvmutil.h
+    src/options.cpp
+    src/options.h
     src/target_enums.cpp
     src/target_enums.h
     src/target_registry.cpp

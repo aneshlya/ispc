@@ -1,0 +1,62 @@
+#
+#  Copyright (c) 2025, Intel Corporation
+#
+#  SPDX-License-Identifier: BSD-3-Clause
+
+# ispcConfig.cmake.in
+
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@_Exports.cmake")
+
+check_required_components("@PROJECT_NAME@")
+
+# Set up paths
+set(ISPC_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+set(ISPC_EXECUTABLE "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/ispc")
+
+# Set variables for backward compatibility
+set(ISPC_LIBRARIES "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@")
+
+# Check if targets were built
+set(ISPC_SHARED_LIBRARY_AVAILABLE @ISPC_SHARED_LIBRARY_AVAILABLE@)
+set(ISPC_STATIC_LIBRARY_AVAILABLE @ISPC_STATIC_LIBRARY_AVAILABLE@)
+
+# Create backward compatibility variables
+if(ISPC_SHARED_LIBRARY_AVAILABLE)
+    if(WIN32)
+        set(ISPC_LIBRARY "${ISPC_LIBRARIES}/ispc.dll")
+    else()
+        set(ISPC_LIBRARY "${ISPC_LIBRARIES}/libispc.so")
+    endif()
+else()
+    if(WIN32)
+        set(ISPC_LIBRARY "${ISPC_LIBRARIES}/ispc_static.lib")
+    else()
+        set(ISPC_LIBRARY "${ISPC_LIBRARIES}/libispc_static.a")
+    endif()
+endif()
+
+# Create convenience aliases for common naming patterns
+if(ISPC_SHARED_LIBRARY_AVAILABLE AND TARGET @PROJECT_NAME@::libispc_shared)
+    add_library(@PROJECT_NAME@::lib ALIAS @PROJECT_NAME@::libispc_shared)
+endif()
+
+if(ISPC_STATIC_LIBRARY_AVAILABLE AND TARGET @PROJECT_NAME@::libispc)
+    add_library(@PROJECT_NAME@::lib_static ALIAS @PROJECT_NAME@::libispc)
+endif()
+
+# Set standard variables
+set(ISPC_FOUND TRUE)
+
+# Provide summary
+include(FindPackageMessage)
+if(ISPC_SHARED_LIBRARY_AVAILABLE AND ISPC_STATIC_LIBRARY_AVAILABLE)
+    find_package_message(@PROJECT_NAME@ "Found ISPC: ${PACKAGE_PREFIX_DIR} (shared and static libraries available)" "[${PACKAGE_PREFIX_DIR}]")
+elseif(ISPC_SHARED_LIBRARY_AVAILABLE)
+    find_package_message(@PROJECT_NAME@ "Found ISPC: ${PACKAGE_PREFIX_DIR} (shared library available)" "[${PACKAGE_PREFIX_DIR}]")
+elseif(ISPC_STATIC_LIBRARY_AVAILABLE)
+    find_package_message(@PROJECT_NAME@ "Found ISPC: ${PACKAGE_PREFIX_DIR} (static library available)" "[${PACKAGE_PREFIX_DIR}]")
+else()
+    find_package_message(@PROJECT_NAME@ "Found ISPC: ${PACKAGE_PREFIX_DIR} (executable only)" "[${PACKAGE_PREFIX_DIR}]")
+endif()

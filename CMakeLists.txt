@@ -306,6 +306,7 @@ find_package(Python3 REQUIRED)
     endif()
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 find_package(BISON 3.0 REQUIRED)
     if (BISON_FOUND)
@@ -985,6 +986,45 @@ if (ISPC_LIBRARY AND NOT ISPC_SLIM_BINARY)
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
+# Set library availability flags for the config template
+if (ISPC_LIBRARY AND NOT ISPC_SLIM_BINARY)
+    set(ISPC_SHARED_LIBRARY_AVAILABLE TRUE)
+    set(ISPC_STATIC_LIBRARY_AVAILABLE TRUE)
+else()
+    set(ISPC_SHARED_LIBRARY_AVAILABLE FALSE)
+    set(ISPC_STATIC_LIBRARY_AVAILABLE FALSE)
+endif()
+
+# Configure the package config file
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ispcConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ispcConfig.cmake"
+INSTALL_DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+# Configure the version file
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ispcConfigVersion.cmake"
+    VERSION ${ISPC_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+# Install the package configuration files
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ispcConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ispcConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+# Install the export set
+if (ISPC_LIBRARY AND NOT ISPC_SLIM_BINARY)
+    install(EXPORT ${PROJECT_NAME}_Exports
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        NAMESPACE ${PROJECT_NAME}::
     )
 endif()
 

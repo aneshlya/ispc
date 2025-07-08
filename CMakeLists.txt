@@ -100,6 +100,7 @@ option(ISPC_INCLUDE_BENCHMARKS "Generate build targets for the ISPC tests." OFF)
 option(ISPC_INCLUDE_RT "Generate build targets for ISPC runtime." ON)
 option(ISPC_INCLUDE_UTILS "Generate build targets for the utils." ON)
 option(ISPC_INCLUDE_UTILS_ONLY "Generate build targets only for the utils." OFF)
+option(ISPC_LIBRARY "Build ISPC as a library" ON)
 option(ISPC_PREPARE_PACKAGE "Generate build targets for ispc package" OFF)
 option(ISPC_PACKAGE_EXAMPLES "Pack examples into the ISPC package" ON)
 option(ISPC_SLIM_BINARY "Build ISPC as slim binary" OFF)
@@ -295,6 +296,9 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Version.cmake)
 
 # Get ispc version
 get_ispc_version("${CMAKE_CURRENT_SOURCE_DIR}/common/version.h")
+
+# Construct full version string
+set(ISPC_VERSION "${ISPC_VERSION_MAJOR}.${ISPC_VERSION_MINOR}.${ISPC_VERSION_PATCH}${ISPC_VERSION_SUFFIX}")
 
 find_package(Python3 REQUIRED)
     if (NOT Python3_Interpreter_FOUND)
@@ -861,6 +865,17 @@ function(configure_ispc_exe TARGET)
     target_link_options(${TARGET} PUBLIC ${LINK_OPTIONS_PUBLIC})
 endfunction()
 
+# This function configures library target.
+function(configure_ispc_lib TARGET)
+    configure_ispc_obj(${TARGET})
+    target_link_options(${TARGET} PRIVATE ${LINK_OPTIONS_PRIVATE})
+    target_link_options(${TARGET} PUBLIC ${LINK_OPTIONS_PUBLIC})
+    set_target_properties(${TARGET} PROPERTIES
+        OUTPUT_NAME "ispc"
+        VERSION ${ISPC_VERSION}
+        SOVERSION ${ISPC_VERSION_MAJOR})
+endfunction()
+
 # This function creates and configures ispc-slim executable target under the given NAME.
 function(add_ispc_slim NAME)
     # Defines stdlib target
@@ -920,6 +935,28 @@ else()
     message(STATUS "ISPC will be built as a composite binary")
 endif()
 
+if (ISPC_LIBRARY AND NOT ISPC_SLIM_BINARY)
+    # Add libispc static library target
+    add_library(libispc STATIC src/binary_composite.cpp)
+    configure_ispc_lib(libispc)
+
+    target_link_libraries(libispc ${LINK_LIBRARIES} builtin stdlib optimization common frontend generic-target)
+    add_dependencies(libispc ispc-slim)
+
+    # Add libispc dynamic library target
+    add_library(libispc_shared SHARED src/binary_composite.cpp)
+    configure_ispc_lib(libispc_shared)
+
+    target_link_libraries(libispc_shared ${LINK_LIBRARIES} builtin stdlib optimization common frontend generic-target)
+    add_dependencies(libispc_shared ispc-slim)
+
+    # Install both static and dynamic libraries
+    install(TARGETS libispc libispc_shared
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
+endif()
+
 install (TARGETS ispc DESTINATION bin)
 if (ISPC_SLIM_BINARY)
     foreach (header ${STDLIB_HEADERS})
@@ -932,6 +969,11 @@ endif()
 foreach (header ${INTRINSICS_HEADERS})
     install (FILES "stdlib/include/${header}" DESTINATION include/intrinsics)
 endforeach()
+
+ # Install public headers
+ install(DIRECTORY src/include/ispc
+          DESTINATION include
+          FILES_MATCHING PATTERN "*.h")
 
 set(ISPC_DEPS generic-target-bc stdlibs-bc stdlib-headers)
 

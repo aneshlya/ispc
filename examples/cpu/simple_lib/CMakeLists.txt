@@ -13,11 +13,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find ISPC using our package configuration
 find_package(ispc REQUIRED)
 
-# Create the executable
+# Create the original executable
 add_executable(simple_lib simple.cpp)
+
+# Create the JIT example executable
+add_executable(simple_jit simple_jit.cpp)
 
 # Link against ISPC library
 target_link_libraries(simple_lib ispc::lib)
+target_link_libraries(simple_jit ispc::lib)
 
 # Copy simple.ispc to build directory so the example can find it
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/simple.ispc ${CMAKE_CURRENT_BINARY_DIR}/simple.ispc COPYONLY)

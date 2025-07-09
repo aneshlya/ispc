@@ -16,16 +16,21 @@ option(USE_STATIC_ISPC "Use static ISPC library instead of shared" OFF)
 # Find ISPC using our package configuration
 find_package(ispc REQUIRED)
 
-# Create the executable
+# Create the original executable
 add_executable(simple_lib simple.cpp)
+
+# Create the JIT example executable
+add_executable(simple_jit simple_jit.cpp)
 
 # Link against ISPC library
 # Choose between static and shared library based on option
 if(USE_STATIC_ISPC)
     target_link_libraries(simple_lib ispc::lib_static)
+    target_link_libraries(simple_jit ispc::lib_static)
     message(STATUS "Using static ISPC library")
 else()
     target_link_libraries(simple_lib ispc::lib)
+    target_link_libraries(simple_jit ispc::lib)
     message(STATUS "Using shared ISPC library")
 endif()
 

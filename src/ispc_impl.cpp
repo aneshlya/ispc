@@ -18,6 +18,24 @@
 
 #include <llvm/MC/TargetRegistry.h>
 
+// LLVM JIT includes
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/TargetParser/Host.h>
+
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <unistd.h>
+
 namespace ispc {
 
 class ISPCEngine::Impl {
@@ -35,6 +53,11 @@ class ISPCEngine::Impl {
     std::vector<std::string> m_linkFileNames;
     bool m_isHelpMode{false};
     bool m_isLinkMode{false};
+
+    // JIT-related fields
+    bool m_isJitMode{false};
+    std::unique_ptr<llvm::orc::LLJIT> m_jit;
+    std::unique_ptr<llvm::LLVMContext> m_jitContext;
 
     bool IsLinkMode() const { return m_isLinkMode; }
 
@@ -102,6 +125,162 @@ class ISPCEngine::Impl {
             }
         }
         return true;
+    }
+
+    int CompileFromFileToJit(const char *filename) {
+        if (!ValidateInputFile(filename, false)) { // Don't allow stdin for JIT
+            return 1;
+        }
+
+        // Initialize JIT if needed
+        if (!InitializeJit()) {
+            return 1;
+        }
+
+        // Compile ISPC file to LLVM module
+        auto llvmModule = CompileToLLVMModule(filename);
+        if (!llvmModule) {
+            return 1;
+        }
+
+        // Add the module to the JIT
+        auto tsm =
+            llvm::orc::ThreadSafeModule(std::move(llvmModule), llvm::orc::ThreadSafeContext(std::move(m_jitContext)));
+
+        // Create a new context for future compilations
+        // Note: ThreadSafeModule takes ownership of the context, so we need a fresh one
+        // for subsequent JIT compilations to work correctly
+        m_jitContext = std::make_unique<llvm::LLVMContext>();
+
+        auto addResult = m_jit->addIRModule(std::move(tsm));
+        if (addResult) {
+            Error(SourcePos(), "Failed to add module to JIT: %s", llvm::toString(std::move(addResult)).c_str());
+            return 1;
+        }
+
+        return 0;
+    }
+
+    void *GetJitFunction(const char *functionName) {
+        if (!m_isJitMode) {
+            Error(SourcePos(), "JIT mode is not active.");
+            return nullptr;
+        }
+
+        if (functionName == nullptr) {
+            Error(SourcePos(), "Function name cannot be null.");
+            return nullptr;
+        }
+
+        // Look up the function symbol in the JIT
+        auto symbolOrError = m_jit->lookup(functionName);
+        if (!symbolOrError) {
+            Error(SourcePos(), "Function '%s' not found in JIT: %s", functionName,
+                  llvm::toString(symbolOrError.takeError()).c_str());
+            return nullptr;
+        }
+
+        // Get the function address - ExecutorAddr can be converted to uintptr_t
+        auto address = symbolOrError->getValue();
+        return reinterpret_cast<void *>(static_cast<uintptr_t>(address));
+    }
+
+    void ClearJitCode() {
+        if (m_isJitMode) {
+            // Clear JIT code by resetting the JIT engine
+            m_jit.reset();
+            m_jitContext.reset();
+            m_isJitMode = false;
+        }
+    }
+
+    bool InitializeJit() {
+        if (m_isJitMode) {
+            return true; // Already initialized
+        }
+
+        // Create a new LLVM context for JIT compilation
+        m_jitContext = std::make_unique<llvm::LLVMContext>();
+
+        // Create LLJIT instance
+        auto jitBuilder = llvm::orc::LLJITBuilder();
+        auto jitOrError = jitBuilder.create();
+
+        if (!jitOrError) {
+            Error(SourcePos(), "Failed to create JIT engine: %s", llvm::toString(jitOrError.takeError()).c_str());
+            return false;
+        }
+
+        m_jit = std::move(*jitOrError);
+        m_isJitMode = true;
+
+        return true;
+    }
+
+    std::unique_ptr<llvm::Module> CompileToLLVMModule(const char *filename) {
+        // We need to ensure we have a proper target set up
+        if (!g->target) {
+            // Create a default target for JIT compilation
+            Module::OutputFlags defaultFlags;
+            auto targetPtr = Target::Create(m_arch, m_cpu, m_targets.empty() ? ISPCTarget::host : m_targets[0],
+                                            defaultFlags.getPICLevel(), defaultFlags.getMCModel(), false);
+            if (!targetPtr) {
+                Error(SourcePos(), "Failed to create target for JIT compilation");
+                return nullptr;
+            }
+            // Set global target (this will be cleaned up by Target destructor)
+            g->target = targetPtr.release();
+        }
+
+        // Save the current global module pointer
+        Module *savedModule = m;
+
+        try {
+            // Create a temporary ISPC module for compilation
+            auto tempModule = std::make_unique<Module>(filename);
+
+            // Set the global module pointer for the duration of compilation
+            m = tempModule.get();
+
+            // Compile the file
+            int compileResult = tempModule->CompileFile();
+
+            // Restore the original global module pointer
+            m = savedModule;
+
+            if (compileResult != 0) {
+                Error(SourcePos(), "Failed to compile ISPC code: %d errors", compileResult);
+                return nullptr;
+            }
+
+            // Extract the LLVM module
+            llvm::Module *llvmModule = tempModule->module;
+            if (!llvmModule) {
+                Error(SourcePos(), "No LLVM module generated from ISPC compilation");
+                return nullptr;
+            }
+
+            // Transfer ownership of the module from the ISPC Module to our JIT
+            // Release it from the ISPC Module to avoid double deletion
+            tempModule->module = nullptr;
+
+            // Set the proper target triple and data layout for JIT based on engine configuration
+            if (g->target) {
+                // Use the target triple from the engine's configuration
+                llvmModule->setTargetTriple(g->target->GetTriple().str());
+                llvmModule->setDataLayout(g->target->getDataLayout()->getStringRepresentation());
+            } else {
+                // Fallback to host triple if no target is configured
+                llvmModule->setTargetTriple(llvm::sys::getDefaultTargetTriple());
+            }
+
+            return std::unique_ptr<llvm::Module>(llvmModule);
+
+        } catch (...) {
+            // Restore the original global module pointer in case of exception
+            m = savedModule;
+            throw;
+        }
     }
 
   private:
@@ -208,6 +387,14 @@ void Shutdown() {
 }
 
 int ISPCEngine::Execute() { return pImpl->Execute(); }
+
+int ISPCEngine::CompileFromFile(const char *filename) { return pImpl->CompileFromFileToJit(filename); }
+
+void *ISPCEngine::GetFunction(const char *functionName) { return pImpl->GetJitFunction(functionName); }
+
+bool ISPCEngine::IsJitMode() const { return pImpl->m_isJitMode; }
+
+void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
 
 int CompileFromArgs(int argc, char *argv[]) {
     // Check if library is initialized

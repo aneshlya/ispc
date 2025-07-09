@@ -1052,25 +1052,6 @@ ArgsParseResult ispc::ParseCommandLineArgs(int argc, char *argv[], std::string &
         return result;
     }
 
-    if (file.empty()) {
-        Error(SourcePos(), "No input file were specified. To read text from stdin use \"-\" as file name.");
-        return ArgsParseResult::failure;
-    }
-
-    if (file != "-") {
-        // If the input is not stdin then check that the file exists and it is
-        // not a directory.
-        if (!llvm::sys::fs::exists(file)) {
-            Error(SourcePos(), "File \"%s\" does not exist.", file.c_str());
-            return ArgsParseResult::failure;
-        }
-
-        if (llvm::sys::fs::is_directory(file)) {
-            Error(SourcePos(), "File \"%s\" is a directory.", file.c_str());
-            return ArgsParseResult::failure;
-        }
-    }
-
     if (g->genStdlib) {
         std::string stdlib = "stdlib/stdlib.ispc";
         std::string generic = "builtins/generic.ispc";

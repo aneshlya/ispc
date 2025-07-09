@@ -91,8 +91,38 @@ class ISPCEngine::Impl {
         } else if (m_isHelpMode) {
             return 0;
         } else {
+            // Validate input file before compilation
+            if (!ValidateInputFile(m_file)) {
+                return 1;
+            }
             return Compile();
         }
+    }
+
+    bool ValidateInputFile(const std::string &filename, bool allowStdin = true) {
+        if (filename.empty()) {
+            if (allowStdin) {
+                Error(SourcePos(), "No input file were specified. To read text from stdin use \"-\" as file name.");
+            } else {
+                Error(SourcePos(), "No input file specified.");
+            }
+            return false;
+        }
+
+        if (filename != "-") {
+            // If the input is not stdin then check that the file exists and it is
+            // not a directory.
+            if (!llvm::sys::fs::exists(filename)) {
+                Error(SourcePos(), "File \"%s\" does not exist.", filename.c_str());
+                return false;
+            }
+
+            if (llvm::sys::fs::is_directory(filename)) {
+                Error(SourcePos(), "File \"%s\" is a directory.", filename.c_str());
+                return false;
+            }
+        }
+        return true;
     }
 
   private:

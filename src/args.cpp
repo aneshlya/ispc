@@ -1062,24 +1062,8 @@ ArgsParseResult ispc::ParseCommandLineArgs(int argc, char *argv[], char *&file, 
         return result;
     }
 
-    if (file == nullptr) {
-        Error(SourcePos(), "No input file were specified. To read text from stdin use \"-\" as file name.");
-        return ArgsParseResult::failure;
-    }
-
-    if (strcmp(file, "-") != 0) {
-        // If the input is not stdin then check that the file exists and it is
-        // not a directory.
-        if (!llvm::sys::fs::exists(file)) {
-            Error(SourcePos(), "File \"%s\" does not exist.", file);
-            return ArgsParseResult::failure;
-        }
-
-        if (llvm::sys::fs::is_directory(file)) {
-            Error(SourcePos(), "File \"%s\" is a directory.", file);
-            return ArgsParseResult::failure;
-        }
-    }
+    // File validation moved to ISPCEngine::Execute() and JIT methods
+    // This allows CreateFromArgs to succeed without input file for JIT scenarios
 
     if (g->genStdlib) {
         std::string stdlib = "stdlib/stdlib.ispc";

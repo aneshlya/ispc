@@ -5,8 +5,8 @@ Intel® ISPC User's Guide
 The Intel® Implicit SPMD Program Compiler (Intel® ISPC) is a compiler for
 writing SPMD (single program multiple data) programs to run on the CPU and GPU.
 The SPMD
-programming approach is widely known to graphics and GPGPU programmers; it
-is used for GPU shaders and CUDA\* and OpenCL\* kernels, for example.  The
+programming approach is widely used by graphics and GPGPU programmers; it
+forms the foundation for GPU shaders and CUDA\* and OpenCL\* kernels, for example.  The
 main idea behind SPMD is that one writes programs as if they were operating
 on a single data element (a pixel for a pixel shader, for example), but
 then the underlying hardware and runtime system executes multiple
@@ -23,12 +23,12 @@ The main goals behind ``ispc`` are to:
   of having an execution and data model where the programmer can cleanly
   reason about the mapping of their source program to compiled assembly
   language and the underlying hardware.
-* Harness the computational power of the Single Program, Multiple Data (SIMD) vector
-  units without the extremely low-programmer-productivity activity of directly
+* Harness the computational power of Single Program, Multiple Data (SIMD) vector
+  units without the extremely low-productivity task of directly
   writing intrinsics.
-* Explore opportunities from close-coupling between C/C++ application code
-  and SPMD ``ispc`` code running on the same processor--lightweight function
-  calls between the two languages, sharing data directly via pointers without
+* Explore opportunities enabled by tight coupling between C/C++ application code
+  and SPMD ``ispc`` code running on the same processor—lightweight function
+  calls between the two languages, direct data sharing via pointers without
   copying or reformatting, etc.
 
 **We are very interested in your feedback and comments about ispc and
@@ -384,7 +384,7 @@ Updating ISPC Programs For Changes In ISPC 1.8.2
 ------------------------------------------------
 
 The release doesn't contain language changes, which may affect compatibility with
-older versions. Though you may want be aware of the following:
+older versions. Though you may want to be aware of the following:
 
 * Mangling of uniform types was changed to not include varying width, so now you
   may use uniform structures and pointers to uniform types as return types in
@@ -393,13 +393,13 @@ older versions. Though you may want be aware of the following:
 Updating ISPC Programs For Changes In ISPC 1.9.0
 ------------------------------------------------
 
-The release doesn't contains language changes, which may affect compatibility with
+The release doesn't contain language changes, which may affect compatibility with
 older versions. It introduces new AVX-512 target: avx512knl-i32x16.
 
 Updating ISPC Programs For Changes In ISPC 1.9.1
 ------------------------------------------------
 
-The release doesn't contains language changes, which may affect compatibility with
+The release doesn't contain language changes, which may affect compatibility with
 older versions. It introduces new AVX-512 target: avx512skx-i32x16.
 
 Updating ISPC Programs For Changes In ISPC 1.9.2
@@ -415,21 +415,21 @@ The release has several new language features, which do not affect compatibility
 Namely, new streaming stores, aos_to_soa/soa_to_aos intrinsics for 64 bit types,
 and a "#pragma ignore".
 
-One change that potentially may affect compatibility - changed size of short vector
+One change that may potentially affect compatibility is the changed size of short vector
 types. If you use short vector types for data passed between C/C++ and ISPC, you
 may want to pay attention to it.
 
 Updating ISPC Programs For Changes In ISPC 1.11.0
 -------------------------------------------------
 
-This release redefined -O1 compiler option to optimize for size, so it may require
+This release redefined the -O1 compiler option to optimize for size, so it may require
 adjusting your build system accordingly.
 
-Starting 1.11.0 version auto-generated headers use ``#pragma once``. In the unlikely
-case when your C/C++ compiler is not supporting that, please use ``--no-pragma-once``
+Starting with version 1.11.0, auto-generated headers use ``#pragma once``. In the unlikely
+case that your C/C++ compiler does not support that, please use the ``--no-pragma-once``
 ``ispc`` switch.
 
-This release also introduces new AVX-512 target avx512skx-i32x8. It produces code,
+This release also introduces a new AVX-512 target avx512skx-i32x8. It produces code,
 which doesn't use ZMM registers.
 
 Updating ISPC Programs For Changes In ISPC 1.12.0
@@ -501,7 +501,7 @@ unroll pragmas: "#pragma unroll" and "#pragma nounroll".
 Updating ISPC Programs For Changes In ISPC 1.16.0
 -------------------------------------------------
 
-The release has several new functions in the standard library, that can possibly
+The release has several new functions in the standard library that may
 affect compatibility:
 
 * ``alloca()`` - refer to `Stack Memory Allocation`_ for more details.
@@ -524,8 +524,8 @@ hexadecimal floating point. For example: ``0X1P16``.
 
 The naming of Xe targets, architectures, device names has changed.
 
-Standard library library got new ``prefetchw_{l1,l2,l3}()`` intrinsics for
-prefetching in anticipation of write.
+The standard library got new ``prefetchw_{l1,l2,l3}()`` intrinsics for
+prefetching in anticipation of a write.
 
 The algorithms used for implementation of ``rsqrt(double)`` and ``rcp(double)``
 standard library functions have changed on AVX-512 and may affect the existing
@@ -547,7 +547,7 @@ which is similar to the switch of C/C++ compilers.  Also, as a result of bug fix
 in case of preprocessor error, the compiler will crash now.  It used not to crash and
 produced some output (sometimes correct!).  As it was a convenient feature for some
 users running experiments in isolated environment (like ignoring missing includes
-when compiling of `Compiler Explorer`_), ``--ignore-preprocessor-errors`` switch
+when compiling on `Compiler Explorer`_), the ``--ignore-preprocessor-errors`` switch
 was added to preserve this behavior.
 
 .. _Compiler Explorer: https://godbolt.org/
@@ -562,7 +562,7 @@ New targets were added:
   ``ISPC_TARGET_AVX512SPR`` was added.
 * xehpc-x16 and xehpc-x32 for Intel® Data Center GPU Max (codename Ponte Vecchio).
 
-Function templates were introduces to the language, please refer to `Function
+Function templates were introduced to the language, please refer to the `Function
 Templates`_ section for more details. Two new keywords were introduced: ``template``
 and ``typename``.
 
@@ -772,8 +772,8 @@ vectors:
     varying float<4> x, y;
     varying float<4> z = max(x, y);
 
-The support for short vector types has been added also for the following
-floating-point element wise functions: ``round``, ``floor``, ``ceil``,
+Support for short vector types has also been added for the following
+floating-point element-wise functions: ``round``, ``floor``, ``ceil``,
 ``trunc``, ``rcp``, ``rcp_fast``, ``sqrt``, ``rsqrt``, ``sin``, ``asin``,
 ``cos``, ``acos``, ``tan``, ``atan``, ``exp``, ``log``, ``atan2``, ``pow`` and
 ``cbrt``.
@@ -789,8 +789,8 @@ Language changes:
 
 Compiler flags changes:
 
-* The ``-dD`` and ``-dM`` flag have been supported. They are useful to debug the
-  preprocessor and to check the macros defined by the compiler.
+* The ``-dD`` and ``-dM`` flags are now supported. They are useful for debugging the
+  preprocessor and checking the macros defined by the compiler.
 
 Updating ISPC Programs For Changes In ISPC 1.28.0
 -------------------------------------------------
@@ -800,8 +800,8 @@ lightweight integration of ISPC code with Python. The generated wrappers can be
 built into native Python modules and imported into Python code. The
 ``--nanobind-wrapper=<filename>`` command-line option enables this feature.
 
-The struct operators overloading feature has been extended to support
-overloading of the unary, assignment and the whole set of binary
+The struct operator overloading feature has been extended to support
+overloading of unary, assignment, and the complete set of binary
 operators.
 
 ISPC now includes a new ``include/intrinsics`` directory containing header
@@ -812,9 +812,9 @@ Integer literals are now stricter:
 
 * It now limits the number of occurrences of [uUlL] symbols (i.e. "ulll", 
   "uul" and "lulu" are not valid anymore).
-* The value modification suffix (i.e. [kMG]) must preceed the type 
-  modification suffix (i.e. [uUlL] symbols).
-* Like C/C++, "lL" and "Ll" suffixes is not allowed anymore (i.e. the mix of 
+* The value modification suffix (i.e., [kMG]) must precede the type 
+  modification suffix (i.e., [uUlL] symbols).
+* Like C/C++, "lL" and "Ll" suffixes are not allowed anymore (i.e., the mix of 
   lower and upper case "L" to form a "LL" suffix).
 
 Standard library:
@@ -825,8 +825,8 @@ The ``select`` functions now support unsigned integer types ``uint8``,
 The ``isinf``, ``isfinite``, and ``srgb8_to_float`` functions have been added
 to the standard library.
 
-The support for short vector types has been added also for the following
-element wise functions: ``fmod``, ``isnan``, ``rsqrt_fast`` and ``clamp``.
+Support for short vector types has also been added for the following
+element-wise functions: ``fmod``, ``isnan``, ``rsqrt_fast``, and ``clamp``.
 
 ISPC can now be used as a C++ library (``libispc``) for embedding ISPC
 compilation directly into applications. It also now provides CMake
@@ -893,7 +893,7 @@ program can then proceed, doing computation and control flow based on the
 values loaded.  The result from the running program instances is written to
 the ``vout`` array before the next iteration of the ``foreach`` loop runs.
 
-To build and run examples go to ``examples`` and create ``build`` folder.
+To build and run examples, go to the ``examples`` directory and create a ``build`` folder.
 Run ``cmake -DISPC_EXECUTABLE=<path_to_ispc_binary> ../``. On Linux\* and
 macOS\*, the makefile will be generated in that directory. On Windows\*,
 Microsoft Visual Studio solution ``ispc_examples.sln`` will be created. In
@@ -1006,7 +1006,7 @@ To run only the preprocessor, use the ``-E`` flag.
 In this mode, the output will be directed to ``stdout`` if no output file is
 specified.  The standard suffixes ``.i`` or ``.ispi`` are assumed for preprocessor output.
 
-By default the compilation will fail if preprocessor encountered an error.
+By default, the compilation will fail if the preprocessor encounters an error.
 To ignore the preprocessor errors and proceed with normal compilation flow,
 ``--ignore-preprocessor-errors`` switch may be used.
 
@@ -1088,7 +1088,7 @@ set, and ``--target-os``, which sets the target operating system.
 
 If none of these options is specified, ``ispc`` generates code for the host
 OS and for the architecture of the system the compiler is running on (i.e.
-64-bit x86-64 (``--arch=x86-64``) on x86 systems and ARM NEON on ARM systems.
+64-bit x86-64 (``--arch=x86-64``) on x86 systems and ARM NEON on ARM systems).
 
 To compile to a 32-bit x86 target, for example, supply ``--arch=x86`` on
 the command line:
@@ -1257,7 +1257,7 @@ code for your host operating system.
 
    ispc foo.ispc -o foo.obj --target-os=android
 
-Note that cross OS compilation is in experimental stage. We encourage you to
+Note that cross-OS compilation is in the experimental stage. We encourage you to
 try it and send us a note with your experiences or to file a bug or feature
 requests with the ``ispc`` `bug tracker`_.
 
@@ -1558,7 +1558,7 @@ Before using any ISPC library functions, you must initialize the library::
         return 0;
     }
 
-The ``Initialize()`` function inits the LLVM targets and creates global state.
+The ``Initialize()`` function initializes the LLVM targets and creates global state.
 The ``Shutdown()`` function releases all global resources.
 
 Simple Compilation Interface
@@ -1705,10 +1705,10 @@ Basic Concepts: Program Instances and Gangs of Program Instances
 Upon entry to an ``ispc`` function called from C/C++ code, the execution
 model switches from the application's serial model to ``ispc``'s execution
 model.  Conceptually, a number of ``ispc`` *program instances* start
-running concurrently.  The group of running program instances is a
-called a *gang* (harkening to "gang scheduling", since ``ispc`` provides
-certain guarantees about the control flow coherence of program instances
-running in a gang, detailed in `Gang Convergence Guarantees`_.)  An
+running concurrently.  The group of running program instances is
+called a *gang* (a term borrowed from "gang scheduling", reflecting the fact that ``ispc`` provides
+certain guarantees about control flow coherence among program instances
+running in a gang, as detailed in `Gang Convergence Guarantees`_.)  An
 ``ispc`` program instance is thus similar to a CUDA* "thread" or an OpenCL*
 "work-item", and an ``ispc`` gang is similar to a CUDA* "warp".
 
@@ -1716,7 +1716,7 @@ An ``ispc`` program expresses the computation performed by a gang of
 program instances, using an "implicit parallel" model, where the ``ispc``
 program generally describes the behavior of a single program instance, even
 though a gang of them is actually executing together.  This implicit model
-is the same that is used for shaders in programmable graphics pipelines,
+is the same as that used for shaders in programmable graphics pipelines,
 OpenCL* kernels, and CUDA*.  For example, consider the following ``ispc``
 function:
 
@@ -1741,11 +1741,11 @@ current processor, leading to excellent utilization of hardware SIMD units
 and high performance.
 
 The number of program instances in a gang is relatively small; in practice,
-it's no more than 2-4x the native SIMD width of the hardware it is
-executing on.  Thus, four or eight program instances in a gang on a CPU
+it's no more than 2-4 times the native SIMD width of the target hardware.
+Typically, this means four or eight program instances in a gang on a CPU
 using the 4-wide SSE instruction set, eight or sixteen on a CPU
-using 8-wide AVX/AVX2, eight, sixteen, thirty two, or sixty four on AVX-512 CPU,
-and eight or sixteen on a Intel GPU.
+using 8-wide AVX/AVX2, eight, sixteen, thirty-two, or sixty-four on an AVX-512 CPU,
+and eight or sixteen on an Intel GPU.
 
 Control Flow Within A Gang
 --------------------------
@@ -1765,7 +1765,7 @@ in ``ispc`` code:
       // false statements
    }
 
-In general, the test ``x < y`` may have different result for different
+In general, the test ``x < y`` may have different results for different
 program instances in the gang: some of the currently running program
 instances want to execute the statements for the "true" case and some want
 to execute the statements for the "false" case.
@@ -1773,9 +1773,9 @@ to execute the statements for the "false" case.
 Complex control flow in ``ispc`` programs generally works as expected,
 computing the same results for each program instance in a gang as would
 have been computed if the equivalent code ran serially in C to compute each
-program instance's result individually.  However, here we will more
-precisely define the execution model for control flow in order to be able
-to precisely define the language's behavior in specific situations.
+program instance's result individually.  However, we will now provide a more
+precise definition of the execution model for control flow to clearly
+specify the language's behavior in specific situations.
 
 We will specify the notion of a *program counter* and how it is updated to
 step through the program, and an *execution mask* that indicates which
@@ -1784,7 +1784,7 @@ counter.  The program counter is shared by all of the
 program instances in the gang; it points to a single instruction to be
 executed next.  The execution mask is a per-program-instance boolean value
 that indicates whether or not side effects from the current instruction
-should effect each program instance.  Thus, for example, if a statement
+should affect each program instance.  Thus, for example, if a statement
 were to be executed with an "all off" mask, there should be no observable
 side-effects.
 
@@ -1974,7 +1974,7 @@ control flow decision is based on a ``uniform`` quantity, the compiler can
 be immediately aware that all of the running program instances will follow
 the same path at that point, saving the overhead of needing to deal with
 control flow divergence and mask management.  (To distinguish the two forms
-of control flow, will say that control flow based on ``varying``
+of control flow, we will say that control flow based on ``varying``
 expressions is "varying" control flow.)
 
 Consider for example an image filtering operation where the program loops
@@ -2140,7 +2140,7 @@ then the program's behavior is undefined, since there is no sequence point
 between the reads and writes to the same location.
 
 While this rule that says that program instances can safely depend on
-side-effects from by other program instances in their gang eliminates a
+side-effects from other program instances in their gang eliminates a
 class of synchronization requirements imposed by some other SPMD languages,
 it conversely means that it is possible to write ``ispc`` programs that
 compute different results when run with different gang sizes.
@@ -2181,7 +2181,7 @@ The ISPC Language
 
 ``ispc`` is an extended version of the C programming language, providing a
 number of new features that make it easy to write high-performance SPMD
-programs for the CPU and GPU.  Note that between not only the few small syntactic
+programs for the CPU and GPU.  Note that due to not only the few small syntactic
 differences between ``ispc`` and C code but more importantly ``ispc``'s
 fundamentally parallel execution model, C code can't just be recompiled to
 correctly run in parallel with ``ispc``.  However, starting with working C
@@ -2198,7 +2198,7 @@ Relationship To The C Programming Language
 
 This subsection summarizes the differences between ``ispc`` and C; if you
 are already familiar with C, you may find it most effective to focus on
-this subsection and just focus on the topics in the remainder of section
+this subsection and then on the topics in the remainder of this section
 that introduce new language features.  You may also find it helpful to
 compare the ``ispc`` and C++ implementations of various algorithms in the
 ``ispc`` ``examples/`` directory to get a sense of the close relationship
@@ -2206,11 +2206,10 @@ between ``ispc`` and C.
 
 Specifically, C89 is used as the baseline for comparison in this subsection
 (this is also the version of C described in the Second Edition of Kernighan
-and Ritchie's book).  (``ispc`` adopts some features from C99 and from C++,
-which will be highlighted in the below.)
+and Ritchie's book).  (``ispc`` adopts some features from C99 and C++,
+which will be highlighted below.)
 
-``ispc`` has the same syntax and features for the following as is present
-in C:
+``ispc`` has the same syntax and features as C for the following:
 
 * Expression syntax and basic types
 * Syntax for variable declarations
@@ -2251,7 +2250,7 @@ C++:
 * "Coherent" control flow statements that indicate that control flow is
   expected to be coherent across the running program instances (see
   `"Coherent" Control Flow Statements: "cif" and Friends`_)
-* A rich standard library, though one that is different than C's (see `The
+* A rich standard library, though one that differs from C's (see `The
   ISPC Standard Library`_.)
 * Short vector types (see `Short Vector Types`_)
 * Syntax to specify integer constants as bit vectors (e.g. ``0b1100`` is 12)
@@ -2268,9 +2267,9 @@ but are likely to be supported in future releases:
 * ``union`` types
 * Bitfield members of ``struct`` types
 * Variable numbers of arguments to functions
-* Literal floating-point constants (even without a ``f`` suffix) are
-  currently treated as being ``float`` type, not ``double``. To have a double
-  precision floating point constant use ``d`` suffix.
+* Literal floating-point constants (even without an ``f`` suffix) are
+  currently treated as ``float`` type, not ``double``. To specify a double-precision
+  floating-point constant, use the ``d`` suffix.
 * The ``volatile`` qualifier
 * The ``register`` storage class for variables.  (Will be ignored).
 
@@ -2337,8 +2336,8 @@ integer constant (while "l" denotes a 32-bit integer constant). The
 aforementioned suffixes can also be written in uppercase. However, like in C, 
 you cannot mix uppercase and lowercase in a given suffix (e.g. uLl or ulL).
 It is also possible to denote units of 1024, 1024*1024, or 1024*1024*1024 with
-the SI-inspired suffixes "k", "M", and "G" respectively. Note that the later 
-suffixes must preceed the type-related suffixes. Here is an example:
+the SI-inspired suffixes "k", "M", and "G" respectively. Note that the latter 
+suffixes must precede the type-related suffixes. Here is an example:
 
 ::
 
@@ -2361,7 +2360,7 @@ ISPC supports 3 floating point types : ``float16``, ``float`` and ``double``.
 
 Floating-point constants of all three types can be specified in one of three ways.
 
-* Decimal floating-point with radix separator - a sequence of zero of more
+* Decimal floating-point with radix separator - a sequence of zero or more
   0-9 digits, followed by a period, followed by zero or more 0-9 digits.
   There must be at least one digit before or after the period. If floating-point
   suffix is used, radix separator is optional.
@@ -2564,7 +2563,7 @@ is provided in parenthesis around the expression:
 ::
 
     double foo = 1. / 3.;
-    int bar = (float)bar + (float)bar;  // 32-bit float addition
+    int bar = (float)foo + (float)foo;  // 32-bit float addition
 
 If a ``bool`` is converted to an integer numeric type (``int``, ``int64``,
 etc.), then the result is a non-zero value if the ``bool`` has the value
@@ -2592,7 +2591,7 @@ respect to overflow. Unsigned integer types have defined behavior in case of
 overflow and underflow, they are guaranteed to wraparound. I.e. maximum
 unsigned integer value plus one is guaranteed to be zero. Signed integer types
 have **undefined** behavior in case of overflow and underflow, they are **not**
-guaranteed to wraparound. This is done on purpose to enable compiler to be more
+guaranteed to wraparound. This is done on purpose to enable the compiler to be more
 aggressive with optimizations of signed types.
 
 There is a subtle difference with C and C++ for 8 and 16 bit integer types. In
@@ -3132,8 +3131,8 @@ Binary Operators
 ----------------
 
 Binary operators that can be overloaded include: ``*, /, %, +, -, >>, <<, ==,
-!=, <, >, <=, >=, &, |, ^, &&, and ||``. Operators overloading support is
-similar to the one in C++ language.
+!=, <, >, <=, >=, &, |, ^, &&, and ||``. Operator overloading support is
+similar to the one in the C++ language.
 
 To overload a binary operator for ``struct S``, you need to declare and
 implement a function using keyword ``operator``, which accepts two parameters of
@@ -3314,7 +3313,7 @@ element of the array isn't contiguous in memory--``pts[1].x`` and
 There are a few limitations to the current implementation of SOA types in
 ``ispc``; these may be relaxed in future releases:
 
-* It's illegal to typecast to ``soa`` data to ``void`` pointers.
+* It's illegal to typecast ``soa`` data to ``void`` pointers.
 * Reference types are illegal in SOA structures
 * All members of SOA structures must have no rate qualifiers--specifically,
   it's illegal to have an explicitly-qualified ``uniform`` or ``varying``
@@ -3346,9 +3345,9 @@ variable is undefined behavior.
 
 Any variable that is declared at file scope (i.e. outside a function) is a
 global variable.  If a global variable is qualified with the ``static``
-keyword, then its only visible within the compilation unit in which it was
+keyword, then it is only visible within the compilation unit in which it was
 defined.  As in C/C++, a variable with a ``static`` qualifier inside a
-functions maintains its value across function invocations.
+function maintains its value across function invocations.
 
 As in C++, variables don't need to be declared at the start of a basic
 block:
@@ -3380,7 +3379,7 @@ guarded with ``#if TARGET_WIDTH``:
         ...
     #endif
 
-However, there is a special case when the only one value is in braces. All
+However, there is a special case when only one value is in braces. All
 vector elements are initialized with this value:
 
 ::
@@ -3441,7 +3440,7 @@ them:
 Attributes
 ----------
 
-ISPC provides GNU style attributes syntax using ``__attribute__`` keyword.
+ISPC provides GNU-style attribute syntax using the ``__attribute__`` keyword.
 This section contains the list of currently supported attributes.
 
 noescape
@@ -3471,7 +3470,7 @@ attribute to a varying pointer type is not supported.
 address_space
 -------------
 
-``__attribute__((address_space(N)))`` is Xe specific attribute that can be
+``__attribute__((address_space(N)))`` is an Xe-specific attribute that can be
 applied to a pointer type or a reference type.  The value of this type points
 to or refers to the value allocated in the provided address space.  The address
 space is a non-negative integer value, and the default address space is 0.
@@ -3510,9 +3509,9 @@ external_only
 ``export`` qualifier. It informs the compiler that it should not generate an
 ISPC version of the function. This is useful for functions that are only called
 from C/C++ in case when the user wants to reduce the size of the generated
-code. Same effect can be achieved by using ``-ffunction-sections`` compiler
+code. The same effect can be achieved by using the ``-ffunction-sections`` compiler
 option but not in all cases (e.g., shared libraries with ISPC code), so this
-attribute is provided as a more fine-grained control.
+attribute is provided as more fine-grained control.
 
 deprecated
 ----------
@@ -3556,7 +3555,7 @@ variable alignment.
     // v32 is aligned to 32 bytes
     struct S v32;
 
-Note, that ISPC doesn't support ``__attribute__((aligned))`` without an
+Note that ISPC doesn't support ``__attribute__((aligned))`` without an
 argument. It also doesn't support placing the aligned attribute for specific
 members of struct types.
 
@@ -3633,7 +3632,7 @@ In the above code, each program instance allocates its own ``count`` sized
 array of ``uniform int`` values, uses that memory, and then deallocates
 that memory.  Uses of ``new`` and ``delete`` in ``ispc`` programs are
 implemented as calls to C library's aligned memory allocation routines,
-which are platform dependent (``posix_memalign()`` and ``free()`` on Linux\*
+which are platform-dependent (``posix_memalign()`` and ``free()`` on Linux\*
 and macOS\* and ``_aligned_malloc()`` and ``_aligned_free()`` on Windows\*). So it's
 advised to pair ISPC's ``new`` and ``delete`` with each other, but not with
 C/C++ memory management functions.
@@ -3741,7 +3740,7 @@ described in `Declarations and Initializers`_.
 Type Casting
 ------------
 
-C-style type casting expression works as in C language with an exception that
+C-style type casting expressions work as in the C language with an exception that
 unbound type is not treated as ``varying`` by default.
 
 When typecasting to some type ``T`` without specifying a variability, the
@@ -3893,7 +3892,7 @@ In the code above, because only one program instance is executing at a time
 when the loop body executes, the update to ``array`` is well-defined.
 Note that for this particular example, the "local atomic" operations in
 the standard library could be used instead to safely update ``array``.
-However, local atomics functions aren't always available or appropriate for
+(However, local atomic functions aren't always available or appropriate for
 more complex cases.)
 
 ``continue`` statements may be used inside ``foreach_active`` loops, though
@@ -3911,7 +3910,7 @@ Iteration over unique elements: "foreach_unique"
 ------------------------------------------------
 
 It can be useful to iterate over the elements of a varying variable,
-processing the subsets of them that have the same value together.  For
+processing the subsets that have the same value together.  For
 example, consider a varying variable ``x`` that has the values ``{1, 2, 2,
 1, 1, 0, 0, 0}``, where the program is running on a target with a gang size
 of 8 program instances.  Here, ``x`` has three unique values across the
@@ -3968,7 +3967,7 @@ within a ``foreach`` loop; a compile-time error will be issued in this
 case.  (It is legal to have a ``break`` in a regular ``for`` loop that's
 nested inside a ``foreach`` loop.)  ``continue`` statements are legal in
 ``foreach`` loops; they have the same effect as in regular ``for`` loops:
-a program instances that executes a ``continue`` statement effectively
+a program instance that executes a ``continue`` statement effectively
 skips over the rest of the loop body for the current iteration.
 
 It is also currently illegal to have nested ``foreach`` statements; this
@@ -3999,7 +3998,7 @@ the gang size is 8:
     }
 
 One possible valid execution path of this loop would be for the program
-counter the step through the statements of this loop just ``16/8==2``
+counter to step through the statements of this loop just ``16/8==2``
 times; the first time through, with the ``varying int32`` variable ``i``
 having the values (0,1,2,3,4,5,6,7) over the program instances, and the
 second time through, having the values (8,9,10,11,12,13,14,15), thus
@@ -4085,7 +4084,7 @@ Remember that ``foreach`` begins each loop iteration with an "all on"
 execution mask, meaning all program instances are active at the start.
 In contrast, a ``for`` loop using ``programIndex`` and ``programCount``
 respects the current execution mask, which may disable some instances.
-To match the behavior of ``foreach`` in regards of masking, you should
+To match the behavior of ``foreach`` with regard to masking, you should
 use an ``unmasked`` region. For example:
 
 ::
@@ -4214,12 +4213,12 @@ Section `Re-establishing The Execution Mask`_ for more discussion of
 Functions that are intended to be called from C/C++ application code must
 have the ``export`` qualifier.  This causes them to have regular C linkage
 and to have their declarations included in header files, if the ``ispc``
-compiler is directed to generated a C/C++ header file for the file it
+compiler is directed to generate a C/C++ header file for the file it
 compiled. By default, ISPC generates both C/C++ and ISPC versions of the
-function with ``export`` qualifier. In case when there is no calls from ISPC
+function with the ``export`` qualifier. In cases when there are no calls from ISPC
 code to the ``export`` function, the ISPC version of the function is not needed
-and can be removed either by using ``-ffunction-sections`` compiler option
-together with the linker specific option that collects garbage sections or by
+and can be removed either by using the ``-ffunction-sections`` compiler option
+together with the linker-specific option that collects garbage sections or by
 using ``__attribute__((external_only))``.
 
 ::
@@ -4240,19 +4239,19 @@ cannot be used on the same function.
 Function Overloading
 --------------------
 
-Functions can be overloaded by parameter type.  Given multiple definitions
+Functions can be overloaded by parameter type. Given multiple definitions
 of a function, ``ispc`` uses the following model to choose the best function:
-each conversion of two types has its cost. ``ispc`` tries to find conversion
-with the smallest cost. When ``ispc`` can't find any conversion it means that
-this function is not suitable. Then ``ispc`` sums costs for all arguments and
-chooses the function with the smallest final cost. If the chosen function
-has some arguments which costs are bigger than their costs in other function
-this treats as ambiguous.
-Costs of type conversions placed from small to big:
+each type conversion has an associated cost. ``ispc`` tries to find the conversion
+with the smallest cost. When ``ispc`` cannot find any suitable conversion, the
+function is rejected. ``ispc`` then sums the costs for all arguments and
+chooses the function with the smallest total cost. If the chosen function
+has some arguments whose costs are greater than their costs in another function,
+this is treated as ambiguous.
+Type conversion costs are ordered from lowest to highest:
 
 1. Parameter types match exactly.
-2. Function parameter type is reference and parameters match when any reference-type parameter are considered equivalent to their underlying type.
-3. Function parameter type is const-reference and parameters match when any reference-type parameter are considered equivalent to their underlying type ignoring const attributes.
+2. Function parameter type is a reference and parameters match when reference-type parameters are considered equivalent to their underlying type.
+3. Function parameter type is a const-reference and parameters match when reference-type parameters are considered equivalent to their underlying type, ignoring const attributes.
 4. Parameters match exactly, except constant attributes. [NO CONSTANT ATTRIBUTES LATER]
 5. Parameters match exactly, except reference attributes. [NO REFERENCES ATTRIBUTES LATER]
 6. Parameters match with only type conversions that don't risk losing any information (for example, converting an int16 value to an int32 parameter value.)
@@ -4261,8 +4260,8 @@ Costs of type conversions placed from small to big:
 9. Parameters match with widening and promotions from uniform to varying types. (combination of "6" and "7")
 10. Parameters match using arbitrary type conversion, including also changing variability from uniform to varying.
 
-* If function parameter type is reference and neither "2" nor "3" aren't suitable, function is not suitable
-* If "10" isn't suitable, function is not suitable
+* If the function parameter type is a reference and neither "2" nor "3" is suitable, the function is not suitable
+* If "10" is not suitable, the function is not suitable
 
 
 Re-establishing The Execution Mask
@@ -4418,7 +4417,7 @@ statement executed.  To make all program instances in the launched gang be
 active, the ``unmasked`` construct can be used (see `Re-establishing The
 Execution Mask`_.)
 
-There are two ways to write code that launches a group multiple tasks.
+There are two ways to write code that launches multiple tasks.
 First, one task can be launched at a time, with parameters passed to the
 task to help it determine what part of the overall computation it's
 responsible for:
@@ -4429,7 +4428,7 @@ responsible for:
         launch func(a, i);
 
 This code launches 100 tasks, each of which presumably does some
-computation that is keyed off of given the value ``i``.  In general, one
+computation that is keyed off of the given value ``i``.  In general, one
 should launch many more tasks than there are processors in the system to
 ensure good load-balancing, but not so many that the overhead of scheduling
 and running tasks dominates the computation.
@@ -4470,7 +4469,7 @@ synchronization to access under parallel execution.
 
 The tasking system also supports multi-dimensional partitioning (currently up
 to three dimensions). To launch a 3D grid of tasks, for example with ``N0``,
-``N1``  and ``N2`` tasks in x-, y- and z-dimension respectively
+``N1``, and ``N2`` tasks in the x-, y-, and z-dimensions respectively
 
 ::
 
@@ -4494,9 +4493,9 @@ or
 
 Value of ``taskIndex`` is equal to ``taskIndex0 + taskCount0*(taskIndex1 +
 taskCount1*taskIndex2)`` and it ranges from ``0`` to  ``taskCount-1``, where
-``taskCount = taskCount0*taskCount1*taskCount2``. If ``N1`` or/and ``N2`` are
+``taskCount = taskCount0*taskCount1*taskCount2``. If ``N1`` and/or ``N2`` are
 not specified in the ``launch`` expression, a value of ``1`` is assumed.
-Finally, for an one-dimensional grid of tasks,  ``taskIndex`` is equivalent to
+Finally, for a one-dimensional grid of tasks, ``taskIndex`` is equivalent to
 ``taskIndex0`` and ``taskCount`` is equivalent to ``taskCount0``.
 
 
@@ -4806,8 +4805,8 @@ The ISPC Standard Library
 =========================
 
 ``ispc`` has a standard library that is automatically available when
-compiling ``ispc`` programs.  (To disable the standard library, pass the
-``--nostdlib`` command-line flag to the compiler.).
+compiling ``ispc`` programs. (To disable the standard library, pass the
+``--nostdlib`` command-line flag to the compiler.)
 For a complete list of functions available in the standard library, consult the
 `stdlib.isph`_ header file. This file serves as the definitive reference for all
 the function declarations provided by the standard library.
@@ -4895,8 +4894,8 @@ value ``true`` (rather than just having the value one).  The
     int sign_extend(bool value)
     uniform int sign_extend(uniform bool value)
 
-Also it is possible to convert a ``bool`` varying value to an integer using
-``packmask`` function.
+It is also possible to convert a ``bool`` varying value to an integer using
+the ``packmask`` function.
 
 ::
 
@@ -5011,7 +5010,7 @@ is on (i.e. the value is negative) and zero if it is off.
     uniform unsigned int signbits(uniform float x)
     uniform unsigned int64 signbits(uniform double x)
 
-The ``abs`` functions also supports short vector types with the basic types
+The ``abs`` functions also support short vector types with the basic types
 listed above.
 
 ::
@@ -5212,7 +5211,7 @@ quite efficient.)
                                  uniform unsigned int64 high)
     uniform int64 clamp(uniform int64 v, uniform int64 low, uniform int64 high)
 
-``clamp()`` also support short vector types with the basic types listed above.
+``clamp()`` also supports short vector types with the basic types listed above.
 
 ::
 
@@ -5230,7 +5229,7 @@ The ``isnan()`` functions test whether the given value is a floating-point
     bool isnan(double v)
     uniform bool isnan(uniform double v)
 
-``isnan()`` also support short vector types with the basic types listed above.
+``isnan()`` also supports short vector types with the basic types listed above.
 
 ::
 
@@ -5238,7 +5237,7 @@ The ``isnan()`` functions test whether the given value is a floating-point
     template <typename T, uint N> varying bool<N> isnan(varying T<N> v)
 
 The ``isinf()`` and ``isfinite()`` functions test whether the given value is
-a floating-point infinity (please note that a "not a number" value is neither 
+a floating-point infinity (please note that a "not a number" value is neither
 considered finite nor infinite):
 
 ::
@@ -5802,9 +5801,9 @@ single uniform boolean expression as an argument. This expression is
 assumed to be ``true`` and this information will be used for optimization
 when possible.
 
-The condition used in ``assume()`` statement will not be code generated and
-does not imply runtime checks. It will solely be used as optimization hint,
-if compiler is able to use this information.
+The condition used in an ``assume()`` statement will not generate code and
+does not imply runtime checks. It will be used solely as an optimization hint
+if the compiler is able to use this information.
 
 Below are some basic examples of this functionality.
 
@@ -5850,8 +5849,8 @@ time in ``bar2()`` thus removing the additional check.
         return ret;
     }
 
-The ``assume()`` hint informs the compiler ``count`` is a multiple of
-``programCount`` during compile time. This results in removal of remainder
+The ``assume()`` hint informs the compiler that ``count`` is a multiple of
+``programCount`` at compile time. This results in removal of the remainder
 loop usually required for ``foreach``.
 
 
@@ -5894,9 +5893,9 @@ Cross-Program Instance Operations
 ---------------------------------
 
 ``ispc`` programs are often used to express independently-executing
-programs performing computation on separate data elements.  (i.e. pure
-data-parallelism).  However, it's often the case where it's useful for the
-program instances to be able to cooperate in computing results.  The
+programs performing computation on separate data elements (i.e., pure
+data-parallelism). However, it's often useful for the
+program instances to cooperate in computing results.  The
 cross-lane operations described in this section provide primitives for
 communication between the running program instances in the gang.
 
@@ -6019,7 +6018,7 @@ operations described above in this section from these routines, though in
 general, not as efficiently.  These routines are useful for implementing
 other reductions and cross-lane communication that isn't included in the
 above, though.  Given a ``varying`` value, ``extract()`` returns the i'th
-element of it as a single ``uniform`` value.  .
+element of it as a single ``uniform`` value.
 
 ::
 
@@ -6037,7 +6036,7 @@ element of it as a single ``uniform`` value.  .
     uniform double extract(double x, uniform int i)
 
 Similarly, ``insert`` returns a new value
-where the ``i`` th element of ``x`` has been replaced with the value ``v``
+where the ``i``th element of ``x`` has been replaced with the value ``v``.
 
 ::
 
@@ -6061,7 +6060,7 @@ Reductions
 A number of routines are available to evaluate conditions across the
 running program instances.  For example, ``any()`` returns ``true`` if
 the given value ``v`` is ``true`` for any of the SPMD program
-instances currently running, ``all()`` returns ``true`` if it true
+instances currently running, ``all()`` returns ``true`` if it is true
 for all of them, and ``none()`` returns ``true`` if ``v`` is always
 ``false``.
 
@@ -6401,7 +6400,7 @@ Streaming Load and Store Operations
 
 The standard library offers routines for streaming load and streaming store
 operations. The implementation serves as both a streaming as well as a non-temporal
-operation. There are separate routines to be used depending on whether loading from and storing to a
+operation. There are separate routines to be used depending on whether you are loading from and storing to a
 uniform variable or a varying variable.
 
 The different available variants of streaming store are given below.
@@ -6857,7 +6856,7 @@ match, it assigns "newval" to "val".  In either case, the old value of
                                   uniform int32 compare, uniform int32 newval)
 
 ``ispc`` also has a standard library routine that inserts a memory barrier
-into the code; it ensures that all memory reads and writes prior to be
+into the code; it ensures that all memory reads and writes prior to the
 barrier complete before any reads or writes after the barrier are issued.
 See the `Linux kernel documentation on memory barriers`_ for an excellent
 writeup on the need for and the use of memory barriers in multi-threaded
@@ -7027,9 +7026,9 @@ qualifier.
 
    extern "C" void foo(uniform float f, uniform float g);
 
-Unlike in C++, ``extern "C"`` doesn't take braces to delineate
-multiple functions to be declared; thus, multiple C functions to be called
-from ``ispc`` must be declared as follows:
+Unlike in C++, ``extern "C"`` does not use braces to delineate
+multiple function declarations; therefore, multiple C functions to be called
+from ``ispc`` must be declared individually as follows:
 
 ::
 
@@ -7050,14 +7049,14 @@ qualifier.
 ``__vectorcall`` can only be used for ``extern "C"`` function declarations and
 on Windows OS.
 
-Also ``extern "C"`` functions can be marked with ``__regcall`` calling convention.
-This calling convention makes return values and function arguments passed through
-registers in most cases. Note, that ``__regcall3__`` prefix will be added to the
+``extern "C"`` functions can also be marked with the ``__regcall`` calling convention.
+This calling convention causes return values and function arguments to be passed through
+registers in most cases. Note that a ``__regcall3__`` prefix will be added to the
 function name.
 
 **Only a single function call is made back to C++ for the entire gang of
-running program instances**.  Furthermore, function calls back to C/C++ are not
-made if none of the program instances want to make the call.  For example,
+running program instances**. Furthermore, function calls back to C/C++ are not
+made if none of the program instances need to make the call.  For example,
 given code like:
 
 ::
@@ -7232,7 +7231,7 @@ distribution.
 
 There is one subtlety related to data layout to be aware of: ``ispc``
 stores ``uniform`` short-vector types in memory with their first element at
-the machine's natural vector alignment (i.e. 16 bytes for a target that is
+the machine's natural vector alignment (i.e., 16 bytes for a target that is
 using Intel® SSE, and so forth.)  This implies that these types will have
 different layout on different compilation targets.  As such, applications
 should in general avoid accessing ``uniform`` short vector types from C/C++

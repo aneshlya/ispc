@@ -59,6 +59,28 @@ int main() {
         std::cerr << "Second ISPC compilation failed with code: " << result2 << "\n";
     }
 
+    // Test ISPCEngine API - this tests global state management for engine-based compilation
+    std::cout << "\nTesting ISPCEngine C++ API...\n";
+
+    std::vector<std::string> engineArgs = {
+        "ispc", "simple.ispc", "--target=host", "-O2", "-o", "simple_engine_cpp.o", "-h", "simple_engine_cpp.h"};
+
+    auto engine = ispc::ISPCEngine::CreateFromArgs(engineArgs);
+    if (!engine) {
+        std::cerr << "Failed to create ISPC engine\n";
+    } else {
+        std::cout << "ISPC engine created successfully\n";
+
+        int engineResult = engine->Execute();
+        if (engineResult == 0) {
+            std::cout << "Engine execution successful!\n";
+        } else {
+            std::cerr << "Engine execution failed with code: " << engineResult << "\n";
+        }
+
+        std::cout << "Engine will be destroyed automatically\n";
+    }
+
     std::cout << "\nCleaning up...\n";
     ispc::Shutdown();
     std::cout << "ISPC shutdown complete\n";

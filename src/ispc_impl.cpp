@@ -230,3 +230,38 @@ int CompileFromArgs(const std::vector<std::string> &args) {
 }
 
 } // namespace ispc
+
+// C API implementations
+extern "C" {
+
+int ispc_initialize(void) { return ispc::Initialize() ? 1 : 0; }
+
+void ispc_shutdown(void) { ispc::Shutdown(); }
+
+int ispc_compile_from_args(int argc, char *argv[]) { return ispc::CompileFromCArgs(argc, argv); }
+
+ispc_engine_t *ispc_engine_create_from_args(int argc, char *argv[]) {
+    auto engine = ispc::ISPCEngine::CreateFromCArgs(argc, argv);
+    if (!engine) {
+        return nullptr;
+    }
+    // Transfer ownership to C handle
+    return reinterpret_cast<ispc_engine_t *>(engine.release());
+}
+
+void ispc_engine_destroy(ispc_engine_t *engine) {
+    if (engine) {
+        auto *cppEngine = reinterpret_cast<ispc::ISPCEngine *>(engine);
+        delete cppEngine;
+    }
+}
+
+int ispc_engine_execute(ispc_engine_t *engine) {
+    if (!engine) {
+        return 1;
+    }
+    auto *cppEngine = reinterpret_cast<ispc::ISPCEngine *>(engine);
+    return cppEngine->Execute();
+}
+
+} // extern "C"

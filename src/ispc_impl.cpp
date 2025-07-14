@@ -19,6 +19,24 @@
 #include <cstring>
 #include <llvm/MC/TargetRegistry.h>
 
+// LLVM JIT includes
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/TargetParser/Host.h>
+
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <unistd.h>
+
 namespace ispc {
 
 class ISPCEngine::Impl {
@@ -36,6 +54,11 @@ class ISPCEngine::Impl {
     std::vector<std::string> m_linkFileNames;
     bool m_isHelpMode{false};
     bool m_isLinkMode{false};
+
+    // JIT-related fields
+    bool m_isJitMode{false};
+    std::unique_ptr<llvm::orc::LLJIT> m_jit;
+    std::unique_ptr<llvm::LLVMContext> m_jitContext;
 
     bool IsLinkMode() const { return m_isLinkMode; }
 
@@ -102,6 +125,96 @@ class ISPCEngine::Impl {
                 return false;
             }
         }
+        return true;
+    }
+
+    int CompileFromFileToJit(const char *filename) {
+        if (!ValidateInputFile(filename, false)) { // Don't allow stdin for JIT
+            return 1;
+        }
+
+        // Initialize JIT if needed
+        if (!InitializeJit()) {
+            return 1;
+        }
+
+        // Compile ISPC file to LLVM module
+        auto llvmModule = Module::CompileToLLVMModule(filename, m_arch, m_cpu, m_targets);
+        if (!llvmModule) {
+            return 1;
+        }
+
+        // Add the module to the JIT
+        auto tsm =
+            llvm::orc::ThreadSafeModule(std::move(llvmModule), llvm::orc::ThreadSafeContext(std::move(m_jitContext)));
+
+        // Create a new context for future compilations
+        // Note: ThreadSafeModule takes ownership of the context, so we need a fresh one
+        // for subsequent JIT compilations to work correctly
+        m_jitContext = std::make_unique<llvm::LLVMContext>();
+
+        auto addResult = m_jit->addIRModule(std::move(tsm));
+        if (addResult) {
+            Error(SourcePos(), "Failed to add module to JIT: %s", llvm::toString(std::move(addResult)).c_str());
+            return 1;
+        }
+
+        return 0;
+    }
+
+    void *GetJitFunction(const char *functionName) {
+        if (!m_isJitMode) {
+            Error(SourcePos(), "JIT mode is not active.");
+            return nullptr;
+        }
+
+        if (functionName == nullptr) {
+            Error(SourcePos(), "Function name cannot be null.");
+            return nullptr;
+        }
+
+        // Look up the function symbol in the JIT
+        auto symbolOrError = m_jit->lookup(functionName);
+        if (!symbolOrError) {
+            Error(SourcePos(), "Function '%s' not found in JIT: %s", functionName,
+                  llvm::toString(symbolOrError.takeError()).c_str());
+            return nullptr;
+        }
+
+        // Get the function address - ExecutorAddr can be converted to uintptr_t
+        auto address = symbolOrError->getValue();
+        return reinterpret_cast<void *>(static_cast<uintptr_t>(address));
+    }
+
+    void ClearJitCode() {
+        if (m_isJitMode) {
+            // Clear JIT code by resetting the JIT engine
+            m_jit.reset();
+            m_jitContext.reset();
+            m_isJitMode = false;
+        }
+    }
+
+    bool InitializeJit() {
+        if (m_isJitMode) {
+            return true; // Already initialized
+        }
+
+        // Create a new LLVM context for JIT compilation
+        m_jitContext = std::make_unique<llvm::LLVMContext>();
+
+        // Create LLJIT instance
+        auto jitBuilder = llvm::orc::LLJITBuilder();
+        auto jitOrError = jitBuilder.create();
+
+        if (!jitOrError) {
+            Error(SourcePos(), "Failed to create JIT engine: %s", llvm::toString(jitOrError.takeError()).c_str());
+            return false;
+        }
+
+        m_jit = std::move(*jitOrError);
+        m_isJitMode = true;
+
         return true;
     }
 
@@ -226,6 +339,14 @@ void Shutdown() {
 }
 
 int ISPCEngine::Execute() { return pImpl->Execute(); }
+
+int ISPCEngine::CompileFromFile(const char *filename) { return pImpl->CompileFromFileToJit(filename); }
+
+void *ISPCEngine::GetFunction(const char *functionName) { return pImpl->GetJitFunction(functionName); }
+
+bool ISPCEngine::IsJitMode() const { return pImpl->m_isJitMode; }
+
+void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
 
 // Function that uses C-style argc/argv interface
 int CompileFromCArgs(int argc, char *argv[]) {

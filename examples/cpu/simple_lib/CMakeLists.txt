@@ -22,6 +22,13 @@ add_executable(simple_jit simple_jit.cpp)
 # Create the C API example executable
 add_executable(simple_c simple_c.c)
 
+# Ensure simple_c.c is compiled as C (not C++)
+set_target_properties(simple_c PROPERTIES 
+    LINKER_LANGUAGE C
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+)
+
 # Link against ISPC library
 target_link_libraries(simple_lib ispc::lib)
 target_link_libraries(simple_jit ispc::lib)

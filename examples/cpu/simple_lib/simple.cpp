@@ -22,8 +22,8 @@ int main() {
 
     std::cout << "Compiling simple.ispc using library mode...\n";
 
-    std::vector<std::string> args1 = {"ispc", "simple.ispc", "--target=host", "-O2", "-o",
-                                      "simple_ispc.o", "-h", "simple_ispc.h"};
+    std::vector<std::string> args1 = {"ispc",          "simple.ispc", "--target=host", "-O2", "-o",
+                                      "simple_ispc.o", "-h",          "simple_ispc.h"};
 
     int result = ispc::CompileFromArgs(args1);
 
@@ -38,8 +38,8 @@ int main() {
     std::cout << "Compiling simple.ispc using library mode with different options...\n";
 
     // Set up a second compilation with different options
-    std::vector<std::string> args2 = {"ispc", "simple.ispc", "--target=host",  "-O0", "--emit-asm", "-o",
-                                      "simple_debug.s", "-h", "simple_debug.h", "-g"};
+    std::vector<std::string> args2 = {"ispc",           "simple.ispc", "--target=host",  "-O0", "--emit-asm", "-o",
+                                      "simple_debug.s", "-h",          "simple_debug.h", "-g"};
 
     // Execute second compilation
     int result2 = ispc::CompileFromArgs(args2);
@@ -57,6 +57,32 @@ int main() {
         }
     } else {
         std::cerr << "Second ISPC compilation failed with code: " << result2 << "\n";
+    }
+
+    // Test ISPCEngine API - similar to C test
+    std::cout << "\nTesting ISPCEngine C++ API...\n";
+
+    std::vector<std::string> engineArgs = {
+        "ispc", "simple.ispc", "--target=host", "-O2", "-o", "simple_engine_cpp.o", "-h", "simple_engine_cpp.h"};
+
+    auto engine = ispc::ISPCEngine::CreateFromArgs(engineArgs);
+    if (!engine) {
+        std::cerr << "Failed to create ISPC engine\n";
+    } else {
+        std::cout << "ISPC engine created successfully\n";
+
+        int engineResult = engine->Execute();
+        if (engineResult == 0) {
+            std::cout << "Engine execution successful!\n";
+
+            // Check if it's in JIT mode
+            bool isJit = engine->IsJitMode();
+            std::cout << "Engine JIT mode: " << (isJit ? "enabled" : "disabled") << "\n";
+        } else {
+            std::cerr << "Engine execution failed with code: " << engineResult << "\n";
+        }
+
+        std::cout << "Engine will be destroyed automatically\n";
     }
 
     std::cout << "\nCleaning up...\n";

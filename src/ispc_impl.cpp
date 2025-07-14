@@ -348,12 +348,29 @@ bool ISPCEngine::IsJitMode() const { return pImpl->m_isJitMode; }
 
 void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
 
+// RAII helper for global state management
+class GlobalStateGuard {
+  public:
+    GlobalStateGuard() : savedModule(m), savedTarget(g->target) {}
+    ~GlobalStateGuard() {
+        m = savedModule;
+        g->target = savedTarget;
+    }
+
+  private:
+    Module *savedModule;
+    Target *savedTarget;
+};
+
 // Function that uses C-style argc/argv interface
 int CompileFromCArgs(int argc, char *argv[]) {
     // Check if library is initialized
     if (g == nullptr) {
         return 1;
     }
+
+    // Automatically save and restore global state
+    GlobalStateGuard guard;
 
     auto instance = ISPCEngine::CreateFromCArgs(argc, argv);
     if (!instance) {
@@ -377,6 +394,7 @@ int CompileFromArgs(const std::vector<std::string> &args) {
         argv[i] = const_cast<char *>(argsCopy[i].c_str());
     }
 
+    // CompileFromCArgs already handles global state management
     return CompileFromCArgs(argc, argv.data());
 }
 
@@ -385,17 +403,11 @@ int CompileFromArgs(const std::vector<std::string> &args) {
 // C API implementations
 extern "C" {
 
-int ispc_initialize(void) {
-    return ispc::Initialize() ? 1 : 0;
-}
+int ispc_initialize(void) { return ispc::Initialize() ? 1 : 0; }
 
-void ispc_shutdown(void) {
-    ispc::Shutdown();
-}
+void ispc_shutdown(void) { ispc::Shutdown(); }
 
-int ispc_compile_from_args(int argc, char *argv[]) {
-    return ispc::CompileFromCArgs(argc, argv);
-}
+int ispc_compile_from_args(int argc, char *argv[]) { return ispc::CompileFromCArgs(argc, argv); }
 
 ispc_engine_t *ispc_engine_create_from_args(int argc, char *argv[]) {
     auto engine = ispc::ISPCEngine::CreateFromCArgs(argc, argv);
@@ -417,6 +429,10 @@ int ispc_engine_execute(ispc_engine_t *engine) {
     if (!engine) {
         return 1;
     }
+
+    // Automatically save and restore global state
+    ispc::GlobalStateGuard guard;
+
     auto *cppEngine = reinterpret_cast<ispc::ISPCEngine *>(engine);
     return cppEngine->Execute();
 }

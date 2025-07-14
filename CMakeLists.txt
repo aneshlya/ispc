@@ -405,7 +405,7 @@ endif()
 
 set(CLANG_LIBRARY_LIST clangFrontend clangBasic clangEdit clangLex clangSupport clangASTMatchers)
 
-set(LLVM_COMPONENTS engine ipo bitreader bitwriter instrumentation linker option frontendopenmp passes)
+set(LLVM_COMPONENTS engine ipo bitreader bitwriter instrumentation linker option frontendopenmp passes orcjit)
 
 # windowsdriver is a small library introduced in LLVM 15. While it's targeted at Windows only,
 # it's used in the LLVM code without any ifdef and is needed on all platforms.

@@ -77,10 +77,35 @@ class ISPCEngine {
      */
     int Execute();
 
+    /**
+     * @brief Compiles ISPC code from a file using JIT compilation.
+     * @param filename Path to the ISPC source file.
+     * @return 0 on success, non-zero on failure.
+     */
+    int CompileFromFileToJit(const std::string &filename);
+
+    /**
+     * @brief Retrieves a function pointer from JIT-compiled code.
+     * @param functionName Name of the exported function.
+     * @return Function pointer or nullptr if not found.
+     */
+    void *GetJitFunction(const std::string &functionName);
+
     ~ISPCEngine();
 
   private:
     ISPCEngine();
+
+    /**
+     * @brief Checks if the engine is in JIT mode.
+     * @return true if JIT mode is active, false otherwise.
+     */
+    bool IsJitMode() const;
+
+    /**
+     * @brief Clears all JIT-compiled code.
+     */
+    void ClearJitCode();
 
     class Impl;
     std::unique_ptr<Impl> pImpl;

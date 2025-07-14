@@ -21,6 +21,22 @@
 
 namespace ispc {
 
+// RAII class for managing global state during compilation
+class GlobalStateGuard {
+  public:
+    GlobalStateGuard() : savedModule(m), savedTarget(g->target) {}
+    
+    ~GlobalStateGuard() {
+        // Restore global state
+        m = savedModule;
+        g->target = savedTarget;
+    }
+    
+  private:
+    Module *savedModule;
+    Target *savedTarget;
+};
+
 class ISPCEngine::Impl {
   public:
     Impl() {
@@ -66,6 +82,8 @@ class ISPCEngine::Impl {
     }
 
     int Execute() {
+        GlobalStateGuard guard; // RAII guard to protect global state
+        
         if (m_isLinkMode) {
             return Link();
         } else if (m_isHelpMode) {
@@ -204,6 +222,8 @@ int CompileFromCArgs(int argc, char *argv[]) {
         return 1;
     }
 
+    GlobalStateGuard guard; // RAII guard to protect global state
+    
     auto instance = ISPCEngine::CreateFromCArgs(argc, argv);
     if (!instance) {
         return 1;

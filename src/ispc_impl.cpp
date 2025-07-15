@@ -25,13 +25,13 @@ namespace ispc {
 class GlobalStateGuard {
   public:
     GlobalStateGuard() : savedModule(m), savedTarget(g->target) {}
-    
+
     ~GlobalStateGuard() {
         // Restore global state
         m = savedModule;
         g->target = savedTarget;
     }
-    
+
   private:
     Module *savedModule;
     Target *savedTarget;
@@ -44,9 +44,9 @@ class ISPCEngine::Impl {
     }
 
     // Fields populated by ParseCommandLineArgs
-    char *m_file = nullptr;
+    std::string m_file; // Store filename as string to avoid pointer corruption
     Arch m_arch{Arch::none};
-    const char *m_cpu{nullptr};
+    std::string m_cpu; // Store CPU as string to avoid pointer corruption
     std::vector<ISPCTarget> m_targets;
     Module::Output m_output;
     std::vector<std::string> m_linkFileNames;
@@ -63,7 +63,8 @@ class ISPCEngine::Impl {
         int ret = 0;
         {
             llvm::TimeTraceScope TimeScope("ExecuteISPCEngine");
-            ret = Module::CompileAndOutput(m_file, m_arch, m_cpu, m_targets, m_output);
+            ret = Module::CompileAndOutput(m_file.c_str(), m_arch, m_cpu.empty() ? nullptr : m_cpu.c_str(), m_targets,
+                                           m_output);
         }
 
         if (g->enableTimeTrace) {
@@ -83,7 +84,7 @@ class ISPCEngine::Impl {
 
     int Execute() {
         GlobalStateGuard guard; // RAII guard to protect global state
-        
+
         if (m_isLinkMode) {
             return Link();
         } else if (m_isHelpMode) {
@@ -166,7 +167,7 @@ std::unique_ptr<ISPCEngine> ISPCEngine::CreateFromCArgs(int argc, char *argv[]) 
 
     auto instance = std::unique_ptr<ISPCEngine>(new ISPCEngine());
 
-    // Parse command line options
+    // Parse command line options - now using string references directly
     ArgsParseResult parseResult =
         ParseCommandLineArgs(argc, argv, instance->pImpl->m_file, instance->pImpl->m_arch, instance->pImpl->m_cpu,
                              instance->pImpl->m_targets, instance->pImpl->m_output, instance->pImpl->m_linkFileNames,
@@ -222,8 +223,6 @@ int CompileFromCArgs(int argc, char *argv[]) {
         return 1;
     }
 
-    GlobalStateGuard guard; // RAII guard to protect global state
-    
     auto instance = ISPCEngine::CreateFromCArgs(argc, argv);
     if (!instance) {
         return 1;

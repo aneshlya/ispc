@@ -22,8 +22,8 @@ int main() {
 
     std::cout << "Compiling simple.ispc using library mode...\n";
 
-    std::vector<std::string> args1 = {"ispc", "simple.ispc", "--target=host", "-O2", "-o",
-                                      "simple_ispc.o", "-h", "simple_ispc.h"};
+    std::vector<std::string> args1 = {"ispc",          "simple.ispc", "--target=host", "-O2", "-o",
+                                      "simple_ispc.o", "-h",          "simple_ispc.h"};
 
     int result = ispc::CompileFromArgs(args1);
 
@@ -38,8 +38,8 @@ int main() {
     std::cout << "Compiling simple.ispc using library mode with different options...\n";
 
     // Set up a second compilation with different options
-    std::vector<std::string> args2 = {"ispc", "simple.ispc", "--target=host",  "-O0", "--emit-asm", "-o",
-                                      "simple_debug.s", "-h", "simple_debug.h", "-g"};
+    std::vector<std::string> args2 = {"ispc",           "simple.ispc", "--target=host",  "-O0", "--emit-asm", "-o",
+                                      "simple_debug.s", "-h",          "simple_debug.h", "-g"};
 
     // Execute second compilation
     int result2 = ispc::CompileFromArgs(args2);
@@ -59,26 +59,75 @@ int main() {
         std::cerr << "Second ISPC compilation failed with code: " << result2 << "\n";
     }
 
-    // Test ISPCEngine API - this tests global state management for engine-based compilation
-    std::cout << "\nTesting ISPCEngine C++ API...\n";
+    // Test global state corruption with multiple engines using different targets
+    std::cout << "\nTesting global state management with multiple engines...\n";
 
-    std::vector<std::string> engineArgs = {
-        "ispc", "simple.ispc", "--target=host", "-O2", "-o", "simple_engine_cpp.o", "-h", "simple_engine_cpp.h"};
+    // Create multiple engines with different targets that would conflict
+    std::vector<std::string> engineArgs1 = {"ispc",          "simple.ispc", "--target=sse2-i32x4", "-O2", "-o",
+                                            "simple_sse2.o", "-h",          "simple_sse2.h"};
 
-    auto engine = ispc::ISPCEngine::CreateFromArgs(engineArgs);
-    if (!engine) {
-        std::cerr << "Failed to create ISPC engine\n";
+    std::vector<std::string> engineArgs2 = {"ispc",          "simple.ispc", "--target=avx2-i32x8", "-O0", "-o",
+                                            "simple_avx2.o", "-h",          "simple_avx2.h"};
+
+    std::vector<std::string> engineArgs3 = {"ispc",          "simple.ispc", "--target=host", "--emit-asm", "-o",
+                                            "simple_host.s", "-h",          "simple_host.h"};
+
+    // Create engines but don't execute yet - this tests target state isolation
+    auto engine1 = ispc::ISPCEngine::CreateFromArgs(engineArgs1);
+    auto engine2 = ispc::ISPCEngine::CreateFromArgs(engineArgs2);
+    auto engine3 = ispc::ISPCEngine::CreateFromArgs(engineArgs3);
+
+    if (!engine1 || !engine2 || !engine3) {
+        std::cerr << "Failed to create one or more ISPC engines\n";
     } else {
-        std::cout << "ISPC engine created successfully\n";
+        std::cout << "Created 3 engines with different targets\n";
 
-        int engineResult = engine->Execute();
-        if (engineResult == 0) {
-            std::cout << "Engine execution successful!\n";
+        // Execute engines in sequence - this will expose global state conflicts
+        std::cout << "Executing engine 1 (SSE2)...\n";
+        int result1 = engine1->Execute();
+
+        std::cout << "Executing engine 2 (AVX2)...\n";
+        int result2 = engine2->Execute();
+
+        std::cout << "Executing engine 3 (Host ASM)...\n";
+        int result3 = engine3->Execute();
+
+        if (result1 == 0 && result2 == 0 && result3 == 0) {
+            std::cout << "SUCCESS: All engines executed without global state corruption!\n";
+            std::cout << "  - SSE2 compilation: simple_sse2.o\n";
+            std::cout << "  - AVX2 compilation: simple_avx2.o\n";
+            std::cout << "  - Host ASM compilation: simple_host.s\n";
         } else {
-            std::cerr << "Engine execution failed with code: " << engineResult << "\n";
+            std::cerr << "FAILURE: Global state corruption detected!\n";
+            std::cerr << "  Engine 1 result: " << result1 << "\n";
+            std::cerr << "  Engine 2 result: " << result2 << "\n";
+            std::cerr << "  Engine 3 result: " << result3 << "\n";
         }
+    }
 
-        std::cout << "Engine will be destroyed automatically\n";
+    // Additional stress test: rapid consecutive compilations
+    std::cout << "\nStress testing with rapid consecutive compilations...\n";
+    bool stress_success = true;
+    for (int i = 0; i < 5; i++) {
+        std::vector<std::string> stressArgs = {"ispc",
+                                               "simple.ispc",
+                                               "--target=host",
+                                               "-O" + std::to_string(i % 3),
+                                               "-o",
+                                               "stress_" + std::to_string(i) + ".o"};
+
+        int stress_result = ispc::CompileFromArgs(stressArgs);
+        if (stress_result != 0) {
+            std::cerr << "Stress test iteration " << i << " failed with code: " << stress_result << "\n";
+            stress_success = false;
+            break;
+        }
+    }
+
+    if (stress_success) {
+        std::cout << "Stress test passed: 5 rapid compilations successful\n";
+    } else {
+        std::cout << "Stress test failed: Global state corruption during rapid compilations\n";
     }
 
     std::cout << "\nCleaning up...\n";

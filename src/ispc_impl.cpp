@@ -24,6 +24,7 @@
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
+#include <llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -152,39 +153,6 @@ static void initializePaths(const char *ISPCLibraryPath) {
     }
 }
 
-// ISPC runtime functions for JIT - exposed with C linkage globally
-extern "C" {
-void ISPCLaunch(void **handle, void *f, void *d, int count0, int count1, int count2) {
-    *handle = (void *)(uintptr_t)0xdeadbeef;
-    typedef void (*TaskFuncType)(void *, int, int, int, int, int, int, int, int, int, int);
-    TaskFuncType func = (TaskFuncType)f;
-    int count = count0 * count1 * count2, idx = 0;
-    for (int k = 0; k < count2; ++k)
-        for (int j = 0; j < count1; ++j)
-            for (int i = 0; i < count0; ++i)
-                func(d, 0, 1, idx++, count, i, j, k, count0, count1, count2);
-}
-
-void ISPCSync(void *) {}
-
-void *ISPCAlloc(void **handle, int64_t size, int32_t alignment) {
-    *handle = (void *)(uintptr_t)0xdeadbeef;
-#ifdef ISPC_HOST_IS_WINDOWS
-    return _aligned_malloc(size, alignment);
-#elif defined(__linux__) || defined(__FreeBSD__)
-    return memalign(alignment, size);
-#elif defined(__APPLE__)
-    void *mem = malloc(size + (alignment - 1) + sizeof(void *));
-    char *amem = ((char *)mem) + sizeof(void *);
-    amem = amem + uint32_t(alignment - (reinterpret_cast<uint64_t>(amem) & (alignment - 1)));
-    ((void **)amem)[-1] = mem;
-    return amem;
-#else
-#error "Host OS was not detected"
-#endif
-}
-}
-
 namespace ispc {
 
 // Class for managing global state during compilation
@@ -222,7 +190,15 @@ class ISPCEngine::Impl {
     // JIT-related fields
     bool m_isJitMode{false};
     std::unique_ptr<llvm::orc::LLJIT> m_jit;
-    std::unique_ptr<llvm::LLVMContext> m_jitContext;
+
+    // User-provided runtime function pointers
+    typedef void (*ISPCLaunch_t)(void **handle, void *f, void *d, int count0, int count1, int count2);
+    typedef void (*ISPCSync_t)(void *handle);
+    typedef void *(*ISPCAlloc_t)(void **handle, int64_t size, int32_t alignment);
+
+    ISPCLaunch_t m_ispcLaunch{nullptr};
+    ISPCSync_t m_ispcSync{nullptr};
+    ISPCAlloc_t m_ispcAlloc{nullptr};
 
     bool IsLinkMode() const { return m_isLinkMode; }
 
@@ -329,14 +305,9 @@ class ISPCEngine::Impl {
             return 1;
         }
 
-        // Add the module to the JIT
-        auto tsm =
-            llvm::orc::ThreadSafeModule(std::move(llvmModule), llvm::orc::ThreadSafeContext(std::move(m_jitContext)));
-
-        // Create a new context for future compilations
-        // Note: ThreadSafeModule takes ownership of the context, so we need a fresh one
-        // for subsequent JIT compilations to work correctly
-        m_jitContext = std::make_unique<llvm::LLVMContext>();
+        // Create a fresh context for this module
+        auto context = std::make_unique<llvm::LLVMContext>();
+        auto tsm = llvm::orc::ThreadSafeModule(std::move(llvmModule), llvm::orc::ThreadSafeContext(std::move(context)));
 
         auto addResult = m_jit->addIRModule(std::move(tsm));
         if (addResult) {
@@ -375,34 +346,46 @@ class ISPCEngine::Impl {
     void ClearJitCode() {
         if (m_isJitMode && m_jit) {
             // Clear JIT code by resetting the JIT engine
-            // Reset in reverse order of initialization to avoid cleanup dependencies
+            // Set mode to false first to prevent re-entry
+            m_isJitMode = false;
+
+            try {
+                // Try to clear all dylibs first to clean up modules properly
+                auto &MainJD = m_jit->getMainJITDylib();
+                MainJD.clear();
+            } catch (...) {
+                // Ignore exceptions during dylib cleanup
+            }
+
             try {
                 m_jit.reset();
             } catch (...) {
                 // Ignore exceptions during JIT cleanup
             }
-
-            try {
-                m_jitContext.reset();
-            } catch (...) {
-                // Ignore exceptions during context cleanup
-            }
-
-            m_isJitMode = false;
         }
     }
 
     bool IsJitMode() const { return m_isJitMode; }
+
+    void SetJitRuntimeFunctions(ISPCLaunch_t ispcLaunch, ISPCSync_t ispcSync, ISPCAlloc_t ispcAlloc) {
+        m_ispcLaunch = ispcLaunch;
+        m_ispcSync = ispcSync;
+        m_ispcAlloc = ispcAlloc;
+    }
+
+    void ReleaseJitForShutdown() {
+        // Release JIT pointer to avoid destruction order issues during shutdown
+        if (m_jit) {
+            m_jit.release();
+        }
+    }
 
     bool InitializeJit() {
         if (m_isJitMode) {
             return true; // Already initialized
         }
 
-        // Create a new LLVM context for JIT compilation
-        m_jitContext = std::make_unique<llvm::LLVMContext>();
-
-        // Create LLJIT instance
+        // Create LLJIT instance - it will manage its own context
         auto jitBuilder = llvm::orc::LLJITBuilder();
         auto jitOrError = jitBuilder.create();
 
@@ -424,6 +407,25 @@ class ISPCEngine::Impl {
         }
 
         m_jit->getMainJITDylib().addGenerator(std::move(*processSymbolsGenerator));
+
+        // Define user-provided runtime symbols if they are available
+        if (m_ispcLaunch && m_ispcSync && m_ispcAlloc) {
+            auto &JD = m_jit->getMainJITDylib();
+            llvm::orc::SymbolMap symbols;
+
+            symbols[m_jit->mangleAndIntern("ISPCLaunch")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcLaunch),
+                                                             llvm::JITSymbolFlags::Exported};
+            symbols[m_jit->mangleAndIntern("ISPCSync")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcSync),
+                                                           llvm::JITSymbolFlags::Exported};
+            symbols[m_jit->mangleAndIntern("ISPCAlloc")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcAlloc),
+                                                            llvm::JITSymbolFlags::Exported};
+
+            auto materializer = llvm::orc::absoluteSymbols(symbols);
+            if (auto err = JD.define(materializer)) {
+                Error(SourcePos(), "Failed to define runtime symbols: %s", llvm::toString(std::move(err)).c_str());
+                return false;
+            }
+        }
 
         m_isJitMode = true;
         return true;
@@ -543,11 +545,12 @@ std::unique_ptr<ISPCEngine> ISPCEngine::CreateFromArgs(const std::vector<std::st
 ISPCEngine::ISPCEngine() : pImpl(std::make_unique<Impl>()) {}
 
 ISPCEngine::~ISPCEngine() {
-    // Clear JIT code on destruction
-    // Check if global state still exists before JIT cleanup
-    if (pImpl && pImpl->IsJitMode() && g != nullptr) {
-        ClearJitCode();
+    // Skip JIT cleanup to avoid LLVM destruction order issues
+    // Release the JIT pointer to prevent automatic cleanup
+    if (pImpl) {
+        pImpl->ReleaseJitForShutdown();
     }
+    // The OS will clean up memory on process exit
 }
 
 void Shutdown() {
@@ -570,6 +573,13 @@ void *ISPCEngine::GetJitFunction(const std::string &functionName) { return pImpl
 bool ISPCEngine::IsJitMode() const { return pImpl->IsJitMode(); }
 
 void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
+
+void ISPCEngine::SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1,
+                                                           int count2),
+                                        void (*ispcSync)(void *handle),
+                                        void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment)) {
+    pImpl->SetJitRuntimeFunctions(ispcLaunch, ispcSync, ispcAlloc);
+}
 
 // Function that uses C-style argc/argv interface
 int CompileFromCArgs(int argc, char *argv[]) {

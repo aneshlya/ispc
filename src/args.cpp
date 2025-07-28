@@ -1162,12 +1162,7 @@ ArgsParseResult ispc::ParseCommandLineArgs(int argc, char *argv[], std::string &
         output.out = "-"; // Assume stdout by default (-E mode)
     }
 
-    if (output.out.empty() && output.header.empty() && (output.deps.empty() && !output.flags.isDepsToStdout()) &&
-        output.hostStub.empty() && output.devStub.empty() && output.nbWrap.empty()) {
-        Warning(SourcePos(), "No output file or header file name specified. "
-                             "Program will be compiled and warnings/errors will "
-                             "be issued, but no output will be generated.");
-    }
+    // Output file validation is now handled in ispc_impl.cpp ValidateOutputFiles()
 
     if (g->target_os == TargetOS::windows && output.flags.isPIC()) {
         Warning(SourcePos(), "--pic|--PIC switches for Windows target will be ignored.");

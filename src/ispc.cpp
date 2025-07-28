@@ -3126,6 +3126,7 @@ Globals::Globals() {
     isSlimBinary = false;
     printTarget = false;
     NoOmitFramePointer = false;
+    isJitMode = false;
     debugIR = -1;
     disableWarnings = false;
     warningsAsErrors = false;

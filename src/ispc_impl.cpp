@@ -23,9 +23,11 @@
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/TargetParser/Host.h>
@@ -36,6 +38,152 @@
 #include <memory>
 #include <sstream>
 #include <unistd.h>
+#if defined(__linux__) || defined(__FreeBSD__)
+#include <dlfcn.h>
+#include <malloc.h>
+#endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+// Forward declaration
+extern void initializeBinaryType(const char *ISPCExecutableAbsPath);
+
+// Get the path of the current shared library (JIT-appropriate method)
+static std::string getCurrentLibraryPath() {
+    // Try multiple approaches to find the library path
+
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+    Dl_info dl_info;
+    // Use the address of this function to find the current library
+    if (dladdr((void *)getCurrentLibraryPath, &dl_info) && dl_info.dli_fname && strlen(dl_info.dli_fname) > 0) {
+        std::string libPath(dl_info.dli_fname);
+        // Sanity check: ensure path is not empty and exists
+        if (!libPath.empty() && llvm::sys::fs::exists(libPath)) {
+            // Additional check: make sure this looks like a library file
+            if (libPath.find("libispc") != std::string::npos || libPath.find(".so") != std::string::npos ||
+                libPath.find(".dylib") != std::string::npos) {
+                return libPath;
+            }
+        }
+    }
+#elif defined(_WIN32)
+    HMODULE hModule = NULL;
+    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCTSTR)getCurrentLibraryPath, &hModule)) {
+        char path[MAX_PATH];
+        DWORD result = GetModuleFileName(hModule, path, MAX_PATH);
+        if (result > 0 && result < MAX_PATH) {
+            std::string libPath(path);
+            if (llvm::sys::fs::exists(libPath) &&
+                (libPath.find("ispc") != std::string::npos || libPath.find(".dll") != std::string::npos)) {
+                return libPath;
+            }
+        }
+    }
+#endif
+
+    // Fallback approach: use executable path and try to infer library location
+    char dummy;
+    std::string execPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
+
+    // If executable path contains hints about the build structure, try to construct library path
+    if (execPath.find("/build/") != std::string::npos) {
+        size_t buildPos = execPath.find("/build/");
+        std::string buildRoot = execPath.substr(0, buildPos + 7); // Include "/build/"
+        std::string possibleLibPath = buildRoot + "lib";
+        if (llvm::sys::fs::exists(possibleLibPath)) {
+            return possibleLibPath; // Return directory path for lib directory case
+        }
+    }
+
+    return execPath;
+}
+
+// Library-specific path initialization for libispc
+static void initializePaths(const char *ISPCLibraryPath) {
+    if (!ISPCLibraryPath || strlen(ISPCLibraryPath) == 0) {
+        // Fallback to original behavior if path is invalid
+        char dummy;
+        std::string fallbackPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
+        initializeBinaryType(fallbackPath.c_str());
+        return;
+    }
+
+    llvm::SmallString<128> includeDir(ISPCLibraryPath);
+
+    // Check if the path is a directory (lib directory) or a file (library file)
+    bool isDirectory = llvm::sys::fs::is_directory(includeDir);
+
+    if (!isDirectory) {
+        // Remove library filename (e.g., libispc.so) if it's a file path
+        llvm::sys::path::remove_filename(includeDir);
+    }
+
+    // Handle case where lib is in subdirectory like lib/x86/
+    // Keep going up until we find a directory that contains include/stdlib
+    llvm::SmallString<128> testPath(includeDir);
+
+    // Try current directory first (for cases like lib/x86/ or when we already have lib/)
+    llvm::sys::path::append(testPath, "include", "stdlib", "short_vec.isph");
+    if (!llvm::sys::fs::exists(testPath)) {
+        // Go up one level (lib/ -> root case)
+        llvm::sys::path::remove_filename(includeDir);
+        testPath = includeDir;
+        llvm::sys::path::append(testPath, "include", "stdlib", "short_vec.isph");
+        if (!llvm::sys::fs::exists(testPath)) {
+            // Go up another level (typical installed case)
+            llvm::sys::path::remove_filename(includeDir);
+        }
+    }
+
+    // Add the final include path
+    llvm::SmallString<128> finalPath(includeDir);
+    llvm::sys::path::append(finalPath, "include", "stdlib");
+
+    // Verify the final path exists before adding it
+    if (llvm::sys::fs::exists(finalPath)) {
+        ispc::g->includePath.push_back(std::string(finalPath.c_str()));
+    } else {
+        // Ultimate fallback: use the original binary type initialization
+        char dummy;
+        std::string fallbackPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
+        initializeBinaryType(fallbackPath.c_str());
+    }
+}
+
+// ISPC runtime functions for JIT - exposed with C linkage globally
+extern "C" {
+void ISPCLaunch(void **handle, void *f, void *d, int count0, int count1, int count2) {
+    *handle = (void *)(uintptr_t)0xdeadbeef;
+    typedef void (*TaskFuncType)(void *, int, int, int, int, int, int, int, int, int, int);
+    TaskFuncType func = (TaskFuncType)f;
+    int count = count0 * count1 * count2, idx = 0;
+    for (int k = 0; k < count2; ++k)
+        for (int j = 0; j < count1; ++j)
+            for (int i = 0; i < count0; ++i)
+                func(d, 0, 1, idx++, count, i, j, k, count0, count1, count2);
+}
+
+void ISPCSync(void *) {}
+
+void *ISPCAlloc(void **handle, int64_t size, int32_t alignment) {
+    *handle = (void *)(uintptr_t)0xdeadbeef;
+#ifdef ISPC_HOST_IS_WINDOWS
+    return _aligned_malloc(size, alignment);
+#elif defined(__linux__) || defined(__FreeBSD__)
+    return memalign(alignment, size);
+#elif defined(__APPLE__)
+    void *mem = malloc(size + (alignment - 1) + sizeof(void *));
+    char *amem = ((char *)mem) + sizeof(void *);
+    amem = amem + uint32_t(alignment - (reinterpret_cast<uint64_t>(amem) & (alignment - 1)));
+    ((void **)amem)[-1] = mem;
+    return amem;
+#else
+#error "Host OS was not detected"
+#endif
+}
+}
 
 namespace ispc {
 
@@ -118,6 +266,8 @@ class ISPCEngine::Impl {
             if (!ValidateInputFile(m_file)) {
                 return 1;
             }
+            // Validate output files (skipped in JIT mode)
+            ValidateOutputFiles(m_output);
             return Compile();
         }
     }
@@ -146,6 +296,20 @@ class ISPCEngine::Impl {
             }
         }
         return true;
+    }
+
+    void ValidateOutputFiles(const Module::Output &output) {
+        // Skip validation in JIT mode - output files not needed for in-memory compilation
+        if (g->isJitMode) {
+            return;
+        }
+
+        if (output.out.empty() && output.header.empty() && (output.deps.empty() && !output.flags.isDepsToStdout()) &&
+            output.hostStub.empty() && output.devStub.empty() && output.nbWrap.empty()) {
+            Warning(SourcePos(), "No output file or header file name specified. "
+                                 "Program will be compiled and warnings/errors will "
+                                 "be issued, but no output will be generated.");
+        }
     }
 
     int CompileFromFileToJit(const std::string &filename) {
@@ -195,6 +359,7 @@ class ISPCEngine::Impl {
         }
 
         // Look up the function symbol in the JIT
+        // Now that we have unmangled aliases, this should work directly
         auto symbolOrError = m_jit->lookup(functionName);
         if (!symbolOrError) {
             Error(SourcePos(), "Function '%s' not found in JIT: %s", functionName.c_str(),
@@ -208,10 +373,21 @@ class ISPCEngine::Impl {
     }
 
     void ClearJitCode() {
-        if (m_isJitMode) {
+        if (m_isJitMode && m_jit) {
             // Clear JIT code by resetting the JIT engine
-            m_jit.reset();
-            m_jitContext.reset();
+            // Reset in reverse order of initialization to avoid cleanup dependencies
+            try {
+                m_jit.reset();
+            } catch (...) {
+                // Ignore exceptions during JIT cleanup
+            }
+
+            try {
+                m_jitContext.reset();
+            } catch (...) {
+                // Ignore exceptions during context cleanup
+            }
+
             m_isJitMode = false;
         }
     }
@@ -236,8 +412,20 @@ class ISPCEngine::Impl {
         }
 
         m_jit = std::move(*jitOrError);
-        m_isJitMode = true;
 
+        // Add process symbols generator to find runtime functions from the current process
+        auto processSymbolsGenerator =
+            llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(m_jit->getDataLayout().getGlobalPrefix());
+
+        if (!processSymbolsGenerator) {
+            Error(SourcePos(), "Failed to create process symbols generator: %s",
+                  llvm::toString(processSymbolsGenerator.takeError()).c_str());
+            return false;
+        }
+
+        m_jit->getMainJITDylib().addGenerator(std::move(*processSymbolsGenerator));
+
+        m_isJitMode = true;
         return true;
     }
 
@@ -303,6 +491,12 @@ bool Initialize() {
 
     // Initialize globals
     g = new Globals;
+
+    // Initialize paths to set up stdlib include paths for library usage
+    // Use JIT-appropriate method to find current library path
+    std::string libPath = getCurrentLibraryPath();
+    initializePaths(libPath.c_str());
+
     return true;
 }
 
@@ -350,7 +544,8 @@ ISPCEngine::ISPCEngine() : pImpl(std::make_unique<Impl>()) {}
 
 ISPCEngine::~ISPCEngine() {
     // Clear JIT code on destruction
-    if (pImpl && pImpl->IsJitMode()) {
+    // Check if global state still exists before JIT cleanup
+    if (pImpl && pImpl->IsJitMode() && g != nullptr) {
         ClearJitCode();
     }
 }

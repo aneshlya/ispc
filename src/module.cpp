@@ -2690,6 +2690,9 @@ int Module::CompileAndOutput(const char *srcFile, Arch arch, const char *cpu, st
 
 std::unique_ptr<llvm::Module> Module::CompileToLLVMModule(const char *srcFile, Arch arch, const char *cpu,
                                                           std::vector<ISPCTarget> &targets) {
+    // Set JIT mode flag
+    g->isJitMode = true;
+
     // We need to ensure we have a proper target set up
     if (!g->target) {
         // Create a default target for JIT compilation

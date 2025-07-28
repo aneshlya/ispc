@@ -90,17 +90,18 @@ class ISPCEngine {
      * @return Function pointer or nullptr if not found.
      */
     void *GetJitFunction(const std::string &functionName);
-    
+
     /**
      * @brief Sets user-provided runtime functions for JIT compilation.
      * These functions must be provided before calling CompileFromFileToJit().
      * @param ispcLaunch Function pointer for ISPCLaunch
      * @param ispcSync Function pointer for ISPCSync
      * @param ispcAlloc Function pointer for ISPCAlloc
+     * @return true on success, false if invalid function combination provided
      */
-    void SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1, int count2),
-                               void (*ispcSync)(void *handle),
-                               void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment));
+    bool SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1, int count2),
+                                void (*ispcSync)(void *handle),
+                                void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment));
 
     ~ISPCEngine();
 
@@ -112,16 +113,14 @@ class ISPCEngine {
      * @return true if JIT mode is active, false otherwise.
      */
     bool IsJitMode() const;
-    
-  public:
 
+  public:
     /**
      * @brief Clears all JIT-compiled code.
      */
     void ClearJitCode();
-    
-  private:
 
+  private:
     class Impl;
     std::unique_ptr<Impl> pImpl;
 };

@@ -4,6 +4,7 @@
   SPDX-License-Identifier: BSD-3-Clause
 */
 
+// ISPC headers
 #include "args.h"
 #include "binary_type.h"
 #include "ispc.h"
@@ -11,33 +12,36 @@
 #include "target_registry.h"
 #include "type.h"
 #include "util.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/ToolOutputFile.h"
 
-#include <cstring>
+// LLVM core headers
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/Path.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/ToolOutputFile.h>
+#include <llvm/TargetParser/Host.h>
 
-// LLVM JIT includes
+// LLVM JIT headers
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Support/DynamicLibrary.h>
-#include <llvm/Support/Error.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/TargetParser/Host.h>
 
+// Standard C++ headers
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
+
+// Platform-specific headers
 #include <unistd.h>
 #if defined(__linux__) || defined(__FreeBSD__)
 #include <dlfcn.h>
@@ -171,6 +175,18 @@ class GlobalStateGuard {
     Target *savedTarget;
 };
 
+/**
+ * @brief Implementation class for ISPCEngine using the PIMPL pattern
+ *
+ * This class handles both traditional ISPC compilation and JIT compilation.
+ * It manages LLVM JIT state, user-provided runtime functions, and compilation
+ * configuration. The class is designed to be used through the ISPCEngine
+ * public interface.
+ *
+ * For JIT compilation, users must provide runtime functions via SetJitRuntimeFunctions()
+ * before calling CompileFromFileToJit(). The JIT engine will resolve ISPC runtime
+ * calls (ISPCLaunch, ISPCSync, ISPCAlloc) to these user-provided implementations.
+ */
 class ISPCEngine::Impl {
   public:
     Impl() {
@@ -191,10 +207,12 @@ class ISPCEngine::Impl {
     bool m_isJitMode{false};
     std::unique_ptr<llvm::orc::LLJIT> m_jit;
 
+    // User-provided runtime function types for JIT compilation
+    using ISPCLaunch_t = void (*)(void **handle, void *f, void *d, int count0, int count1, int count2);
+    using ISPCSync_t = void (*)(void *handle);
+    using ISPCAlloc_t = void *(*)(void **handle, int64_t size, int32_t alignment);
+
     // User-provided runtime function pointers
-    typedef void (*ISPCLaunch_t)(void **handle, void *f, void *d, int count0, int count1, int count2);
-    typedef void (*ISPCSync_t)(void *handle);
-    typedef void *(*ISPCAlloc_t)(void **handle, int64_t size, int32_t alignment);
 
     ISPCLaunch_t m_ispcLaunch{nullptr};
     ISPCSync_t m_ispcSync{nullptr};
@@ -349,32 +367,42 @@ class ISPCEngine::Impl {
             // Set mode to false first to prevent re-entry
             m_isJitMode = false;
 
-            try {
-                // Try to clear all dylibs first to clean up modules properly
-                auto &MainJD = m_jit->getMainJITDylib();
-                MainJD.clear();
-            } catch (...) {
-                // Ignore exceptions during dylib cleanup
+            // Clear all dylibs first to clean up modules properly
+            // LLVM's clear() method returns an Error, but for cleanup we ignore failures
+            auto &MainJD = m_jit->getMainJITDylib();
+            if (auto err = MainJD.clear()) {
+                // Log the error but continue with cleanup - this is a best-effort operation
+                // During shutdown, some cleanup operations may fail due to destruction order
+                llvm::consumeError(std::move(err));
             }
 
-            try {
-                m_jit.reset();
-            } catch (...) {
-                // Ignore exceptions during JIT cleanup
-            }
+            // Reset the JIT engine - this should not throw in normal circumstances
+            m_jit.reset();
         }
     }
 
     bool IsJitMode() const { return m_isJitMode; }
 
-    void SetJitRuntimeFunctions(ISPCLaunch_t ispcLaunch, ISPCSync_t ispcSync, ISPCAlloc_t ispcAlloc) {
+    bool SetJitRuntimeFunctions(ISPCLaunch_t ispcLaunch, ISPCSync_t ispcSync, ISPCAlloc_t ispcAlloc) {
+        // Validate that all three functions are provided or none at all
+        bool allProvided = (ispcLaunch && ispcSync && ispcAlloc);
+        bool noneProvided = (!ispcLaunch && !ispcSync && !ispcAlloc);
+
+        if (!allProvided && !noneProvided) {
+            Error(SourcePos(), "JIT runtime functions must be provided as a complete set (all or none)");
+            return false;
+        }
+
         m_ispcLaunch = ispcLaunch;
         m_ispcSync = ispcSync;
         m_ispcAlloc = ispcAlloc;
+        return true;
     }
 
     void ReleaseJitForShutdown() {
         // Release JIT pointer to avoid destruction order issues during shutdown
+        // This prevents LLVM from trying to clean up contexts/modules that may
+        // have already been destroyed, which can cause segmentation faults
         if (m_jit) {
             m_jit.release();
         }
@@ -574,11 +602,11 @@ bool ISPCEngine::IsJitMode() const { return pImpl->IsJitMode(); }
 
 void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
 
-void ISPCEngine::SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1,
+bool ISPCEngine::SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1,
                                                            int count2),
                                         void (*ispcSync)(void *handle),
                                         void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment)) {
-    pImpl->SetJitRuntimeFunctions(ispcLaunch, ispcSync, ispcAlloc);
+    return pImpl->SetJitRuntimeFunctions(ispcLaunch, ispcSync, ispcAlloc);
 }
 
 // Function that uses C-style argc/argv interface

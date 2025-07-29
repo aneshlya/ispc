@@ -24,15 +24,6 @@ void initializeBinaryType(const char *ISPCExecutableAbsPath) {
     ispc::g->includePath.push_back(std::string(includeDir.c_str()));
 }
 
-void initializePaths(const char *ISPCLibraryPath) {
-    // For library usage: lib is in <root>/lib or <root>/lib/x86..., includes in <root>/include/stdlib
-    llvm::SmallString<128> includeDir(ISPCLibraryPath);
-    llvm::sys::path::remove_filename(includeDir); // Remove lib filename
-    llvm::sys::path::remove_filename(includeDir); // Remove lib or lib/x86... directory
-    llvm::sys::path::append(includeDir, "include", "stdlib");
-    ispc::g->includePath.push_back(std::string(includeDir.c_str()));
-}
-
 extern const char core_isph_cpp_header[];
 extern int core_isph_cpp_length;
 llvm::StringRef getCoreISPHRef() {

@@ -107,56 +107,12 @@ static std::string __getISPCLibraryPath() {
     return execPath;
 }
 
-// Library-specific path initialization for libispc
-static void initializeISPCPaths_Internal(const char *ISPCLibraryPath) {
-    if (!ISPCLibraryPath || strlen(ISPCLibraryPath) == 0) {
-        // Fallback to original behavior if path is invalid
-        char dummy;
-        std::string fallbackPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
-        initializeBinaryType(fallbackPath.c_str());
-        return;
-    }
-
+static void initializePaths(const char *ISPCLibraryPath) {
     llvm::SmallString<128> includeDir(ISPCLibraryPath);
-
-    // Check if the path is a directory (lib directory) or a file (library file)
-    bool isDirectory = llvm::sys::fs::is_directory(includeDir);
-
-    if (!isDirectory) {
-        // Remove library filename (e.g., libispc.so) if it's a file path
-        llvm::sys::path::remove_filename(includeDir);
-    }
-
-    // Handle case where lib is in subdirectory like lib/x86/
-    // Keep going up until we find a directory that contains include/stdlib
-    llvm::SmallString<128> testPath(includeDir);
-
-    // Try current directory first (for cases like lib/x86/ or when we already have lib/)
-    llvm::sys::path::append(testPath, "include", "stdlib", "short_vec.isph");
-    if (!llvm::sys::fs::exists(testPath)) {
-        // Go up one level (lib/ -> root case)
-        llvm::sys::path::remove_filename(includeDir);
-        testPath = includeDir;
-        llvm::sys::path::append(testPath, "include", "stdlib", "short_vec.isph");
-        if (!llvm::sys::fs::exists(testPath)) {
-            // Go up another level (typical installed case)
-            llvm::sys::path::remove_filename(includeDir);
-        }
-    }
-
-    // Add the final include path
-    llvm::SmallString<128> finalPath(includeDir);
-    llvm::sys::path::append(finalPath, "include", "stdlib");
-
-    // Verify the final path exists before adding it
-    if (llvm::sys::fs::exists(finalPath)) {
-        ispc::g->includePath.push_back(std::string(finalPath.c_str()));
-    } else {
-        // Ultimate fallback: use the original binary type initialization
-        char dummy;
-        std::string fallbackPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
-        initializeBinaryType(fallbackPath.c_str());
-    }
+    llvm::sys::path::remove_filename(includeDir); // Remove libispc.so -> /path/to/lib
+    llvm::sys::path::remove_filename(includeDir); // Remove lib -> /path/to
+    llvm::sys::path::append(includeDir, "include", "stdlib");
+    ispc::g->includePath.push_back(std::string(includeDir.c_str()));
 }
 
 namespace ispc {
@@ -437,6 +393,11 @@ class ISPCEngine::Impl {
             return true; // Already initialized
         }
 
+        // Initialize library-specific paths for JIT compilation
+        // This is only needed for JIT mode, not for the main executable
+        std::string libPath = __getISPCLibraryPath();
+        initializePaths(libPath.c_str());
+
         // Create LLJIT instance - it will manage its own context
         auto jitBuilder = llvm::orc::LLJITBuilder();
         auto jitOrError = jitBuilder.create();
@@ -543,11 +504,6 @@ bool Initialize() {
 
     // Initialize globals
     g = new Globals;
-
-    // Initialize paths to set up stdlib include paths for library usage
-    // Use JIT-appropriate method to find current library path
-    std::string libPath = __getISPCLibraryPath();
-    initializeISPCPaths_Internal(libPath.c_str());
 
     return true;
 }

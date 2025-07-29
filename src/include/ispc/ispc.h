@@ -92,16 +92,24 @@ class ISPCEngine {
     void *GetJitFunction(const std::string &functionName);
 
     /**
-     * @brief Sets user-provided runtime functions for JIT compilation.
-     * These functions must be provided before calling CompileFromFileToJit().
-     * @param ispcLaunch Function pointer for ISPCLaunch
-     * @param ispcSync Function pointer for ISPCSync
-     * @param ispcAlloc Function pointer for ISPCAlloc
-     * @return true on success, false if invalid function combination provided
+     * @brief Sets a user-provided runtime function for JIT compilation.
+     * Runtime functions must be provided before calling CompileFromFileToJit().
+     * @param functionName Name of the runtime function (e.g., "ISPCLaunch", "ISPCSync", "ISPCAlloc")
+     * @param functionPtr Pointer to the user-provided function implementation
+     * @return true on success, false if functionName is invalid or functionPtr is null
      */
-    bool SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1, int count2),
-                                void (*ispcSync)(void *handle),
-                                void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment));
+    bool SetJitRuntimeFunction(const std::string &functionName, void *functionPtr);
+
+    /**
+     * @brief Clears a specific runtime function.
+     * @param functionName Name of the function to clear
+     */
+    void ClearJitRuntimeFunction(const std::string &functionName);
+
+    /**
+     * @brief Clears all runtime functions.
+     */
+    void ClearJitRuntimeFunctions();
 
     ~ISPCEngine();
 

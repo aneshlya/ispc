@@ -38,7 +38,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 
 // Platform-specific headers
@@ -55,13 +57,13 @@
 extern void initializeBinaryType(const char *ISPCExecutableAbsPath);
 
 // Get the path of the current shared library (JIT-appropriate method)
-static std::string getCurrentLibraryPath() {
+static std::string __getISPCLibraryPath() {
     // Try multiple approaches to find the library path
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
     Dl_info dl_info;
     // Use the address of this function to find the current library
-    if (dladdr((void *)getCurrentLibraryPath, &dl_info) && dl_info.dli_fname && strlen(dl_info.dli_fname) > 0) {
+    if (dladdr((void *)__getISPCLibraryPath, &dl_info) && dl_info.dli_fname && strlen(dl_info.dli_fname) > 0) {
         std::string libPath(dl_info.dli_fname);
         // Sanity check: ensure path is not empty and exists
         if (!libPath.empty() && llvm::sys::fs::exists(libPath)) {
@@ -75,7 +77,7 @@ static std::string getCurrentLibraryPath() {
 #elif defined(_WIN32)
     HMODULE hModule = NULL;
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCTSTR)getCurrentLibraryPath, &hModule)) {
+                          (LPCTSTR)__getISPCLibraryPath, &hModule)) {
         char path[MAX_PATH];
         DWORD result = GetModuleFileName(hModule, path, MAX_PATH);
         if (result > 0 && result < MAX_PATH) {
@@ -106,7 +108,7 @@ static std::string getCurrentLibraryPath() {
 }
 
 // Library-specific path initialization for libispc
-static void initializePaths(const char *ISPCLibraryPath) {
+static void initializeISPCPaths_Internal(const char *ISPCLibraryPath) {
     if (!ISPCLibraryPath || strlen(ISPCLibraryPath) == 0) {
         // Fallback to original behavior if path is invalid
         char dummy;
@@ -207,16 +209,9 @@ class ISPCEngine::Impl {
     bool m_isJitMode{false};
     std::unique_ptr<llvm::orc::LLJIT> m_jit;
 
-    // User-provided runtime function types for JIT compilation
-    using ISPCLaunch_t = void (*)(void **handle, void *f, void *d, int count0, int count1, int count2);
-    using ISPCSync_t = void (*)(void *handle);
-    using ISPCAlloc_t = void *(*)(void **handle, int64_t size, int32_t alignment);
-
-    // User-provided runtime function pointers
-
-    ISPCLaunch_t m_ispcLaunch{nullptr};
-    ISPCSync_t m_ispcSync{nullptr};
-    ISPCAlloc_t m_ispcAlloc{nullptr};
+    // User-provided runtime functions storage
+    // Maps function name to function pointer for runtime functions
+    std::map<std::string, void *> m_runtimeFunctions;
 
     bool IsLinkMode() const { return m_isLinkMode; }
 
@@ -311,6 +306,18 @@ class ISPCEngine::Impl {
             return 1;
         }
 
+        // JIT compilation only supports single target compilation
+        if (m_targets.size() != 1) {
+            if (m_targets.empty()) {
+                Error(SourcePos(), "JIT compilation requires exactly one target to be specified");
+            } else {
+                Error(SourcePos(),
+                      "JIT compilation only supports single target compilation, but %zu targets were specified",
+                      m_targets.size());
+            }
+            return 1;
+        }
+
         // Initialize JIT if needed
         if (!InitializeJit()) {
             return 1;
@@ -383,20 +390,37 @@ class ISPCEngine::Impl {
 
     bool IsJitMode() const { return m_isJitMode; }
 
-    bool SetJitRuntimeFunctions(ISPCLaunch_t ispcLaunch, ISPCSync_t ispcSync, ISPCAlloc_t ispcAlloc) {
-        // Validate that all three functions are provided or none at all
-        bool allProvided = (ispcLaunch && ispcSync && ispcAlloc);
-        bool noneProvided = (!ispcLaunch && !ispcSync && !ispcAlloc);
-
-        if (!allProvided && !noneProvided) {
-            Error(SourcePos(), "JIT runtime functions must be provided as a complete set (all or none)");
+    bool SetJitRuntimeFunction(const std::string &functionName, void *functionPtr) {
+        if (functionName.empty()) {
+            Error(SourcePos(), "Runtime function name cannot be empty");
             return false;
         }
 
-        m_ispcLaunch = ispcLaunch;
-        m_ispcSync = ispcSync;
-        m_ispcAlloc = ispcAlloc;
+        if (!functionPtr) {
+            Error(SourcePos(), "Runtime function pointer cannot be null");
+            return false;
+        }
+
+        // Validate that this is a known runtime function
+        static const std::set<std::string> validFunctions = {"ISPCLaunch", "ISPCSync", "ISPCAlloc"};
+        if (validFunctions.find(functionName) == validFunctions.end()) {
+            Error(SourcePos(), "Unknown runtime function '%s'. Valid functions: ISPCLaunch, ISPCSync, ISPCAlloc",
+                  functionName.c_str());
+            return false;
+        }
+
+        m_runtimeFunctions[functionName] = functionPtr;
         return true;
+    }
+
+    void ClearJitRuntimeFunction(const std::string &functionName) {
+        // Clear specific function
+        m_runtimeFunctions.erase(functionName);
+    }
+
+    void ClearJitRuntimeFunctions() {
+        // Clear all functions
+        m_runtimeFunctions.clear();
     }
 
     void ReleaseJitForShutdown() {
@@ -437,16 +461,14 @@ class ISPCEngine::Impl {
         m_jit->getMainJITDylib().addGenerator(std::move(*processSymbolsGenerator));
 
         // Define user-provided runtime symbols if they are available
-        if (m_ispcLaunch && m_ispcSync && m_ispcAlloc) {
+        if (!m_runtimeFunctions.empty()) {
             auto &JD = m_jit->getMainJITDylib();
             llvm::orc::SymbolMap symbols;
 
-            symbols[m_jit->mangleAndIntern("ISPCLaunch")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcLaunch),
-                                                             llvm::JITSymbolFlags::Exported};
-            symbols[m_jit->mangleAndIntern("ISPCSync")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcSync),
-                                                           llvm::JITSymbolFlags::Exported};
-            symbols[m_jit->mangleAndIntern("ISPCAlloc")] = {llvm::orc::ExecutorAddr::fromPtr(m_ispcAlloc),
-                                                            llvm::JITSymbolFlags::Exported};
+            for (const auto &[name, ptr] : m_runtimeFunctions) {
+                symbols[m_jit->mangleAndIntern(name)] = {llvm::orc::ExecutorAddr::fromPtr(ptr),
+                                                         llvm::JITSymbolFlags::Exported};
+            }
 
             auto materializer = llvm::orc::absoluteSymbols(symbols);
             if (auto err = JD.define(materializer)) {
@@ -524,8 +546,8 @@ bool Initialize() {
 
     // Initialize paths to set up stdlib include paths for library usage
     // Use JIT-appropriate method to find current library path
-    std::string libPath = getCurrentLibraryPath();
-    initializePaths(libPath.c_str());
+    std::string libPath = __getISPCLibraryPath();
+    initializeISPCPaths_Internal(libPath.c_str());
 
     return true;
 }
@@ -602,12 +624,15 @@ bool ISPCEngine::IsJitMode() const { return pImpl->IsJitMode(); }
 
 void ISPCEngine::ClearJitCode() { pImpl->ClearJitCode(); }
 
-bool ISPCEngine::SetJitRuntimeFunctions(void (*ispcLaunch)(void **handle, void *f, void *d, int count0, int count1,
-                                                           int count2),
-                                        void (*ispcSync)(void *handle),
-                                        void *(*ispcAlloc)(void **handle, int64_t size, int32_t alignment)) {
-    return pImpl->SetJitRuntimeFunctions(ispcLaunch, ispcSync, ispcAlloc);
+bool ISPCEngine::SetJitRuntimeFunction(const std::string &functionName, void *functionPtr) {
+    return pImpl->SetJitRuntimeFunction(functionName, functionPtr);
 }
+
+void ISPCEngine::ClearJitRuntimeFunction(const std::string &functionName) {
+    pImpl->ClearJitRuntimeFunction(functionName);
+}
+
+void ISPCEngine::ClearJitRuntimeFunctions() { pImpl->ClearJitRuntimeFunctions(); }
 
 // Function that uses C-style argc/argv interface
 int CompileFromCArgs(int argc, char *argv[]) {

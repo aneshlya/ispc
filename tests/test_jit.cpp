@@ -174,7 +174,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Set the runtime functions that JIT will use
-    if (!engine->SetJitRuntimeFunctions(ISPCLaunch, ISPCSync, ISPCAlloc)) {
+    if (!engine->SetJitRuntimeFunction("ISPCLaunch", (void*)ISPCLaunch) ||
+        !engine->SetJitRuntimeFunction("ISPCSync", (void*)ISPCSync) ||
+        !engine->SetJitRuntimeFunction("ISPCAlloc", (void*)ISPCAlloc)) {
         printf("Failed to set JIT runtime functions\n");
         ispc::Shutdown();
         return 1;

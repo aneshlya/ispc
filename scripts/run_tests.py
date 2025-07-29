@@ -609,7 +609,7 @@ def run_test(testname, host, target, jit_lib_path=None):
                 else:
                     exe_name = "%s.exe" % os.path.basename(filename)
 
-                test_file = "tests\\test_jit.cpp" if options.jit_mode else "tests\\test_static.cpp"
+                test_file = "tests\\test_static_jit.cpp" if options.jit_mode else "tests\\test_static.cpp"
                 if options.jit_mode:
                     # For JIT mode, we need to link against the ISPC library and don't use object files
                     cc_cmd = "%s /Itests /I..\\src\\include /Zi /nologo /DTEST_SIG=%d /DTEST_WIDTH=%d %s /LIBPATH:%s ispc.lib /Fe%s" % \
@@ -621,7 +621,7 @@ def run_test(testname, host, target, jit_lib_path=None):
                 # tests for -O0/x86 can generate quite large stack frames.
                 cc_cmd += " /F8388608"
                 if target.is_xe():
-                    l0_test_file = "tests\\test_jit_l0.cpp" if options.jit_mode else "tests\\test_static_l0.cpp"
+                    l0_test_file = "tests\\test_static_l0.cpp"
                     cc_cmd = "%s /Itests /I%s\\include /nologo /DTEST_SIG=%d /DTEST_WIDTH=%d %s %s /Fe%s ze_loader.lib /link /LIBPATH:%s\\lib" % \
                          (options.compiler_exe, options.l0loader, match, width, " /DTEST_ZEBIN" if options.ispc_output == "ze" else " /DTEST_SPV", \
                          add_prefix(l0_test_file, host, target), exe_name, options.l0loader)
@@ -651,7 +651,7 @@ def run_test(testname, host, target, jit_lib_path=None):
                 else:
                     gcc_arch = '-m64'
 
-                test_file = "tests/test_jit.cpp" if options.jit_mode else "tests/test_static.cpp"
+                test_file = "tests/test_static_jit.cpp" if options.jit_mode else "tests/test_static.cpp"
                 if options.jit_mode:
                     # For JIT mode, we need to link against the ISPC library and don't use object files
                     cc_cmd = "%s -O2 -I tests/ -I src/include %s %s -DTEST_SIG=%d -DTEST_WIDTH=%d -lispc -L%s -Wl,-rpath,%s -o %s" % \
@@ -670,7 +670,7 @@ def run_test(testname, host, target, jit_lib_path=None):
 
                 if target.is_xe():
                     exe_name = "%s.run" % os.path.basename(testname)
-                    l0_test_file = "tests/test_jit_l0.cpp" if options.jit_mode else "tests/test_static_l0.cpp"
+                    l0_test_file = "tests/test_static_l0.cpp"
                     cc_cmd = "%s -O0 -I tests -I %s/include -lze_loader -L %s/lib \
                             %s %s -DTEST_SIG=%d -DTEST_WIDTH=%d -o %s" % \
                             (options.compiler_exe, options.l0loader, options.l0loader, gcc_arch, add_prefix(l0_test_file, host, target),

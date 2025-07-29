@@ -7,245 +7,34 @@ permissions: read-all
 
 on:
   pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/jit-tests.yml'
   workflow_dispatch:
-    inputs:
-      targets:
-        description: 'Targets to test (JSON array)'
-        required: false
-        default: '["avx2-i32x8", "generic-i32x4", "sse4-i32x4"]'
-        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Default targets for JIT testing - focus on commonly supported targets
-  DEFAULT_JIT_TARGETS: '["avx2-i32x8", "generic-i32x4", "sse4-i32x4", "generic-i1x8"]'
-
 jobs:
-  unix-jit:
-    runs-on: ${{ matrix.os }}
-    name: "JIT Tests (${{ matrix.platform }})"
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            platform: Linux
-            lib_path: LD_LIBRARY_PATH
-            lib_ext: so
-            target: ${{ fromJson(inputs.targets || env.DEFAULT_JIT_TARGETS) }}
-          - os: macos-13
-            platform: macOS
-            lib_path: DYLD_LIBRARY_PATH
-            lib_ext: dylib
-            target: ${{ fromJson(inputs.targets || '["generic-i32x4", "sse4-i32x4"]') }}
-
-    steps:
-    - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
-      with:
-        submodules: true
-
-    - name: Install dependencies
-      run: |
-        if [[ "${{ matrix.platform }}" == "Linux" ]]; then
-          .github/workflows/scripts/install-build-deps.sh
-        elif [[ "${{ matrix.platform }}" == "macOS" ]]; then
-          brew install cmake ninja llvm
-          echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
-        fi
-
-    - name: Check environment
-      run: |
-        if [[ "${{ matrix.platform }}" == "Linux" ]]; then
-          which -a clang
-          cat /proc/cpuinfo
-        elif [[ "${{ matrix.platform }}" == "macOS" ]]; then
-          which -a clang
-          sysctl -n machdep.cpu.brand_string
-        fi
-        echo "Testing platform: ${{ matrix.platform }}"
-
-    - name: Build ISPC with JIT support
-      run: |
-        if [[ "${{ matrix.platform }}" == "Linux" ]]; then
-          .github/workflows/scripts/build-ispc.sh \
-            -DISPC_SHARED_LIBRARY=ON \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DISPC_INCLUDE_TESTS=ON
-        elif [[ "${{ matrix.platform }}" == "macOS" ]]; then
-          cmake -B build -G Ninja \
-            -DISPC_SHARED_LIBRARY=ON \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DISPC_INCLUDE_TESTS=ON \
-            -DCMAKE_CXX_FLAGS="-Werror"
-          cmake --build build -j$(sysctl -n hw.logicalcpu)
-        fi
-
-    - name: Verify JIT library build
-      run: |
-        ls -la build/lib/
-        test -f build/lib/libispc.${{ matrix.lib_ext }} || (echo "libispc.${{ matrix.lib_ext }} not found" && exit 1)
-        echo "JIT library built successfully"
-
-    - name: Run JIT functionality tests
-      run: |
-        cd build
-        export ${{ matrix.lib_path }}=$(pwd)/lib:${${{ matrix.lib_path }}}
-        
-        echo "Running JIT tests on ${{ matrix.platform }}"
-        for target in ${{ join(matrix.target, ' ') }}; do
-          echo "Testing target: $target"
-          ./tests/test_jit ../tests/func-tests/simple-1.ispc $target
-          
-          # Test different function signatures (TEST_SIG variants)
-          for sig in 0 1 2 3; do
-            if [ -f ./tests/test_jit_$sig ]; then
-              echo "Testing signature variant $sig with target $target"
-              ./tests/test_jit_$sig ../tests/func-tests/simple-1.ispc $target
-            fi
-          done
-        done
-
-    - name: Run lit JIT tests
-      run: |
-        cd build
-        export ${{ matrix.lib_path }}=$(pwd)/lib:${${{ matrix.lib_path }}}
-        
-        # Run lit tests that include JIT functionality
-        if command -v lit &> /dev/null; then
-          echo "Running lit JIT tests"
-          lit tests/lit-tests/ispc-library-jit.cpp -v
-          lit tests/lit-tests/ispc-jit-error-handling.cpp -v
-        else
-          echo "lit not available, skipping lit tests"
-        fi
-
-    - name: Test error handling
-      run: |
-        cd build
-        export ${{ matrix.lib_path }}=$(pwd)/lib:${${{ matrix.lib_path }}}
-        
-        echo "Testing JIT error handling on ${{ matrix.platform }}"
-        
-        # Test with invalid ISPC code (should fail gracefully)
-        echo 'invalid_syntax_here' > /tmp/invalid.ispc
-        ./tests/test_jit /tmp/invalid.ispc generic-i32x4 && exit 1 || echo "Correctly handled invalid syntax"
-        
-        # Test with non-existent file (should fail gracefully)
-        ./tests/test_jit /tmp/non_existent.ispc generic-i32x4 && exit 1 || echo "Correctly handled missing file"
-
-  windows-jit:
-    runs-on: windows-2019
-    name: "JIT Tests (Windows)"
-    
-    env:
-      LLVM_VERSION: "20.0"
-      LLVM_TAR: "llvm-20.0.0-ispc-dev-win.7z"
-      LLVM_HOME: "C:\\projects\\llvm"
-      CROSS_TOOLS_GNUWIN32: "C:\\projects\\cross\\gnuwin32"
-      BUILD_TYPE: "Release"
-      
-    steps:
-    - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
-      with:
-        submodules: true
-
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
-
-    - name: Install dependencies
-      run: |
-        pwsh .github/workflows/scripts/install-build-deps.ps1
-      shell: pwsh
-
-    - name: Check environment
-      run: |
-        wmic cpu get caption, deviceid, name, numberofcores, maxclockspeed, status
-        echo "Testing platform: Windows"
-      shell: cmd
-
-    - name: Build ISPC with JIT support
-      shell: cmd
-      run: |
-        set VSVARS="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        call %VSVARS%
-        
-        cmake -B build -Thost=x64 -G "Visual Studio 17 2022" ^
-          -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
-          -DISPC_SHARED_LIBRARY=ON ^
-          -DISPC_INCLUDE_TESTS=ON ^
-          -DISPC_GNUWIN32_PATH=%CROSS_TOOLS_GNUWIN32%
-        
-        cmake --build build --config %BUILD_TYPE% --verbose
-
-    - name: Verify JIT library build
-      run: |
-        dir build\\lib\\
-        if not exist "build\\lib\\Release\\ispc.dll" (
-          echo "ispc.dll not found"
-          exit /b 1
-        )
-        echo "JIT library built successfully"
-      shell: cmd
-
-    - name: Run JIT functionality tests
-      shell: cmd
-      run: |
-        cd build
-        set PATH=%CD%\\lib\\Release;%PATH%
-        
-        echo "Running JIT tests on Windows"
-        for %%t in (generic-i32x4 sse4-i32x4) do (
-          echo "Testing target: %%t"
-          tests\\Release\\test_jit.exe ..\\tests\\func-tests\\simple-1.ispc %%t
-          
-          REM Test different function signatures if available
-          for %%s in (0 1 2 3) do (
-            if exist tests\\Release\\test_jit_%%s.exe (
-              echo "Testing signature variant %%s with target %%t"
-              tests\\Release\\test_jit_%%s.exe ..\\tests\\func-tests\\simple-1.ispc %%t
-            )
-          )
-        )
-
-    - name: Test error handling
-      shell: cmd
-      run: |
-        cd build
-        set PATH=%CD%\\lib\\Release;%PATH%
-        
-        echo "Testing JIT error handling on Windows"
-        
-        REM Test with invalid ISPC code (should fail gracefully)
-        echo invalid_syntax_here > invalid.ispc
-        tests\\Release\\test_jit.exe invalid.ispc generic-i32x4 && exit /b 1 || echo "Correctly handled invalid syntax"
-        
-        REM Test with non-existent file (should fail gracefully)
-        tests\\Release\\test_jit.exe non_existent.ispc generic-i32x4 && exit /b 1 || echo "Correctly handled missing file"
-
-  summary:
+  linux:
     runs-on: ubuntu-22.04
-    needs: [unix-jit, windows-jit]
-    if: always()
-    
+
     steps:
-    - name: Check results
+    - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+      with:
+        submodules: true
+
+    - name: Install dependencies
       run: |
-        echo "JIT test results:"
-        echo "Unix JIT: ${{ needs.unix-jit.result }}"
-        echo "Windows JIT: ${{ needs.windows-jit.result }}"
-        
-        if [[ "${{ needs.unix-jit.result }}" == "failure" ]] || [[ "${{ needs.windows-jit.result }}" == "failure" ]]; then
-          echo "Some JIT tests failed"
-          exit 1
-        else
-          echo "All JIT tests passed!"
-        fi
+        .github/workflows/scripts/install-build-deps.sh
+
+    - name: Check environment
+      run: |
+        which -a clang
+        cat /proc/cpuinfo
+
+    - name: Build ISPC
+      run: |
+        .github/workflows/scripts/build-ispc.sh -DISPC_LIBRARY=ON
+
+    - name: Runtime tests
+      run: |
+        PATH=$(pwd)/build/bin:$PATH ./scripts/run_tests.py --jit --target=avx2-i32x8 --arch=x86-64 --nanobind

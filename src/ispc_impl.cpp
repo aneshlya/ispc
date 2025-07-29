@@ -89,6 +89,7 @@ static std::string __getISPCLibraryPath() {
         }
     }
 #endif
+    return "";
 }
 
 static void initializePaths(const char *ISPCLibraryPath) {

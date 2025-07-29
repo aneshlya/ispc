@@ -1162,8 +1162,6 @@ ArgsParseResult ispc::ParseCommandLineArgs(int argc, char *argv[], std::string &
         output.out = "-"; // Assume stdout by default (-E mode)
     }
 
-    // Output file validation is now handled in ispc_impl.cpp ValidateOutputFiles()
-
     if (g->target_os == TargetOS::windows && output.flags.isPIC()) {
         Warning(SourcePos(), "--pic|--PIC switches for Windows target will be ignored.");
     }

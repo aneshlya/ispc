@@ -89,22 +89,6 @@ static std::string __getISPCLibraryPath() {
         }
     }
 #endif
-
-    // Fallback approach: use executable path and try to infer library location
-    char dummy;
-    std::string execPath = llvm::sys::fs::getMainExecutable(nullptr, &dummy);
-
-    // If executable path contains hints about the build structure, try to construct library path
-    if (execPath.find("/build/") != std::string::npos) {
-        size_t buildPos = execPath.find("/build/");
-        std::string buildRoot = execPath.substr(0, buildPos + 7); // Include "/build/"
-        std::string possibleLibPath = buildRoot + "lib";
-        if (llvm::sys::fs::exists(possibleLibPath)) {
-            return possibleLibPath; // Return directory path for lib directory case
-        }
-    }
-
-    return execPath;
 }
 
 static void initializePaths(const char *ISPCLibraryPath) {
@@ -245,7 +229,7 @@ class ISPCEngine::Impl {
 
     void ValidateOutputFiles(const Module::Output &output) {
         // Skip validation in JIT mode - output files not needed for in-memory compilation
-        if (g->isJitMode) {
+        if (g->isJitMode && output.out.empty()) {
             return;
         }
 

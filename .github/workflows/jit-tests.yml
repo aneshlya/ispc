@@ -14,27 +14,73 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
-    runs-on: ubuntu-22.04
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
       with:
         submodules: true
 
-    - name: Install dependencies
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        pwsh .github/workflows/scripts/install-build-deps.ps1
+
+    - name: Install dependencies (Unix)
+      if: matrix.os != 'windows-latest'
       run: |
         .github/workflows/scripts/install-build-deps.sh
 
-    - name: Check environment
+    - name: Setup VS environment (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        set VSVARS="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        call %VSVARS%
+      shell: cmd
+
+    - name: Check environment (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        where clang
+        wmic cpu get name
+      shell: cmd
+
+    - name: Check environment (Linux)
+      if: startsWith(matrix.os, 'ubuntu')
       run: |
         which -a clang
         cat /proc/cpuinfo
 
-    - name: Build ISPC
+    - name: Check environment (macOS)
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        which -a clang
+        sysctl -n machdep.cpu.brand_string
+
+    - name: Build ISPC (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        powershell -File .github/workflows/scripts/build-ispc.ps1
+
+    - name: Build ISPC (Unix)
+      if: matrix.os != 'windows-latest'
       run: |
         .github/workflows/scripts/build-ispc.sh -DISPC_LIBRARY=ON
 
-    - name: Runtime tests
+    - name: Runtime tests (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        set VSVARS="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        call %VSVARS%
+        set PATH=%CD%\build\bin;%PATH%
+        python ./scripts/run_tests.py --jit --target=avx2-i32x8 --arch=x86-64
+      shell: cmd
+
+    - name: Runtime tests (Unix)
+      if: matrix.os != 'windows-latest'
       run: |
         PATH=$(pwd)/build/bin:$PATH ./scripts/run_tests.py --jit --target=avx2-i32x8 --arch=x86-64

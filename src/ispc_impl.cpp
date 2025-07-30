@@ -44,46 +44,45 @@
 #include <sstream>
 
 // Platform-specific headers
-#include <unistd.h>
-#if defined(__linux__) || defined(__FreeBSD__)
+#ifdef ISPC_HOST_IS_WINDOWS
+#include <intrin.h>
+#include <windows.h>
+#else
 #include <dlfcn.h>
 #include <malloc.h>
-#endif
-#ifdef _WIN32
-#include <windows.h>
+#include <unistd.h>
 #endif
 
 // Forward declaration
 extern void initializeBinaryType(const char *ISPCExecutableAbsPath);
 
 // Get the path of the current shared library (JIT-appropriate method)
-static std::string __getISPCLibraryPath() {
+static std::string getISPCLibraryPath() {
     // Try multiple approaches to find the library path
-
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
-    Dl_info dl_info;
-    // Use the address of this function to find the current library
-    if (dladdr((void *)__getISPCLibraryPath, &dl_info) && dl_info.dli_fname && strlen(dl_info.dli_fname) > 0) {
-        std::string libPath(dl_info.dli_fname);
-        // Sanity check: ensure path is not empty and exists
-        if (!libPath.empty() && llvm::sys::fs::exists(libPath)) {
-            // Additional check: make sure this looks like a library file
-            if (libPath.find("libispc") != std::string::npos || libPath.find(".so") != std::string::npos ||
-                libPath.find(".dylib") != std::string::npos) {
-                return libPath;
-            }
-        }
-    }
-#elif defined(_WIN32)
+#ifdef ISPC_HOST_IS_WINDOWS
     HMODULE hModule = NULL;
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCTSTR)__getISPCLibraryPath, &hModule)) {
+                          (LPCTSTR)getISPCLibraryPath, &hModule)) {
         char path[MAX_PATH];
         DWORD result = GetModuleFileName(hModule, path, MAX_PATH);
         if (result > 0 && result < MAX_PATH) {
             std::string libPath(path);
             if (llvm::sys::fs::exists(libPath) &&
                 (libPath.find("ispc") != std::string::npos || libPath.find(".dll") != std::string::npos)) {
+                return libPath;
+            }
+        }
+    }
+#else
+    Dl_info dl_info;
+    // Use the address of this function to find the current library
+    if (dladdr((void *)getISPCLibraryPath, &dl_info) && dl_info.dli_fname && strlen(dl_info.dli_fname) > 0) {
+        std::string libPath(dl_info.dli_fname);
+        // Sanity check: ensure path is not empty and exists
+        if (!libPath.empty() && llvm::sys::fs::exists(libPath)) {
+            // Additional check: make sure this looks like a library file
+            if (libPath.find("libispc") != std::string::npos || libPath.find(".so") != std::string::npos ||
+                libPath.find(".dylib") != std::string::npos) {
                 return libPath;
             }
         }
@@ -380,7 +379,7 @@ class ISPCEngine::Impl {
 
         // Initialize library-specific paths for JIT compilation
         // This is only needed for JIT mode, not for the main executable
-        std::string libPath = __getISPCLibraryPath();
+        std::string libPath = getISPCLibraryPath();
         initializePaths(libPath.c_str());
 
         // Create LLJIT instance - it will manage its own context

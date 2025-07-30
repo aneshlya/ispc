@@ -738,6 +738,7 @@ if (NOT MSVC)
         list(APPEND COMPILE_OPTIONS
             -Wno-register
             -Wno-error=comment
+            -Wno-redundant-move
         )
         # The GCC warning issues false positives when one of the allocation and
         # deallocation functions is inlined into its caller but not the other.

@@ -4,6 +4,15 @@
   SPDX-License-Identifier: BSD-3-Clause
 */
 
+// Platform-specific headers must come first on Windows
+#if defined(_WIN32) || defined(_WIN64)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <intrin.h>
+#include <windows.h>
+#endif
+
 // ISPC headers
 #include "args.h"
 #include "binary_type.h"
@@ -47,9 +56,7 @@
 
 // Platform-specific headers
 #ifdef ISPC_HOST_IS_WINDOWS
-#include <intrin.h>
 #include <malloc.h>
-#include <windows.h>
 #else
 #include <dlfcn.h>
 #include <unistd.h>

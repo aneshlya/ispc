@@ -323,7 +323,13 @@ class ISPCEngine::Impl {
 
         // Get the function address - ExecutorAddr can be converted to uintptr_t
         auto address = symbolOrError->getValue();
-        return reinterpret_cast<void *>(static_cast<uintptr_t>(address));
+        // Use union for safe type conversion instead of reinterpret_cast
+        union {
+            uintptr_t addr;
+            void *ptr;
+        } converter;
+        converter.addr = static_cast<uintptr_t>(address);
+        return converter.ptr;
     }
 #else
     void *GetJitFunction(const std::string &functionName) {
@@ -422,7 +428,9 @@ class ISPCEngine::Impl {
         // This prevents LLVM from trying to clean up contexts/modules that may
         // have already been destroyed, which can cause segmentation faults
         if (m_jit) {
-            m_jit.release();
+            // Store the released pointer to acknowledge we're intentionally leaking it
+            // during shutdown to avoid LLVM destruction order issues
+            [[maybe_unused]] auto *leaked_jit = m_jit.release();
         }
     }
 #else

@@ -26,6 +26,7 @@
 #include <llvm/Support/ToolOutputFile.h>
 #include <llvm/TargetParser/Host.h>
 
+#ifdef ISPC_JIT_ON
 // LLVM JIT headers
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
@@ -33,6 +34,7 @@
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#endif
 
 // Standard C++ headers
 #include <cstring>
@@ -46,16 +48,21 @@
 // Platform-specific headers
 #ifdef ISPC_HOST_IS_WINDOWS
 #include <intrin.h>
+#include <malloc.h>
 #include <windows.h>
 #else
 #include <dlfcn.h>
-#include <malloc.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <alloca.h>
 #endif
+#endif
+#include <stdlib.h>
 
 // Forward declaration
 extern void initializeBinaryType(const char *ISPCExecutableAbsPath);
 
+#ifdef ISPC_JIT_ON
 // Get the path of the current shared library (JIT-appropriate method)
 static std::string getISPCLibraryPath() {
     // Try multiple approaches to find the library path
@@ -98,6 +105,7 @@ static void initializePaths(const char *ISPCLibraryPath) {
     llvm::sys::path::append(includeDir, "include", "stdlib");
     ispc::g->includePath.push_back(std::string(includeDir.c_str()));
 }
+#endif
 
 namespace ispc {
 
@@ -145,6 +153,7 @@ class ISPCEngine::Impl {
     bool m_isHelpMode{false};
     bool m_isLinkMode{false};
 
+#ifdef ISPC_JIT_ON
     // JIT-related fields
     bool m_isJitMode{false};
     std::unique_ptr<llvm::orc::LLJIT> m_jit;
@@ -152,6 +161,7 @@ class ISPCEngine::Impl {
     // User-provided runtime functions storage
     // Maps function name to function pointer for runtime functions
     std::map<std::string, void *> m_runtimeFunctions;
+#endif
 
     bool IsLinkMode() const { return m_isLinkMode; }
 
@@ -241,6 +251,7 @@ class ISPCEngine::Impl {
         }
     }
 
+#ifdef ISPC_JIT_ON
     int CompileFromFileToJit(const std::string &filename) {
         if (!ValidateInputFile(filename, false)) { // Don't allow stdin for JIT
             return 1;
@@ -282,7 +293,14 @@ class ISPCEngine::Impl {
 
         return 0;
     }
+#else
+    int CompileFromFileToJit(const std::string &filename) {
+        Error(SourcePos(), "JIT compilation is not supported in this build");
+        return 1;
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     void *GetJitFunction(const std::string &functionName) {
         if (!m_isJitMode) {
             Error(SourcePos(), "JIT mode is not active.");
@@ -307,7 +325,14 @@ class ISPCEngine::Impl {
         auto address = symbolOrError->getValue();
         return reinterpret_cast<void *>(static_cast<uintptr_t>(address));
     }
+#else
+    void *GetJitFunction(const std::string &functionName) {
+        Error(SourcePos(), "JIT compilation is not supported in this build");
+        return nullptr;
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     void ClearJitCode() {
         if (m_isJitMode && m_jit) {
             // Clear JIT code by resetting the JIT engine
@@ -327,9 +352,19 @@ class ISPCEngine::Impl {
             m_jit.reset();
         }
     }
+#else
+    void ClearJitCode() {
+        Warning(SourcePos(), "JIT compilation is not supported in this build - ignoring ClearJitCode call");
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     bool IsJitMode() const { return m_isJitMode; }
+#else
+    bool IsJitMode() const { return false; }
+#endif
 
+#ifdef ISPC_JIT_ON
     bool SetJitRuntimeFunction(const std::string &functionName, void *functionPtr) {
         if (functionName.empty()) {
             Error(SourcePos(), "Runtime function name cannot be empty");
@@ -352,17 +387,36 @@ class ISPCEngine::Impl {
         m_runtimeFunctions[functionName] = functionPtr;
         return true;
     }
+#else
+    bool SetJitRuntimeFunction(const std::string &functionName, void *functionPtr) {
+        Error(SourcePos(), "JIT compilation is not supported in this build");
+        return false;
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     void ClearJitRuntimeFunction(const std::string &functionName) {
         // Clear specific function
         m_runtimeFunctions.erase(functionName);
     }
+#else
+    void ClearJitRuntimeFunction(const std::string &functionName) {
+        Warning(SourcePos(), "JIT compilation is not supported in this build - ignoring ClearJitRuntimeFunction call");
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     void ClearJitRuntimeFunctions() {
         // Clear all functions
         m_runtimeFunctions.clear();
     }
+#else
+    void ClearJitRuntimeFunctions() {
+        Warning(SourcePos(), "JIT compilation is not supported in this build - ignoring ClearJitRuntimeFunctions call");
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     void ReleaseJitForShutdown() {
         // Release JIT pointer to avoid destruction order issues during shutdown
         // This prevents LLVM from trying to clean up contexts/modules that may
@@ -371,7 +425,13 @@ class ISPCEngine::Impl {
             m_jit.release();
         }
     }
+#else
+    void ReleaseJitForShutdown() {
+        // No-op when JIT is not supported
+    }
+#endif
 
+#ifdef ISPC_JIT_ON
     bool InitializeJit() {
         if (m_isJitMode) {
             return true; // Already initialized
@@ -425,6 +485,12 @@ class ISPCEngine::Impl {
         m_isJitMode = true;
         return true;
     }
+#else
+    bool InitializeJit() {
+        Error(SourcePos(), "JIT compilation is not supported in this build");
+        return false;
+    }
+#endif
 
   private:
     static void writeCompileTimeFile(const char *outFileName) {

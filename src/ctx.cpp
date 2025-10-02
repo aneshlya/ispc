@@ -2155,6 +2155,10 @@ llvm::Value *FunctionEmitContext::applyVaryingGEP(llvm::Value *basePtr, llvm::Va
 
     bool indexIsVarying = llvm::isa<llvm::VectorType>(index->getType());
     llvm::Value *offset = nullptr;
+    // Determine wrap semantics based on index type.
+    // NSW (No Signed Wrap) should only be used for signed types.
+    // For unsigned types, overflow is well-defined, so use None.
+    WrapSemantics ws = (indexType && indexType->IsSignedType()) ? WrapSemantics::NSW : WrapSemantics::None;
     if (indexIsVarying == false) {
         // Truncate or sign extend the index as appropriate to a 32 or
         // 64-bit type.
@@ -2169,7 +2173,7 @@ llvm::Value *FunctionEmitContext::applyVaryingGEP(llvm::Value *basePtr, llvm::Va
         // smear the result out to be a vector; this is more efficient than
         // first promoting both the scale and the index to vectors and then
         // multiplying.
-        offset = BinaryOperator(llvm::Instruction::Mul, scale, index, scaleType, WrapSemantics::NSW);
+        offset = BinaryOperator(llvm::Instruction::Mul, scale, index, scaleType, ws);
         offset = SmearUniform(offset);
     } else {
         // Similarly, truncate or sign extend the index to be a 32 or 64
@@ -2184,7 +2188,7 @@ llvm::Value *FunctionEmitContext::applyVaryingGEP(llvm::Value *basePtr, llvm::Va
         scale = SmearUniform(scale);
         Assert(index != nullptr);
         // offset = index * scale
-        offset = BinaryOperator(llvm::Instruction::Mul, scale, index, scaleType, WrapSemantics::NSW,
+        offset = BinaryOperator(llvm::Instruction::Mul, scale, index, scaleType, ws,
                                 ((llvm::Twine("mul_") + scale->getName()) + "_") + index->getName());
     }
 
@@ -2192,7 +2196,16 @@ llvm::Value *FunctionEmitContext::applyVaryingGEP(llvm::Value *basePtr, llvm::Va
     // 32 bits, we still have to convert to a 64-bit value before we
     // actually add the offset to the pointer.
     if (g->target->is32Bit() == false && g->opt.force32BitAddressing == true) {
-        offset = lExtendIntTo64(this, offset, indexType, llvm::Twine(offset->getName()) + "_to_64");
+        // Use ZExt for unsigned types, SExt for signed types
+        // The wrap semantics we determined earlier tells us the signedness
+        bool useZExt = (ws == WrapSemantics::None);
+        bool valueIsVarying = llvm::isa<llvm::VectorType>(offset->getType());
+        llvm::Type *type = valueIsVarying ? LLVMTypes::Int64VectorType : LLVMTypes::Int64Type;
+        if (useZExt) {
+            offset = ZExtInst(offset, type, llvm::Twine(offset->getName()) + "_to_64");
+        } else {
+            offset = SExtInst(offset, type, llvm::Twine(offset->getName()) + "_to_64");
+        }
     }
 
     // Smear out the pointer to be varying; either the base pointer or the
@@ -2347,6 +2360,19 @@ llvm::Value *FunctionEmitContext::GetElementPtrInst(llvm::Value *basePtr, llvm::
     if (indexIsVaryingType == false && ptrType->IsUniformType() == true) {
         // The easy case: both the base pointer and the indices are
         // uniform, so just emit the regular LLVM GEP instruction
+
+        // For 64-bit targets with 32-bit addressing, extend the index appropriately
+        if (g->target->is32Bit() == false && g->opt.force32BitAddressing == true &&
+            index->getType() == LLVMTypes::Int32Type) {
+            // Use ZExt for unsigned types, SExt for signed types
+            bool useZExt = (indexType && indexType->IsUnsignedType());
+            if (useZExt) {
+                index = ZExtInst(index, LLVMTypes::Int64Type, llvm::Twine(index->getName()) + "_to_64");
+            } else {
+                index = SExtInst(index, LLVMTypes::Int64Type, llvm::Twine(index->getName()) + "_to_64");
+            }
+        }
+
         llvm::Value *ind[1] = {index};
         llvm::ArrayRef<llvm::Value *> arrayRef(&ind[0], &ind[1]);
         llvm::Type *llvmPtrElType = AddressInfo::GetPointeeLLVMType(ptrType);

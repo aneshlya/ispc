@@ -624,10 +624,12 @@ static bool lOffsets32BitSafe(llvm::Value **variableOffsetPtr, llvm::Value **con
     if (variableOffset->getType() != LLVMTypes::Int32VectorType) {
         if (auto *castInst = llvm::dyn_cast<llvm::CastInst>(variableOffset)) {
             auto opcode = castInst->getOpcode();
-            if ((opcode == llvm::Instruction::ZExt || opcode == llvm::Instruction::SExt) &&
-                castInst->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
-
-                // zext or sext of a 32-bit vector -> the 32-bit vector is good
+            if (opcode == llvm::Instruction::ZExt && castInst->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
+                // Don't optimize away zext - preserve unsigned semantics
+                return false;
+            } else if (opcode == llvm::Instruction::SExt &&
+                       castInst->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
+                // sext of a 32-bit vector -> the 32-bit vector is good
                 variableOffset = castInst->getOperand(0);
             } else {
                 return false;
@@ -677,7 +679,7 @@ static bool lOffsets32BitSafe(llvm::Value **variableOffsetPtr, llvm::Value **con
  */
 
 static bool lIs32BitSafeHelper(llvm::Value *v) {
-    // handle Adds, SExts, Constant Vectors
+    // handle Adds, SExts, ZExts, Constant Vectors
     if (llvm::BinaryOperator *bop = llvm::dyn_cast<llvm::BinaryOperator>(v)) {
         if ((bop->getOpcode() == llvm::Instruction::Add) || IsOrEquivalentToAdd(bop)) {
             return lIs32BitSafeHelper(bop->getOperand(0)) && lIs32BitSafeHelper(bop->getOperand(1));
@@ -685,6 +687,8 @@ static bool lIs32BitSafeHelper(llvm::Value *v) {
         return false;
     } else if (llvm::SExtInst *sext = llvm::dyn_cast<llvm::SExtInst>(v)) {
         return sext->getOperand(0)->getType() == LLVMTypes::Int32VectorType;
+    } else if (llvm::ZExtInst *zext = llvm::dyn_cast<llvm::ZExtInst>(v)) {
+        return zext->getOperand(0)->getType() == LLVMTypes::Int32VectorType;
     } else {
         return lVectorIs32BitInts(v);
     }
@@ -700,18 +704,31 @@ static bool lOffsets32BitSafe(llvm::Value **offsetPtr, llvm::Instruction *insert
         return true;
     }
 
+    // Check for SExt - this is the typical case for --addressing=32 on 64-bit targets
+    // where 32-bit signed offsets are extended to 64-bit
     llvm::SExtInst *sext = llvm::dyn_cast<llvm::SExtInst>(offset);
     if (sext != nullptr && sext->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
         // sext of a 32-bit vector -> the 32-bit vector is good
         *offsetPtr = sext->getOperand(0);
         return true;
-    } else if (lIs32BitSafeHelper(offset)) {
+    }
+
+    // Check for ZExt - this handles unsigned index types with --addressing=32
+    // For ZExt, we need to preserve it in 64-bit form to maintain unsigned semantics
+    llvm::ZExtInst *zext = llvm::dyn_cast<llvm::ZExtInst>(offset);
+    if (zext != nullptr && zext->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
+        // Don't optimize away the zext - if we truncate and let LLVM re-extend,
+        // it may choose sext instead, which is incorrect for unsigned types
+        return false;
+    }
+
+    if (lIs32BitSafeHelper(offset)) {
         // The only constant vector we should have here is a vector of
         // all zeros (i.e. a ConstantAggregateZero, but just in case,
         // do the more general check with lVectorIs32BitInts().
 
         // Alternatively, offset could be a sequence of adds terminating
-        // in safe constant vectors or a SExt.
+        // in safe constant vectors or a SExt/ZExt.
         *offsetPtr = new llvm::TruncInst(offset, LLVMTypes::Int32VectorType, llvm::Twine(offset->getName()) + "_trunc",
                                          ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
         return true;

@@ -76,6 +76,7 @@ enum class ISPCTarget {
     avx10_2_x4,
     avx10_2_x8,
     avx10_2_x16,
+    avx10_2_x16_nozmm,
     avx10_2_x32,
     avx10_2_x64,
     neon_i8x16,

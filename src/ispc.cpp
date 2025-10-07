@@ -1764,6 +1764,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         this->m_funcAttributes.push_back(std::make_pair("min-legal-vector-width", "256"));
         break;
     case ISPCTarget::avx10_2_x16:
+    case ISPCTarget::avx10_2_x16_nozmm:
         this->m_isa = Target::AVX10_2;
         this->m_nativeVectorWidth = 16;
         this->m_nativeVectorAlignment = 64;
@@ -1782,7 +1783,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         this->m_hasConflictDetection = true;
         this->m_hasRsqrtd = this->m_hasRcpd = true;
         CPUfromISA = CPU_DMR;
-        if (g->opt.disableZMM) {
+        if (g->opt.disableZMM || m_ispc_target == ISPCTarget::avx10_2_x16_nozmm) {
             this->m_funcAttributes.push_back(std::make_pair("prefer-vector-width", "256"));
             this->m_funcAttributes.push_back(std::make_pair("min-legal-vector-width", "256"));
         } else {
@@ -1834,6 +1835,7 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
     case ISPCTarget::avx10_2_x4:
     case ISPCTarget::avx10_2_x8:
     case ISPCTarget::avx10_2_x16:
+    case ISPCTarget::avx10_2_x16_nozmm:
     case ISPCTarget::avx10_2_x32:
     case ISPCTarget::avx10_2_x64:
         unsupported_target = true;
@@ -2929,6 +2931,7 @@ Target::ISA Target::TargetToISA(ISPCTarget target) {
     case ISPCTarget::avx10_2_x4:
     case ISPCTarget::avx10_2_x8:
     case ISPCTarget::avx10_2_x16:
+    case ISPCTarget::avx10_2_x16_nozmm:
     case ISPCTarget::avx10_2_x32:
     case ISPCTarget::avx10_2_x64:
         return Target::ISA::AVX10_2;

@@ -4,9 +4,14 @@
 //; RUN: %{ispc} %s --target=avx10.2-x4 --emit-asm -o - | FileCheck %s --implicit-check-not "zmm"
 // Case 2b: Checks avx10.2-x8 assembly output to ensure there are no zmm registers.
 //; RUN: %{ispc} %s --target=avx10.2-x8 --emit-asm -o - | FileCheck %s --implicit-check-not "zmm"
-// Case 3: Checks avx10.2-x16 LLVM IR to ensure avx10.2-x8 func attributes are not present.
+// Case 3a: Checks avx10.2-x16 LLVM IR to ensure avx10.2-x8 func attributes are not present.
 //; RUN: %{ispc} %s --target=avx10.2-x16 --emit-llvm -o %t_8.bc
 //; RUN: llvm-dis %t_8.bc -o - | FileCheck %s --implicit-check-not ""min-legal-vector-width"="256"" --implicit-check-not ""prefer-vector-width"="256""
+// Case 3b: Checks avx10.2-x16 with "disable-zmm" assembly output to ensure there are no zmm registers.
+//; RUN: %{ispc} %s --target=avx10.2-x16 --opt=disable-zmm --emit-asm -o - | FileCheck %s --implicit-check-not "zmm"
+// Case 3c: Checks avx10.2-x16 with "disable-zmm" has correct func attributes.
+//; RUN: %{ispc} %s --target=avx10.2-x16 --opt=disable-zmm --emit-llvm -o %t_16_nozmm.bc
+//; RUN: llvm-dis %t_16_nozmm.bc -o - | FileCheck %s -check-prefix=CHECK_ATTR_8
 // Case 4a: Checks avx10.2-x4 LLVM IR to ensure avx10.2-x4 func attributes are present (same as for x8).
 //; RUN: %{ispc} %s --target=avx10.2-x4 --emit-llvm -o %t_4.bc
 //; RUN: llvm-dis %t_4.bc -o - | FileCheck %s -check-prefix=CHECK_ATTR_8

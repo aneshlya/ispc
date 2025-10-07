@@ -191,8 +191,11 @@ ISPCTarget operator++(ISPCTarget &target, int dummy) {
     static_assert(static_cast<underlying>(ISPCTarget::avx10_2_x16) ==
                       static_cast<underlying>(ISPCTarget::avx10_2_x8) + 1,
                   "Enum ISPCTarget is not sequential");
-    static_assert(static_cast<underlying>(ISPCTarget::avx10_2_x32) ==
+    static_assert(static_cast<underlying>(ISPCTarget::avx10_2_x16_nozmm) ==
                       static_cast<underlying>(ISPCTarget::avx10_2_x16) + 1,
+                  "Enum ISPCTarget is not sequential");
+    static_assert(static_cast<underlying>(ISPCTarget::avx10_2_x32) ==
+                      static_cast<underlying>(ISPCTarget::avx10_2_x16_nozmm) + 1,
                   "Enum ISPCTarget is not sequential");
     static_assert(static_cast<underlying>(ISPCTarget::avx10_2_x64) ==
                       static_cast<underlying>(ISPCTarget::avx10_2_x32) + 1,
@@ -435,6 +438,8 @@ ISPCTarget ParseISPCTarget(std::string target) {
         return ISPCTarget::avx10_2_x8;
     } else if (target == "avx10.2-x16") {
         return ISPCTarget::avx10_2_x16;
+    } else if (target == "avx10.2-x16-nozmm") {
+        return ISPCTarget::avx10_2_x16_nozmm;
     } else if (target == "avx10.2-x32") {
         return ISPCTarget::avx10_2_x32;
     } else if (target == "avx10.2-x64") {
@@ -630,6 +635,7 @@ std::string ISPCTargetToString(ISPCTarget target) {
     case ISPCTarget::avx10_2_x8:
         return "avx10.2-x8";
     case ISPCTarget::avx10_2_x16:
+    case ISPCTarget::avx10_2_x16_nozmm:
         return "avx10.2-x16";
     case ISPCTarget::avx10_2_x32:
         return "avx10.2-x32";
@@ -758,6 +764,7 @@ bool ISPCTargetIsX86(ISPCTarget target) {
     case ISPCTarget::avx10_2_x4:
     case ISPCTarget::avx10_2_x8:
     case ISPCTarget::avx10_2_x16:
+    case ISPCTarget::avx10_2_x16_nozmm:
     case ISPCTarget::avx10_2_x32:
     case ISPCTarget::avx10_2_x64:
         return true;

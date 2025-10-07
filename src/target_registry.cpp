@@ -149,6 +149,10 @@ static const BitcodeLib *lGetTargetLib(const std::map<uint32_t, const BitcodeLib
     if (target == ISPCTarget::avx1_i32x4) {
         target = ISPCTarget::sse4_i32x4;
     }
+    // nozmm target is not explicitely visible for user but should be used when ZMM is disabled.
+    if (target == ISPCTarget::avx10_2_x16 && g->opt.disableZMM) {
+        target = ISPCTarget::avx10_2_x16_nozmm;
+    }
 
     // sse41 is an alias for sse4
     switch (target) {
@@ -175,7 +179,8 @@ static const BitcodeLib *lGetTargetLib(const std::map<uint32_t, const BitcodeLib
         (target == ISPCTarget::avx512spr_x4 || target == ISPCTarget::avx512spr_x8 ||
          target == ISPCTarget::avx512spr_x16 || target == ISPCTarget::avx512spr_x32 ||
          target == ISPCTarget::avx512spr_x64 || target == ISPCTarget::avx10_2_x4 || target == ISPCTarget::avx10_2_x8 ||
-         target == ISPCTarget::avx10_2_x16 || target == ISPCTarget::avx10_2_x32 || target == ISPCTarget::avx10_2_x64)) {
+         target == ISPCTarget::avx10_2_x16 || target == ISPCTarget::avx10_2_x16_nozmm ||
+         target == ISPCTarget::avx10_2_x32 || target == ISPCTarget::avx10_2_x64)) {
         return nullptr;
     }
 

@@ -153,6 +153,12 @@ static const BitcodeLib *lGetTargetLib(const std::map<uint32_t, const BitcodeLib
     if (target == ISPCTarget::avx10_2_x16 && g->opt.disableZMM) {
         target = ISPCTarget::avx10_2_x16_nozmm;
     }
+    if (target == ISPCTarget::avx512spr_x16 && g->opt.disableZMM) {
+        target = ISPCTarget::avx512spr_x16_nozmm;
+    }
+    if (target == ISPCTarget::avx512icl_x16 && g->opt.disableZMM) {
+        target = ISPCTarget::avx512icl_x16_nozmm;
+    }
 
     // sse41 is an alias for sse4
     switch (target) {
@@ -175,12 +181,12 @@ static const BitcodeLib *lGetTargetLib(const std::map<uint32_t, const BitcodeLib
 
     // There's no Mac that supports SPR, so the decision is not support these targets when targeting macOS.
     // If these targets are linked in, then we still can use them for cross compilation, for example for Linux.
-    if (os == TargetOS::macos &&
-        (target == ISPCTarget::avx512spr_x4 || target == ISPCTarget::avx512spr_x8 ||
-         target == ISPCTarget::avx512spr_x16 || target == ISPCTarget::avx512spr_x32 ||
-         target == ISPCTarget::avx512spr_x64 || target == ISPCTarget::avx10_2_x4 || target == ISPCTarget::avx10_2_x8 ||
-         target == ISPCTarget::avx10_2_x16 || target == ISPCTarget::avx10_2_x16_nozmm ||
-         target == ISPCTarget::avx10_2_x32 || target == ISPCTarget::avx10_2_x64)) {
+    if (os == TargetOS::macos && (target == ISPCTarget::avx512spr_x4 || target == ISPCTarget::avx512spr_x8 ||
+                                  target == ISPCTarget::avx512spr_x16 || target == ISPCTarget::avx512spr_x16_nozmm ||
+                                  target == ISPCTarget::avx512spr_x32 || target == ISPCTarget::avx512spr_x64 ||
+                                  target == ISPCTarget::avx10_2_x4 || target == ISPCTarget::avx10_2_x8 ||
+                                  target == ISPCTarget::avx10_2_x16 || target == ISPCTarget::avx10_2_x16_nozmm ||
+                                  target == ISPCTarget::avx10_2_x32 || target == ISPCTarget::avx10_2_x64)) {
         return nullptr;
     }
 

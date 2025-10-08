@@ -480,7 +480,9 @@ std::unordered_map<ISPCTarget, ISPCTarget> targetParentMap = {
     {ISPCTarget::avx512skx_x8, ISPCTarget::generic_i1x8},
 
     {ISPCTarget::avx512spr_x16, ISPCTarget::avx512icl_x16},
+    {ISPCTarget::avx512spr_x16_nozmm, ISPCTarget::avx512spr_x16},
     {ISPCTarget::avx512icl_x16, ISPCTarget::avx512skx_x16},
+    {ISPCTarget::avx512icl_x16_nozmm, ISPCTarget::avx512icl_x16},
     {ISPCTarget::avx512skx_x16, ISPCTarget::generic_i1x16},
 
     {ISPCTarget::avx512spr_x32, ISPCTarget::avx512icl_x32},

@@ -7787,20 +7787,21 @@ llvm::Value *TypeCastExpr::GetValue(FunctionEmitContext *ctx) const {
                     llvm::Value *basePtr = ctx->ExtractInst(value, 0, "slice_ptr");
                     llvm::Value *offset = ctx->ExtractInst(value, 1, "slice_offset");
 
+                    // If converting uniform slice pointer to varying integer,
+                    // smear the pointer and offset to vector width first
+                    if (toType->IsVaryingType() && fromType->IsUniformType()) {
+                        basePtr = ctx->SmearUniform(basePtr);
+                        offset = ctx->SmearUniform(offset);
+                    }
+
                     // Convert base pointer to integer
                     llvm::Value *ptrAsInt = ctx->PtrToIntInst(basePtr, llvmToType, "ptr_to_int");
 
                     // Cast offset to target integer type and add to pointer
                     llvm::Value *offsetCast = nullptr;
                     if (offset->getType() != llvmToType) {
-                        // For uniform slice pointers, offset is i32
-                        // For varying slice pointers, offset is <WIDTH x i32>
-                        if (fromType->IsUniformType()) {
-                            offsetCast = ctx->SExtInst(offset, llvmToType, "offset_sext");
-                        } else {
-                            // Varying case: need to extend each element
-                            offsetCast = ctx->SExtInst(offset, llvmToType, "offset_sext");
-                        }
+                        // Extend offset to target integer type (uniform or varying)
+                        offsetCast = ctx->SExtInst(offset, llvmToType, "offset_sext");
                     } else {
                         offsetCast = offset;
                     }

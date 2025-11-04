@@ -7776,14 +7776,44 @@ llvm::Value *TypeCastExpr::GetValue(FunctionEmitContext *ctx) const {
                     return nullptr;
                 }
 
-                if (toType->IsVaryingType() && fromType->IsUniformType()) {
-                    value = ctx->SmearUniform(value);
-                }
-
                 llvm::Type *llvmToType = toType->LLVMType(g->ctx);
                 if (llvmToType == nullptr) {
                     return nullptr;
                 }
+
+                if (fromPointerType->IsSlice()) {
+                    // For slice pointers, we need to extract the base pointer,
+                    // convert it to int, then add the offset
+                    llvm::Value *basePtr = ctx->ExtractInst(value, 0, "slice_ptr");
+                    llvm::Value *offset = ctx->ExtractInst(value, 1, "slice_offset");
+
+                    // Convert base pointer to integer
+                    llvm::Value *ptrAsInt = ctx->PtrToIntInst(basePtr, llvmToType, "ptr_to_int");
+
+                    // Cast offset to target integer type and add to pointer
+                    llvm::Value *offsetCast = nullptr;
+                    if (offset->getType() != llvmToType) {
+                        // For uniform slice pointers, offset is i32
+                        // For varying slice pointers, offset is <WIDTH x i32>
+                        if (fromType->IsUniformType()) {
+                            offsetCast = ctx->SExtInst(offset, llvmToType, "offset_sext");
+                        } else {
+                            // Varying case: need to extend each element
+                            offsetCast = ctx->SExtInst(offset, llvmToType, "offset_sext");
+                        }
+                    } else {
+                        offsetCast = offset;
+                    }
+
+                    // Add offset to pointer value
+                    return ctx->BinaryOperator(llvm::Instruction::Add, ptrAsInt, offsetCast, toType,
+                                               WrapSemantics::None, "slice_ptr_int");
+                }
+
+                if (toType->IsVaryingType() && fromType->IsUniformType()) {
+                    value = ctx->SmearUniform(value);
+                }
+
                 return ctx->PtrToIntInst(value, llvmToType, "ptr_typecast");
             }
         }

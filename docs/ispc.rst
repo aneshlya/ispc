@@ -1257,6 +1257,7 @@ avx512skx     AVX-512                   Intel Skylake Xeon (2017), AMD Zen4 (202
 avx512icl     AVX-512                   Intel Icelake (2019), AMD Zen4 (2022)
 avx512spr     AVX-512                   Intel Sapphire Rapids (2023)
 avx10.2dmr    AVX10.2 + AMX             Intel Diamond Rapids (2026+)
+avx10.2nvl    AVX10.2                   Intel Nova Lake (TBD)
 neon          ARMv8 NEON                ARM Cortex-A35/A53/A57 (2012-2015)
 ============= ========================= ===========================================================
 

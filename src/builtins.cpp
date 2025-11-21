@@ -486,6 +486,13 @@ std::unordered_map<ISPCTarget, ISPCTarget> targetParentMap = {
     {ISPCTarget::avx10_2dmr_x32, ISPCTarget::avx512spr_x32},
     {ISPCTarget::avx10_2dmr_x64, ISPCTarget::avx512spr_x64},
 #endif
+#if ISPC_LLVM_VERSION >= ISPC_LLVM_22_0
+    {ISPCTarget::avx10_2nvl_x4, ISPCTarget::avx10_2dmr_x4},
+    {ISPCTarget::avx10_2nvl_x8, ISPCTarget::avx10_2dmr_x8},
+    {ISPCTarget::avx10_2nvl_x16, ISPCTarget::avx10_2dmr_x16},
+    {ISPCTarget::avx10_2nvl_x32, ISPCTarget::avx10_2dmr_x32},
+    {ISPCTarget::avx10_2nvl_x64, ISPCTarget::avx10_2dmr_x64},
+#endif
 
     {ISPCTarget::avx512spr_x4, ISPCTarget::avx512icl_x4},
     {ISPCTarget::avx512icl_x4, ISPCTarget::avx512skx_x4},

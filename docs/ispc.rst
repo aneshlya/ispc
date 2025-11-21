@@ -935,6 +935,11 @@ functions from ISPC code will result in a **compilation error**.
 Note: The compiler can only detect calls to exported functions within the same
 compilation unit. Cross-module calls to exported functions cannot be detected.
 
+ISPC targets changes:
+
+``avx10.2`` family of targets has been renamed to ``avx10.2dmr``. The macro
+``ISPC_TARGET_AVX10_2`` has been replaced with ``ISPC_TARGET_AVX10_2DMR``.
+
 ``sse2-i32x4`` and ``sse2-i32x8`` targets are deprecated and will be removed in
 future releases.
 
@@ -1251,7 +1256,7 @@ avx2vnni      AVX2                      Intel Alder Lake (2021), AMD Zen5 (2024)
 avx512skx     AVX-512                   Intel Skylake Xeon (2017), AMD Zen4 (2022)
 avx512icl     AVX-512                   Intel Icelake (2019), AMD Zen4 (2022)
 avx512spr     AVX-512                   Intel Sapphire Rapids (2023)
-avx10.2       AVX10.2                   Intel Diamond Rapids (2026+)
+avx10.2dmr    AVX10.2 + AMX             Intel Diamond Rapids (2026+)
 neon          ARMv8 NEON                ARM Cortex-A35/A53/A57 (2012-2015)
 ============= ========================= ===========================================================
 

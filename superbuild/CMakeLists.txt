@@ -231,7 +231,7 @@ unset(LLVM_TAG)
 unset(LLVM_VERSION_DOTTED)
 string(REPLACE "." "_" LLVM_VERSION "${LLVM_VERSION}")
 if (${LLVM_VERSION} STREQUAL 21_1)
-    set(LLVM_TAG    llvmorg-21.1.7)
+    set(LLVM_TAG    llvmorg-21.1.8)
 elseif (${LLVM_VERSION} STREQUAL 20_1)
     set(LLVM_TAG    llvmorg-20.1.8)
 elseif (${LLVM_VERSION} STREQUAL 19_1)
@@ -370,6 +370,10 @@ message(STATUS "SKIP_STAGE1 is ${SKIP_STAGE1}")
 message(STATUS "SKIP_STAGE2 is ${SKIP_STAGE2}")
 message(STATUS "STAGE2_PATH is ${STAGE2_PATH}")
 message(STATUS "CMAKE_INSTALL_PREFIX is ${CMAKE_INSTALL_PREFIX}")
+# LLVM 21+ has stricter warnings about C2y extensions (__COUNTER__ in benchmark library)
+if (${LLVM_VERSION_MAJOR} VERSION_GREATER_EQUAL 21 OR ${LLVM_VERSION} STREQUAL "trunk")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c2y-extensions")
+endif()
 message(STATUS "CMAKE_C_FLAGS is ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS is ${CMAKE_CXX_FLAGS}")
 message(STATUS "MACOS_VERSION_MIN is ${MACOS_VERSION_MIN}")
@@ -1210,7 +1214,7 @@ if (PGO OR NOT SKIP_STAGE2)
             ${FETCH_CONTENT_QUIET_OPTION}
             GIT_REPOSITORY ${LLVM_URL}
             GIT_TAG ${LLVM_TAG}
-            GIT_SHALLOW ON
+            GIT_SHALLOW OFF
             GIT_PROGRESS ON
             UPDATE_COMMAND git checkout .
             PATCH_COMMAND git apply ${LLVM_PATCHES_VER}
@@ -1221,7 +1225,7 @@ if (PGO OR NOT SKIP_STAGE2)
             ${FETCH_CONTENT_QUIET_OPTION}
             GIT_REPOSITORY ${LLVM_URL}
             GIT_TAG ${LLVM_TAG}
-            GIT_SHALLOW ON
+            GIT_SHALLOW OFF
             GIT_PROGRESS ON
             UPDATE_COMMAND git checkout .
             SOURCE_DIR llvm-source

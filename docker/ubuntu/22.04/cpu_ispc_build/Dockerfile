@@ -14,6 +14,7 @@ ARG SHA=main
 ARG LTO=OFF
 ARG PGO=OFF
 ARG LLVM_VERSION
+ARG LLVM_SHA
 ARG LLVM_DISABLE_ASSERTIONS
 
 # !!! Make sure that your docker config provides enough memory to the container,
@@ -53,6 +54,8 @@ ENV LLVM_HOME=/usr/local/src/llvm
 WORKDIR /usr/local/src
 RUN git clone https://github.com/$REPO.git ispc && \
     git -C ispc checkout $SHA && \
+    LLVM_SHA_ARG="" && \
+    if [ -n "$LLVM_SHA" ]; then LLVM_SHA_ARG="-DLLVM_SHA=$LLVM_SHA"; fi && \
     cmake ispc/superbuild \
         -B build \
         --preset os \
@@ -62,7 +65,8 @@ RUN git clone https://github.com/$REPO.git ispc && \
         -DLLVM_VERSION="$LLVM_VERSION" \
         -DBUILD_STAGE2_TOOLCHAIN_ONLY=ON \
         -DCMAKE_INSTALL_PREFIX="$LLVM_HOME"/bin-"$LLVM_VERSION" \
-        -DLLVM_DISABLE_ASSERTIONS="$LLVM_DISABLE_ASSERTIONS" && \
+        -DLLVM_DISABLE_ASSERTIONS="$LLVM_DISABLE_ASSERTIONS" \
+        $LLVM_SHA_ARG && \
     cmake --build build && \
     rm -rf build
 

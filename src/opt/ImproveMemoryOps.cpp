@@ -670,16 +670,25 @@ static bool lOffsets32BitSafe(llvm::Value **variableOffsetPtr, llvm::Value **con
     return true;
 }
 
-/** Check to see if the offset value is composed of a string of Adds,
-    SExts, and Constant Vectors that are 32-bit safe.  Recursively
-    explores the operands of Add instructions (as they might themselves
-    be adds that eventually terminate in constant vectors or a SExt.)
+/** Helper to check if a binary operation is safe to traverse for 32-bit
+    offset computations. These operations preserve 32-bit safety when their
+    operands are 32-bit safe.
+ */
+static bool lIsBinOpSafeForOffset(llvm::Instruction::BinaryOps opcode) {
+    return (opcode == llvm::Instruction::Add) || (opcode == llvm::Instruction::Mul) ||
+           (opcode == llvm::Instruction::Shl);
+}
+
+/** Check to see if the offset value is composed of a string of Adds, Muls, Shls,
+    SExts, and Constant Vectors that are 32-bit safe.  Recursively explores the
+    operands of binary operations (as they might themselves be operations that
+    eventually terminate in constant vectors or a SExt.)
  */
 
 static bool lIs32BitSafeHelper(llvm::Value *v) {
-    // handle Adds, SExts, Constant Vectors
+    // handle Adds, Muls, Shls, SExts, Constant Vectors
     if (llvm::BinaryOperator *bop = llvm::dyn_cast<llvm::BinaryOperator>(v)) {
-        if ((bop->getOpcode() == llvm::Instruction::Add) || IsOrEquivalentToAdd(bop)) {
+        if (lIsBinOpSafeForOffset(bop->getOpcode()) || IsOrEquivalentToAdd(bop)) {
             return lIs32BitSafeHelper(bop->getOperand(0)) && lIs32BitSafeHelper(bop->getOperand(1));
         }
         return false;

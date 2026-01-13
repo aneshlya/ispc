@@ -651,17 +651,9 @@ static bool lOffsets32BitSafe(llvm::Value **variableOffsetPtr, llvm::Value **con
                                               llvm::Twine(constOffset->getName()) + "_trunc",
                                               ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
         } else {
-            // FIXME: otherwise we just assume that all constant offsets
-            // can actually always fit into 32-bits...  (This could be
-            // wrong, but it should be only in pretty esoteric cases).  We
-            // make this assumption for now since we sometimes generate
-            // constants that need constant folding before we really have a
-            // constant vector out of them, and
-            // llvm::ConstantFoldInstruction() doesn't seem to be doing
-            // enough for us in some cases if we call it from here.
-            constOffset = new llvm::TruncInst(constOffset, LLVMTypes::Int32VectorType,
-                                              llvm::Twine(constOffset->getName()) + "_trunc",
-                                              ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
+            // Constant offset doesn't fit in 32-bit signed range.
+            // Cannot safely use 32-bit addressing with sign-extending gather intrinsics.
+            return false;
         }
     }
 

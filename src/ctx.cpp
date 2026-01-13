@@ -2136,15 +2136,75 @@ llvm::Instruction *FunctionEmitContext::ZExtInst(llvm::Value *value, llvm::Type 
     return inst;
 }
 
+/** Check if an LLVM value has signed provenance by examining its definition.
+    Returns true if the value or any of its operands came from signed arithmetic:
+    - fptosi (float to signed int conversion)
+    - sext (sign extension)
+    - NSW flag (no signed wrap - indicates signed semantics)
+    - Negative integer constants
+    This is used to decide between sext vs zext when extending to 64-bit.
+*/
+static bool lValueHasSignedProvenance(llvm::Value *value) {
+    // Check for signed float-to-int conversion
+    if (llvm::isa<llvm::FPToSIInst>(value)) {
+        return true;
+    }
+
+    // Check for sign extension
+    if (llvm::isa<llvm::SExtInst>(value)) {
+        return true;
+    }
+
+    // Check binary operations recursively
+    if (llvm::BinaryOperator *bop = llvm::dyn_cast<llvm::BinaryOperator>(value)) {
+        // NSW (No Signed Wrap) flag indicates signed semantics
+        if (bop->hasNoSignedWrap()) {
+            return true;
+        }
+
+        // Recursively check operands - if ANY operand has signed provenance,
+        // the result should be treated as having signed provenance
+        return lValueHasSignedProvenance(bop->getOperand(0)) || lValueHasSignedProvenance(bop->getOperand(1));
+    }
+
+    // Check for negative constant integers
+    if (llvm::ConstantInt *ci = llvm::dyn_cast<llvm::ConstantInt>(value)) {
+        return ci->getSExtValue() < 0;
+    }
+
+    // Check for constant vectors with negative elements
+    if (llvm::ConstantDataVector *cdv = llvm::dyn_cast<llvm::ConstantDataVector>(value)) {
+        for (unsigned i = 0; i < cdv->getNumElements(); ++i) {
+            if (llvm::ConstantInt *ci = llvm::dyn_cast<llvm::ConstantInt>(cdv->getElementAsConstant(i))) {
+                if (ci->getSExtValue() < 0) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Extend both uniform and varying integer values to 64 bits. */
 llvm::Value *lExtendIntTo64(FunctionEmitContext *ctx, llvm::Value *value, const Type *indexType,
                             const llvm::Twine &name = "") {
     bool valueIsVarying = llvm::isa<llvm::VectorType>(value->getType());
     llvm::Type *type = valueIsVarying ? LLVMTypes::Int64VectorType : LLVMTypes::Int64Type;
-    if (indexType && indexType->IsUnsignedType()) {
-        return ctx->ZExtInst(value, type, name);
-    } else {
+
+    // Check if the value has signed provenance by analyzing the LLVM IR
+    bool hasSignedProvenance = lValueHasSignedProvenance(value);
+
+    // Use sign extension if EITHER:
+    // 1. The declared type is signed, OR
+    // 2. The value has signed provenance (came from signed arithmetic)
+    // This handles mixed signed/unsigned arithmetic like: int idx * uint32 stride
+    bool shouldSignExtend = (indexType && indexType->IsSignedType()) || hasSignedProvenance;
+
+    if (shouldSignExtend) {
         return ctx->SExtInst(value, type, name);
+    } else {
+        return ctx->ZExtInst(value, type, name);
     }
 }
 

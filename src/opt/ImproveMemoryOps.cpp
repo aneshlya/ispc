@@ -497,6 +497,9 @@ static bool lIsIntegerSplat(llvm::Value *v, int *splat) {
     return true;
 }
 
+// Forward declaration - defined later in the file
+static bool lHasSignedArithmetic(llvm::Value *v);
+
 static llvm::Value *lExtract248Scale(llvm::Value *splatOperand, int splatValue, llvm::Value *otherOperand,
                                      llvm::Value **result) {
     if (splatValue == 2 || splatValue == 4 || splatValue == 8) {
@@ -552,7 +555,14 @@ static llvm::Value *lExtractOffsetVector248Scale(llvm::Value **vec) {
 
         // make a new cast instruction so that we end up with the right
         // type
-        *vec = llvm::CastInst::Create(cast->getOpcode(), castOp, cast->getType(), "offset_cast",
+        // Check if the value has signed provenance to decide sext vs zext
+        llvm::Instruction::CastOps opcode = cast->getOpcode();
+        if ((opcode == llvm::Instruction::ZExt || opcode == llvm::Instruction::SExt) &&
+            lHasSignedArithmetic(castOp)) {
+            // Value has signed provenance - use sext for correct sign extension
+            opcode = llvm::Instruction::SExt;
+        }
+        *vec = llvm::CastInst::Create(opcode, castOp, cast->getType(), "offset_cast",
                                       ISPC_INSERTION_POINT_INSTRUCTION(cast));
         return scale;
     }
@@ -613,6 +623,15 @@ static bool lVectorIs32BitInts(llvm::Value *v) {
     return true;
 }
 
+/** Check if an offset calculation tree involves signed arithmetic.
+    Returns true if ANY operation in the tree has signed semantics:
+    - fptosi (float-to-signed-int conversion)
+    - sext (sign extension)
+    - NSW flag (no signed wrap)
+    - Negative constants
+ */
+static bool lHasSignedArithmetic(llvm::Value *v);
+
 /** Check to see if the two offset vectors can safely be represented with
     32-bit values.  If so, return true and update the pointed-to
     llvm::Value *s to be the 32-bit equivalents. */
@@ -633,9 +652,14 @@ static bool lOffsets32BitSafe(llvm::Value **variableOffsetPtr, llvm::Value **con
                 return false;
             }
         } else if (lVectorIs32BitInts(variableOffset)) {
-            // The only constant vector we should have here is a vector of
-            // all zeros (i.e. a ConstantAggregateZero, but just in case,
-            // do the more general check with lVectorIs32BitInts().
+            // CRITICAL CHECK: Require signed arithmetic for 32-bit optimization
+            // because 32-bit gather intrinsics use sext internally
+            if (!lHasSignedArithmetic(variableOffset)) {
+                // Pure unsigned arithmetic - reject to force 64-bit path
+                return false;
+            }
+
+            // Truncate to 32-bit
             variableOffset = new llvm::TruncInst(variableOffset, LLVMTypes::Int32VectorType,
                                                  llvm::Twine(variableOffset->getName()) + "_trunc",
                                                  ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
@@ -671,6 +695,53 @@ static bool lIsBinOpSafeForOffset(llvm::Instruction::BinaryOps opcode) {
            (opcode == llvm::Instruction::Shl);
 }
 
+/** Check if an offset calculation tree involves signed arithmetic.
+    Returns true if ANY operation in the tree has signed semantics:
+    - fptosi (float-to-signed-int conversion)
+    - sext (sign extension)
+    - NSW flag (no signed wrap)
+    - Negative constants
+ */
+static bool lHasSignedArithmetic(llvm::Value *v) {
+    // Check for signed conversion from float
+    if (llvm::isa<llvm::FPToSIInst>(v)) {
+        return true;
+    }
+
+    // Check for sign extension
+    if (llvm::isa<llvm::SExtInst>(v)) {
+        return true;
+    }
+
+    // Check binary operations
+    if (llvm::BinaryOperator *bop = llvm::dyn_cast<llvm::BinaryOperator>(v)) {
+        // NSW flag indicates signed semantics
+        if (bop->hasNoSignedWrap()) {
+            return true;
+        }
+
+        // Recursively check operands for safe offset operations
+        if (lIsBinOpSafeForOffset(bop->getOpcode()) || IsOrEquivalentToAdd(bop)) {
+            return lHasSignedArithmetic(bop->getOperand(0)) || lHasSignedArithmetic(bop->getOperand(1));
+        }
+    }
+
+    // Check for negative constants
+    if (llvm::isa<llvm::Constant>(v)) {
+        int nElts = 0;
+        int64_t elts[ISPC_MAX_NVEC];
+        if (LLVMExtractVectorInts(v, elts, &nElts)) {
+            for (int i = 0; i < nElts; ++i) {
+                if (elts[i] < 0) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Check to see if the offset value is composed of a string of Adds, Muls, Shls,
     SExts, and Constant Vectors that are 32-bit safe.  Recursively explores the
     operands of binary operations (as they might themselves be operations that
@@ -678,7 +749,7 @@ static bool lIsBinOpSafeForOffset(llvm::Instruction::BinaryOps opcode) {
  */
 
 static bool lIs32BitSafeHelper(llvm::Value *v) {
-    // handle Adds, Muls, Shls, SExts, Constant Vectors
+    // handle Adds, Muls, Shls, SExts, FPToSI, Constant Vectors
     if (llvm::BinaryOperator *bop = llvm::dyn_cast<llvm::BinaryOperator>(v)) {
         if (lIsBinOpSafeForOffset(bop->getOpcode()) || IsOrEquivalentToAdd(bop)) {
             return lIs32BitSafeHelper(bop->getOperand(0)) && lIs32BitSafeHelper(bop->getOperand(1));
@@ -686,6 +757,9 @@ static bool lIs32BitSafeHelper(llvm::Value *v) {
         return false;
     } else if (llvm::SExtInst *sext = llvm::dyn_cast<llvm::SExtInst>(v)) {
         return sext->getOperand(0)->getType() == LLVMTypes::Int32VectorType;
+    } else if (llvm::isa<llvm::FPToSIInst>(v)) {
+        // fptosi produces i32, which is safe for 32-bit representation
+        return true;
     } else {
         return lVectorIs32BitInts(v);
     }
@@ -704,19 +778,23 @@ static bool lOffsets32BitSafe(llvm::Value **offsetPtr, llvm::Instruction *insert
     llvm::SExtInst *sext = llvm::dyn_cast<llvm::SExtInst>(offset);
     llvm::ZExtInst *zext = llvm::dyn_cast<llvm::ZExtInst>(offset);
     if (sext != nullptr && sext->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
-        // sext of a 32-bit vector -> the 32-bit vector is good
+        // sext of a 32-bit vector -> extract the 32-bit operand
         *offsetPtr = sext->getOperand(0);
         return true;
     } else if (zext != nullptr && zext->getOperand(0)->getType() == LLVMTypes::Int32VectorType) {
-        // Don't allow zext as they are used by ispc frontend to denote offsets based on unsigned loop counter variable.
+        // Don't allow zext - used by ispc frontend to denote offsets based on
+        // unsigned loop counter variable (preserves fix for #3238)
         return false;
     } else if (lIs32BitSafeHelper(offset)) {
-        // The only constant vector we should have here is a vector of
-        // all zeros (i.e. a ConstantAggregateZero, but just in case,
-        // do the more general check with lVectorIs32BitInts().
+        // CRITICAL CHECK: For 32-bit path, require signed arithmetic
+        // because 32-bit gather intrinsics use sext internally
+        if (!lHasSignedArithmetic(offset)) {
+            // Pure unsigned arithmetic - reject to force 64-bit path
+            // This prevents incorrect sign-extension of unsigned values
+            return false;
+        }
 
-        // Alternatively, offset could be a sequence of adds terminating
-        // in safe constant vectors or a SExt.
+        // Truncate to 32-bit - gather will sext appropriately
         *offsetPtr = new llvm::TruncInst(offset, LLVMTypes::Int32VectorType, llvm::Twine(offset->getName()) + "_trunc",
                                          ISPC_INSERTION_POINT_INSTRUCTION(insertBefore));
         return true;

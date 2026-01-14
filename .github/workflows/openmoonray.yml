@@ -55,6 +55,7 @@ jobs:
     steps:
     - name: Setup Arch Linux
       run: |
+        pacman -Sy --noconfirm archlinux-keyring
         pacman -Syu --noconfirm
         pacman -S --needed --noconfirm base-devel git sudo
 

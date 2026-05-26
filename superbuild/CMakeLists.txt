@@ -281,8 +281,20 @@ else()
 endif()
 
 # LLVM 21+ has stricter warnings about C2y extensions (__COUNTER__ in benchmark library)
+# The -Wno-c2y-extensions flag is only supported by clang 17+, so we skip it for older compilers
+# (GCC silently ignores unknown -W flags, but older clang warns about them)
 if (NOT WIN32 AND (${LLVM_VERSION_MAJOR} VERSION_GREATER_EQUAL 21 OR ${LLVM_VERSION} STREQUAL "trunk"))
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c2y-extensions")
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} --version
+        OUTPUT_VARIABLE CXX_VERSION_OUTPUT
+        ERROR_QUIET
+    )
+    # Only add the flag for clang 17+ which supports it
+    if (CXX_VERSION_OUTPUT MATCHES "clang version ([0-9]+)")
+        if (CMAKE_MATCH_1 GREATER_EQUAL 17)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c2y-extensions")
+        endif()
+    endif()
 endif()
 
 set(EXTERNAL_VERBOSE_FLAG "")

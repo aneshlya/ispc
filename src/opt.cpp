@@ -671,19 +671,43 @@ void ispc::Optimize(llvm::Module *module, int optLevel) {
         optPM.addModulePass(RestoreInlineAttrPass());
         optPM.addModulePass(llvm::ModuleInlinerWrapperPass(IP));
         // The final inliner expands `inline`-qualified callees that were
-        // deferred by RestoreInlineAttrPass. Run a small cleanup so that
-        // caller-context constants and CFG simplifications fold through the
-        // freshly inlined bodies, recovering the cross-procedural
-        // simplifications we would otherwise miss by deferring inlining.
+        // deferred by RestoreInlineAttrPass. Because deferral pushes inlining
+        // past every function-level optimization above, the freshly merged
+        // bodies have not seen those passes. Re-run a focused subset so they
+        // get the same simplification and ISPC-specific coalescing the rest of
+        // the module already received (issue #3804).
         optPM.initFunctionPassManager();
         // Resolve __is_compile_time_constant_* left in the just-inlined bodies
         // (the marker is gone, so nothing is skipped now). InstCombine/SimplifyCFG
         // below fold the result.
         optPM.addFunctionPass(IsCompileTimeConstantPass(true));
+        // Standard post-inline cleanup: promote the inlined callees' allocas
+        // into SSA so the InstCombine/coalescing passes below can see through
+        // them, exactly as LLVM's own inliner pipeline runs SROA after inlining.
+        optPM.addFunctionPass(llvm::SROAPass(llvm::SROAOptions::ModifyCFG));
         optPM.addFunctionPass(llvm::InferAlignmentPass());
         optPM.addFunctionPass(llvm::InstCombinePass());
+        // The inlined bodies each contributed their own gathers / masked
+        // memory ops; these passes coalesce and fold them, mirroring the
+        // gather/scatter cleanup the pipeline runs after its earlier inliners
+        // (see the InstCombine -> ImproveMemoryOps sequences above). Plain LLVM
+        // passes cannot recover this -- the coalescing is ISPC-specific.
+        if (g->opt.disableGatherScatterOptimizations == false && g->target->getVectorWidth() > 1) {
+            optPM.addFunctionPass(ImproveMemoryOpsPass());
+        }
+        optPM.addFunctionPass(ReplaceMaskedMemOpsPass());
+        if (!g->opt.disableMaskAllOnOptimizations) {
+            optPM.addFunctionPass(IntrinsicsOpt());
+        }
         optPM.addFunctionPass(InstructionSimplifyPass());
         optPM.addFunctionPass(llvm::SimplifyCFGPass(simplifyCFGopt));
+        // SimplifyCFG straightens the control flow that the inlined transpose
+        // helpers (e.g. `aos_to_soa*`) leave around their llvm.stacksave/
+        // stackrestore guards; only afterwards can InstCombine prove those
+        // guards dead and delete them. Without this trailing InstCombine the
+        // save/restore pairs freeze into the output as optimization barriers
+        // that block backend CSE/coalescing of the transpose+gather (#3804).
+        optPM.addFunctionPass(llvm::InstCombinePass());
         optPM.addFunctionPass(llvm::ADCEPass());
         optPM.commitFunctionToModulePassManager();
         optPM.addModulePass(llvm::StripDeadPrototypesPass());

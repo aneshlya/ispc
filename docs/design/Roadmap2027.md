@@ -1,6 +1,6 @@
 # ISPC Roadmap: Q4 2026 - Q3 2027
 
-Status: proposal, revision 3 (2026-10-08). Team: one engineer, one intern,
+Status: proposal, revision 4 (2026-10-08). Team: one engineer, one intern,
 AI-assisted development.
 
 Priorities remain: **1. performance; 2. enabling new Intel hardware,
@@ -14,20 +14,22 @@ shipped optimization.
 Section 12 retains the other proposed features as deferred or stretch work.
 They remain candidates; moving them into the annual plan requires a named
 consumer, an owner, an acceptance criterion, and either available capacity
-or an explicit tradeoff with active work. Completed features are identified
-as such rather than scheduled for reimplementation.
+or an explicit tradeoff with active work. The detailed problem statements,
+issue references, API sketches and research rationale remain part of the
+proposal even when implementation is deferred. Completed features are
+identified as such rather than scheduled for reimplementation.
 
 Xe GPU remains opt-in with no new feature commitments. ARM and WASM stay in
 maintenance mode, including correctness of supported portable fallbacks,
 with the macOS integration exception in section 5.4. The APX and AMX
-dispatcher capability work shipped (PR #3922 and commit 5101e97e3); this plan
+dispatcher capability work shipped (PR [#3922](https://github.com/ispc/ispc/pull/3922) and commit 5101e97e3); this plan
 builds on it.
 
 Contents:
 
 1. Positioning and evidence
 2. Annual commitments and capacity
-3. Performance: measure, select, fix
+3. Performance: issues, proposals and measurement
 4. New Intel hardware: Diamond Rapids and Nova Lake
 5. New Intel hardware: ACE
 6. AI in the language: BF16 and a usable kernel
@@ -90,19 +92,19 @@ implementation status and customer impact must be assessed separately.
 
 | Rank | Issue | Ask |
 |---|---|---|
-| 1 | #791 | ISPC as a library: library/JIT already implemented; identify remaining adoption gaps |
-| 2 | #2903 | `avx2-i64x8` double-pumped target for 64-bit-heavy code |
-| 3 | #2906 | Fast accurate transcendentals without proprietary SVML |
-| 4 | #2236 | Documented ULP bounds for stdlib math |
-| 5 | #2127 | WebAssembly SIMD target |
-| 6 | #1947 | ARM SVE / SVE2 targets |
-| 7 | #982 | Generic SPIR-V output |
-| 8 | #3676 | Varying popcnt lowering on AVX2 |
-| 9 | #3455 | Tighter loop codegen |
-| 10 | #3771 | Native permute instructions for shuffle |
-| 11 | #3697 | `constexpr` |
-| 12 | #3741 | `pip install ispc` |
-| 13 | #1305 | Official vcpkg port |
+| 1 | [#791](https://github.com/ispc/ispc/issues/791) | ISPC as a library: library/JIT already implemented; identify remaining adoption gaps |
+| 2 | [#2903](https://github.com/ispc/ispc/issues/2903) | `avx2-i64x8` double-pumped target for 64-bit-heavy code |
+| 3 | [#2906](https://github.com/ispc/ispc/issues/2906) | Fast accurate transcendentals without proprietary SVML |
+| 4 | [#2236](https://github.com/ispc/ispc/issues/2236) | Documented ULP bounds for stdlib math |
+| 5 | [#2127](https://github.com/ispc/ispc/issues/2127) | WebAssembly SIMD target |
+| 6 | [#1947](https://github.com/ispc/ispc/issues/1947) | ARM SVE / SVE2 targets |
+| 7 | [#982](https://github.com/ispc/ispc/issues/982) | Generic SPIR-V output |
+| 8 | [#3676](https://github.com/ispc/ispc/issues/3676) | Varying popcnt lowering on AVX2 |
+| 9 | [#3455](https://github.com/ispc/ispc/issues/3455) | Tighter loop codegen |
+| 10 | [#3771](https://github.com/ispc/ispc/issues/3771) | Native permute instructions for shuffle |
+| 11 | [#3697](https://github.com/ispc/ispc/issues/3697) | `constexpr` |
+| 12 | [#3741](https://github.com/ispc/ispc/issues/3741) | `pip install ispc` |
+| 13 | [#1305](https://github.com/ispc/ispc/issues/1305) | Official vcpkg port |
 
 Themes: distribution and embedding, new targets, math library quality,
 codegen performance. Language-feature demand is real but shows up as bug
@@ -113,34 +115,34 @@ GitHub Discussions (64 threads, read 2026-10-08) are mostly Q&A, but the
 recurring topics line up with this plan:
 
 - **Gathers and memory layout** are the most common performance question:
-  interleaved RGBA (#2943), H,W,C image layouts and a bilinear remap where
-  JAX ran 2x faster (#2919, #2933), a 4K bitmap rotate (#3569), a 3D grid
-  port (#2744), scatter warnings with `soa` (#2308), and a request to
-  silence intentional gather warnings selectively (#3184). Supports 3.2 and 12.1.1.
+  interleaved RGBA ([#2943](https://github.com/ispc/ispc/discussions/2943)), H,W,C image layouts and a bilinear remap where
+  JAX ran 2x faster ([#2919](https://github.com/ispc/ispc/discussions/2919), [#2933](https://github.com/ispc/ispc/discussions/2933)), a 4K bitmap rotate ([#3569](https://github.com/ispc/ispc/discussions/3569)), a 3D grid
+  port ([#2744](https://github.com/ispc/ispc/discussions/2744)), scatter warnings with `soa` ([#2308](https://github.com/ispc/ispc/discussions/2308)), and a request to
+  silence intentional gather warnings selectively ([#3184](https://github.com/ispc/ispc/discussions/3184)). Supports 3.1 and 12.1.1.
 - **Math accuracy and coverage**: a user expecting C-library ULP bounds
-  (#3212), `log1p`/`expm1` (#3476), `rcp_fast` for double slower than
-  division on Xbox Series X (#3257). Supports 3.3 and 12.1.4.
+  ([#3212](https://github.com/ispc/ispc/discussions/3212)), `log1p`/`expm1` ([#3476](https://github.com/ispc/ispc/discussions/3476)), `rcp_fast` for double slower than
+  division on Xbox Series X ([#3257](https://github.com/ispc/ispc/discussions/3257)). Supports 3.4 and 12.1.4.
 - **Short vectors and HLSL-style code**: `vec2(0, 0)` constructors
-  (#2914), hand-writing every uniform/varying combination of a `Dot`
-  function (#3356), `float3` alignment differing across ISAs (#3447),
-  argmax over `float<4>` (#2323). Supports 9 and 12.6.
+  ([#2914](https://github.com/ispc/ispc/discussions/2914)), hand-writing every uniform/varying combination of a `Dot`
+  function ([#3356](https://github.com/ispc/ispc/discussions/3356)), `float3` alignment differing across ISAs ([#3447](https://github.com/ispc/ispc/discussions/3447)),
+  argmax over `float<4>` ([#2323](https://github.com/ispc/ispc/discussions/2323)). Supports 9 and 12.6.
 - **64-bit lane width**: a double-precision workload that wants i64x4
-  register pressure with AVX-512's 32 registers (#2170), prologue spills of
-  varying structs (#2173). Supports 3.2 and 12.1.3.
-- **Missing SIMD primitives**: movemask (#2632), prefix sum (#2436), sorting
-  many small arrays (#3533). Supports the shuffle, reduction and segmented
+  register pressure with AVX-512's 32 registers ([#2170](https://github.com/ispc/ispc/discussions/2170)), prologue spills of
+  varying structs ([#2173](https://github.com/ispc/ispc/discussions/2173)). Supports 3.3 and 12.1.3.
+- **Missing SIMD primitives**: movemask ([#2632](https://github.com/ispc/ispc/discussions/2632)), prefix sum ([#2436](https://github.com/ispc/ispc/discussions/2436)), sorting
+  many small arrays ([#3533](https://github.com/ispc/ispc/discussions/3533)). Supports the shuffle, reduction and segmented
   reduction items in 12.1.3 and 12.3.3.
-- **AI types**: "Will ispc support bfloat16?" (#3627). Supports 6.1.
-- **Targets**: which target to use for Zen 5 AVX-512 (#3827), a sign that
+- **AI types**: "Will ispc support bfloat16?" ([#3627](https://github.com/ispc/ispc/discussions/3627)). Supports 6.1.
+- **Targets**: which target to use for Zen 5 AVX-512 ([#3827](https://github.com/ispc/ispc/discussions/3827)), a sign that
   target naming and recommended defaults need documenting (section 4).
-- **Build and distribution**: one object file for multiple targets (#3373),
-  macOS universal binaries (#2854, #2046), Python bindings (#2898), stdlib
-  as linkable bitcode (#2194), MinGW linking (#3313, #2356). Supports 5.4
+- **Build and distribution**: one object file for multiple targets ([#3373](https://github.com/ispc/ispc/discussions/3373)),
+  macOS universal binaries ([#2854](https://github.com/ispc/ispc/discussions/2854), [#2046](https://github.com/ispc/ispc/discussions/2046)), Python bindings ([#2898](https://github.com/ispc/ispc/discussions/2898)), stdlib
+  as linkable bitcode ([#2194](https://github.com/ispc/ispc/discussions/2194)), MinGW linking ([#3313](https://github.com/ispc/ispc/discussions/3313), [#2356](https://github.com/ispc/ispc/discussions/2356)). Supports 5.4
   and 12.6.5.
 
 Two further discussion topics are retained as future candidates in 12.7:
-bringing back C++-with-intrinsics output (#2722, #2644), and automatic
-differentiation through Enzyme (#3371). Nothing in discussions mentions AMX,
+bringing back C++-with-intrinsics output ([#2722](https://github.com/ispc/ispc/discussions/2722), [#2644](https://github.com/ispc/ispc/discussions/2644)), and automatic
+differentiation through Enzyme ([#3371](https://github.com/ispc/ispc/discussions/3371)). Nothing in discussions mentions AMX,
 ACE or AVX10.2.
 
 Of about 480 commits in the last year, roughly 35% were CI, 21% LLVM upgrade
@@ -157,10 +159,13 @@ measurements; use time spent on failures and releases to estimate savings.
   fp16 types are load, store and convert only; compute goes through widening
   multiply-accumulate ops. Its strengths include build integration and target breadth;
   it offers a different explicit-SIMD programming model.
-- **C++26 std::simd** reduces the installation and integration advantage
-  of a separate compiler for suitable kernels. Implementation coverage
-  varies by toolchain; reassess it during the year rather than assuming
-  competition starts in a particular future year.
+- **C++26 std::simd.** The original October 2026 survey reported a partial
+  GCC 16 libstdc++ implementation, no libc++/MSVC implementation, and gaps
+  in math, bit operations and permutes. Preserve this toolchain-coverage
+  question when evaluating alternatives; the snapshot needs rechecking
+  against current releases. Standard-library SIMD reduces installation and
+  integration friction for suitable kernels. Coverage gaps do not establish
+  a date before which it cannot compete with ISPC.
 - **Mojo** has first-class `bfloat16` and six fp8 dtypes including the MX
   scale format. **Slang** and **MLIR** win on generics, modules and AI
   relevance.
@@ -181,6 +186,16 @@ distinction between source checks and research notes carried forward.
 | 3a | BF16 storage/conversions, FP32 compute and accumulation, and one useful kernel | Engineer owns semantics, compiler and ABI; intern assists workload integration. | Documented numerical contract, conversion/edge-case coverage, supported memory interop, and a kernel compared with an independent reference. |
 | 3b | One bounded AI optimization experiment | Intern, with engineer review; requires the performance corpus and legal transformation alternatives. | Reproducible comparison with existing and simple tuned heuristics on held-out workloads; ship only if the evidence justifies it. A negative result is acceptable. |
 | Supporting work | Fix specific customer/interop blockers and maintain supported releases | Engineer; named consumer or demonstrated failure. | Consuming build or kernel works, with a regression check and bounded scope. |
+
+The detailed proposals behind these outcomes are:
+
+| Direction | Concrete features and issue context |
+|---|---|
+| Performance | Gather/scatter coalescing and addressing; bool/mask and loop codegen; division/modulo; i64 and narrow-integer widths; popcnt and permutes; math accuracy and transcendentals; real-kernel tracking. Detailed issues: sections 3.1-3.5. |
+| Intel hardware | DMR/NVL width and APX codegen, AVX10.2 instruction exposure, ACE capability detection, vector-fed outer products and tile/BSR management. Core design: sections 4-5; expanded surface: sections 12.2 and 12.3.4. |
+| AI language/programming model | BF16, FP8/sub-byte storage and conversions, dot products, segmented/widening reductions, byte LUTs, typed tiles and framework interop. Sections 6-7 and 12.3-12.4/12.6.6 retain the full scope. |
+| AI compiler research | Offline pipelines, differential fuzzing, fitted cost models, width advice, an intrinsics porting agent, verified peepholes, MLGO and ISPC-Bench. Section 8 selects one experiment; section 12.5 retains the individual proposals and rationale. |
+| Language and adoption | HLSL-style vectors, template completion, `constexpr`, C++ layout/headers, small language quality fixes, packaging and embedding. Issues affecting annual work: section 9; full proposal: section 12.6. |
 
 These are shared workstreams: the BF16 kernel contributes to the performance
 corpus; the ACE surface is one project, not a second generic tile project;
@@ -203,9 +218,119 @@ and do not make a core release dependent on year-round intern capacity.
 AI assistance creates contingency; it is not counted as another reviewer
 or an additional engineering FTE.
 
-## 3. Performance: measure, select, fix
+## 3. Performance: issues, proposals and measurement
 
-### 3.1 Establish baselines first
+Performance is the primary reason to choose ISPC. The original issue lists
+and technical proposals are kept here so the annual priorities have a
+concrete basis. They describe the candidate work, not a promise to complete
+every item in one year.
+
+Start with the baselines in section 3.6, then select two or three fixes
+using section 3.7. Narrow-integer or ABI problems that block a selected
+kernel can move ahead of a larger gather project. Section 12.1 identifies
+the broader redesigns and coverage expansions that remain deferred.
+
+### 3.1 Gather/scatter lowering
+
+User context: interleaved RGBA (Discussion [#2943](https://github.com/ispc/ispc/discussions/2943)), H,W,C image layouts
+and bilinear remapping ([#2919](https://github.com/ispc/ispc/discussions/2919), [#2933](https://github.com/ispc/ispc/discussions/2933)), bitmap rotation ([#3569](https://github.com/ispc/ispc/discussions/3569)) and 3D
+grids ([#2744](https://github.com/ispc/ispc/discussions/2744)) all expose the cost of mapping application layouts onto
+SIMD memory operations. Reports about `soa` scatters ([#2308](https://github.com/ispc/ispc/discussions/2308)) and
+intentional-gather warnings ([#3184](https://github.com/ispc/ispc/discussions/3184)) also show a need to explain when
+the compiler can turn accesses into contiguous loads/stores.
+
+The oldest open performance issues are all here: [#304](https://github.com/ispc/ispc/issues/304) and [#330](https://github.com/ispc/ispc/issues/330) (coalescing),
+[#1256](https://github.com/ispc/ispc/issues/1256) (index scale immediate), [#1531](https://github.com/ispc/ispc/issues/1531), [#1581](https://github.com/ispc/ispc/issues/1581) (16-bit indices), [#2778](https://github.com/ispc/ispc/issues/2778) (same
+type source and destination), [#2899](https://github.com/ispc/ispc/issues/2899) (performance warning), [#3153](https://github.com/ispc/ispc/issues/3153)
+(`--opt=disable-gathers` failures on 32-wide targets).
+`GatherCoalescePass` has TODOs at lines 851 and 970 about conservative store
+handling and pseudo-call metadata, and `ImproveMemoryOps` predates many LLVM
+improvements.
+
+- Redesign gather coalescing around address-expression analysis (base plus
+  per-lane offset decomposition, stride and permutation detection) rather
+  than pattern matching, and cover the store side.
+- Avoid gathers when the index is a known permutation of a contiguous block
+  ([#2778](https://github.com/ispc/ispc/issues/2778)), emitting a load plus shuffle instead.
+- Improve narrow-index codegen and scaled addressing. On x86, hardware
+  gather indices are 32 or 64 bits; retain 16-bit values before extension
+  where profitable rather than assuming a 16-bit-index gather instruction.
+- Emit `llvm.masked.load/store/gather/scatter` and
+  `llvm.experimental.vector.compress` where LLVM now lowers them well, and
+  retire the matching ISPC pseudo builtins after semantic and performance
+  checks. Verify intrinsic names in the chosen LLVM baseline. This may
+  shrink LLVM-upgrade cost; it is not a prerequisite for initial fixes.
+- The gather-versus-shuffle-versus-scalarize choice is the first candidate
+  for a fitted cost model (section 8.3).
+
+### 3.2 Mask and control-flow codegen
+
+This work targets the overhead of expressing irregular computation as
+SPMD: masks, branches and loop bookkeeping can remain expensive even when
+the arithmetic itself vectorizes well. The original candidate fixes are:
+
+- Bool and mask representation on AVX2 and AVX-512 ([#2920](https://github.com/ispc/ispc/issues/2920)). Use
+  `llvm.vector.reduce.and/or` for coherent-control-flow tests ([#1338](https://github.com/ispc/ispc/issues/1338)).
+- Masked execution versus branch-around for divergent `if`: today the choice
+  is a fixed heuristic plus `cif`. Measure it across divergence rates and
+  targets, then evaluate a cost model as an extension of section 8.3.
+  Define which inputs are static and which would require profiling.
+- Varying integer division and modulo ([#3000](https://github.com/ispc/ispc/issues/3000), [#3001](https://github.com/ispc/ispc/issues/3001)): magic-number sequences
+  for uniform divisors, better vectorized fallback otherwise.
+- Inlining heuristics and code bloat ([#3804](https://github.com/ispc/ispc/issues/3804)), and stopping LLVM from
+  replacing vector loops with libc calls ([#3241](https://github.com/ispc/ispc/issues/3241)).
+- Loop overheads ([#3455](https://github.com/ispc/ispc/issues/3455)): mask recomputation, induction variable widening,
+  unroll decisions.
+
+### 3.3 Lane-width gaps
+
+The demand includes double-precision code seeking i64x4-like register
+pressure with AVX-512's 32 registers (Discussion [#2170](https://github.com/ispc/ispc/discussions/2170)), and prologue
+spills of varying structs ([#2173](https://github.com/ispc/ispc/discussions/2173)). Inference adds a different pressure:
+byte/nibble unpacking and packed dot products need good narrow-integer
+codegen. These motivate separate cases rather than one preferred width.
+
+- `avx2-i64x8` double-pumped target ([#2903](https://github.com/ispc/ispc/issues/2903), the top-voted codegen issue).
+- Investigate the reported restriction to ymm for 64-bit values on
+  `avx512-x8` targets ([#3161](https://github.com/ispc/ispc/issues/3161)) against current LLVM/ISPC codegen.
+- Varying 8-bit and 16-bit codegen ([#2901](https://github.com/ispc/ispc/issues/2901)), `popcnt` ([#3676](https://github.com/ispc/ispc/issues/3676)), `shuffle`
+  ([#3771](https://github.com/ispc/ispc/issues/3771)) lowered to native permutes, short-vector shuffle, rotate and shift
+  ([#3446](https://github.com/ispc/ispc/issues/3446)).
+
+### 3.4 Math library
+
+Users ask for C-library-like accuracy expectations (Discussion [#3212](https://github.com/ispc/ispc/discussions/3212)),
+`log1p`/`expm1` coverage ([#3476](https://github.com/ispc/ispc/discussions/3476)), and an explanation of cases such as
+double `rcp_fast` running slower than division on Xbox Series X ([#3257](https://github.com/ispc/ispc/discussions/3257)).
+Both accuracy and throughput matter; the proposal connects them through
+the same function/target benchmarks.
+
+- Finish the accuracy audit and publish ULP tables per function and target
+  ([#2236](https://github.com/ispc/ispc/issues/2236)), distinguishing tested-domain maxima from proven error bounds.
+- Complete `float16` math coverage ([#2290](https://github.com/ispc/ispc/issues/2290)); independently useful, but
+  not a prerequisite for BF16 storage, conversion or dot products.
+- Evaluate SVML-style and Sleef-derived kernels for transcendentals on
+  AVX10.2 ([#2906](https://github.com/ispc/ispc/issues/2906), [#3406](https://github.com/ispc/ispc/issues/3406)). Decision criterion: ULP tables plus the
+  benchmarks below.
+
+### 3.5 Performance infrastructure
+
+The original proposal connects isolated codegen fixes to kernels from
+actual ISPC usage. Keep that complete benchmark plan visible:
+
+- Make the daily internal performance run public: a dashboard from the
+  existing tracking job over `benchmarks/`, with per-PR regression gating on
+  a small subset after dedicated-runner stability and noise thresholds
+  are established.
+- Fill `benchmarks/03_complex` (currently empty) with representative
+  kernels: an OIDN-style convolution, a texture compressor block, a ray-box
+  traversal loop, a Chaos-style particle update, and the llama.cpp kernels
+  from section 7. Add x8-versus-x16, bf16 and int8 dot-product microbenchmarks.
+- Publish comparisons against Highway and plain Clang on the same kernels.
+  Initial comparisons belong to the core plan; broad public coverage is
+  the stretch proposal.
+
+### 3.6 Establish baselines first
 
 Start with a small reproducible corpus: one existing customer kernel, one
 memory/control-flow case, and the selected inference kernels from section 7.
@@ -221,12 +346,12 @@ BF16 and packed INT8 microbenchmarks as relevant. Publish reproducible
 results using existing reporting; a full public dashboard and broad per-PR
 gating remain in section 12.1.5.
 
-### 3.2 Select a small set of fixes
+### 3.7 Select and validate the annual fixes
 
 Choose two or three codegen problems by measured workload impact and cost.
 Candidates include gather-to-load/shuffle transformations, mask or loop
 overhead, narrow-integer/shuffle lowering, and avoidable spills. The full
-issue inventory remains in section 12.1. Move a lane-width fix early if it
+issue inventory is in sections 3.1-3.4. Move a lane-width fix early if it
 blocks the chosen customer or inference kernel; issue age and votes alone
 do not set the order.
 
@@ -242,8 +367,6 @@ must not introduce an invalid access. Prototype bounded transformations
 before committing to the broader gather/scatter redesign in section 12.1.1.
 Replacing pseudo builtins with LLVM intrinsics is an independently measured
 implementation choice, not a prerequisite.
-
-### 3.3 Acceptance and numerical behavior
 
 For each selected change, record its consuming workload, expected benefit,
 cost estimate, supported targets, regression checks and stop condition.
@@ -289,6 +412,8 @@ to x8** (`src/ispc.cpp`, target selection and default target strings).
 - **Recommend widths from evidence.** Document the measured choice per
   workload/CPU family. Consider changing NVL's default and the recommended
   game-engine multi-target set only after representative hardware results.
+  The original adoption example is the commonly used `sse4`, `avx2`,
+  `avx512skx` set extended with `avx10.2nvl-x16` for new clients.
   ACE's use of ZMM operands does not require unrelated kernels to use x16.
 - **Audit relevant existing codegen.** The signed-signed/unsigned-unsigned
   INT8 and unsigned/mixed INT16 packed dot families already have stdlib
@@ -300,8 +425,25 @@ to x8** (`src/ispc.cpp`, target selection and default target strings).
   migration. Treat necessary changes as maintenance, with the affected
   LLVM revision and path recorded.
 
-The broader APX audit and AVX10.2 instruction exposure proposals are retained
-in section 12.2. BF16 lowering belongs to section 6.
+The APX investigation has three specific hypotheses from the original
+proposal: EGPR may relieve scalar/address-register spills in wide gangs;
+NDD/NF may shorten mask arithmetic; CCMP may improve mask tests. Inspect
+the generated instructions and benchmark the affected kernel before
+generalizing those benefits. Lit tests should preserve confirmed codegen
+improvements.
+
+The AVX10.2 exposure proposal includes BF16 arithmetic (`VADDBF16`,
+`VFMADD*BF16`, `VCMPBF16`, `VSQRTBF16`, `VRNDSCALEBF16`), FP16/FP8
+conversions (`VCVT[BIAS]PH2{BF8,HF8}[S]`, `VCVTHF82PH`), FP16 pair dots
+(`VDPPHPS`), saturating converts and minmax. These connect new hardware to
+the AI types and primitives, rather than simply adding another target name.
+BF16 lowering belongs to section 6; the wider instruction surface remains
+deferred in section 12.2.
+
+The feature-name concern came from Clang 21 release notes describing
+`avx10.x-256`, `avx10.x-512`/`evex512` deprecation. Preserve that motivation
+for checking compatibility, but identify remaining uses and the LLVM
+version affected before scheduling migration work.
 
 Use AVX2 and AVX-512 hardware for current performance baselines, including
 Granite Rapids for its supported features. Granite Rapids is not an
@@ -419,7 +561,27 @@ GEMM with a fused epilogue and a scalar reference. It shares infrastructure
 with sections 3 and 7. MX operations, x32 mapping, a generic `tile<T>` and
 broader portable lowering remain in section 12.3.4.
 
-Resolve these requirements in the design:
+**Draft API shape from the original proposal.** These are design signatures;
+the exact ISPC reference syntax and names still need to be settled.
+
+| Operation | Proposed shape and meaning |
+|---|---|
+| Accumulator | Opaque `uniform tile_i32` or `uniform tile_f32`; `tile_zero` initializes it. |
+| INT8 outer product | `tile_op4_ss/su/us/uu(tile&, varying int32 a, varying int32 b)`: each 32-bit lane holds four packed bytes; one operand supplies rows and the other columns. |
+| BF16 outer product | `tile_op2bf16` takes two packed BF16 values per 32-bit lane and accumulates into FP32 tile elements. |
+| Readback | `tile_getrow(uniform int r)` returns a varying row from the selected tile; on x16 its 16 FP32/INT32 elements map to the gang. The final signature also identifies the source tile. |
+| Vector-to-tile transfer | `tile_setrow` and `tile_setcol` write varying values into a selected row or column. |
+| MX extension, deferred | `tile_op4mx*` with scale-group selectors; `bsr_set(varying uint32 a_scales, varying uint32 b_scales)` supplies two packed 512-bit scale vectors. Immediate selectors require constants, not merely uniform values. |
+
+The intended source-level benefit is concrete: dequantization/unpacking
+produces vector operands, the outer products update tile accumulators,
+and row readback feeds vector activation/requantization. This avoids the
+explicit store-and-reload idiom seen in OIDN's current AMX accumulator
+handling. The compiler manages palette-2 configuration and release; users
+should not hand-build the fixed 64-byte palette descriptor. Performance
+and the FP16/BF16 numerical mismatch still need the checks in section 5.3.
+
+**Design corrections and open questions.** Resolve these requirements:
 
 - **Execution and masks.** Define ACE operations as gang collectives with
   uniform control flow for the initial surface. Define or reject invocation
@@ -498,10 +660,17 @@ integration fix; additional target development remains deferred.
 
 ## 6. AI in the language: BF16 and a usable kernel
 
-Evidence includes the bfloat16 request (#2361 and Discussion #3627),
-BF16-oriented inference paths, and the ACE BF16 operation. OIDN is an
-existing AI customer, but its current FP16 kernel is not evidence that
-conversion to BF16 is numerically acceptable.
+The original motivation combines three sources: OIDN demonstrates that a
+production CPU neural network can use ISPC; llama.cpp exposes block-quantized
+INT4/INT8 kernels with FP16 scales and BF16 GEMM paths; and Highway/Mojo
+already provide low-precision types that AI developers expect. The direct
+ISPC requests are [#2361](https://github.com/ispc/ispc/issues/2361) (`bfloat16` type) and Discussion [#3627](https://github.com/ispc/ispc/discussions/3627).
+
+BF16 support lets a kernel consume and produce the framework's stored
+format while doing sensitive accumulation in FP32. It also connects to
+the ACE BF16 operation. OIDN's existing FP16 kernel provides programming-
+model experience, but converting it to BF16 requires a separate numerical
+quality decision.
 
 ### 6.1 `bfloat16` semantics and first milestone
 
@@ -547,6 +716,17 @@ Already implemented: `dot4add_u8i8packed`, `dot4add_i8i8packed`,
 `dot4add_u8u8packed`, `dot2add_i16i16packed`, `dot2add_u16i16packed`,
 `dot2add_u16u16packed`, and their saturating variants. Check their native
 lowering and portable fallbacks in the selected kernels.
+
+The original proposal's primitive gaps and their purpose remain:
+
+| Primitive | Hardware/data-model connection | Status |
+|---|---|---|
+| Packed INT8/INT16 dots | Four byte products or two 16-bit products per 32-bit lane; signedness and saturating variants map to the appropriate VNNI forms. | Already implemented; audit code quality and fallbacks. |
+| BF16 pair dot | `VDPBF16PS` on suitable AVX-512 CPUs, including SPR/GNR, and AVX10.2 forms on DMR/NVL; FP32 accumulation. | Part of the BF16 work. |
+| FP16 pair dot | `VDPPHPS`, for FP16 inputs and FP32 accumulation. | Retained expansion in 12.3.3. |
+| Segmented reductions | Sum per 4, 8 or 16 lanes for block-quantized per-block results; avoid hand-written combinations of whole-gang `reduce_add` and shuffles. | Retained expansion; measure against existing idioms. |
+| Widening reductions | Horizontal INT8/INT16 sums into INT32, with explicit overflow behavior. | Retained expansion in 12.3.3. |
+| Byte LUT and unpack helpers | `pshufb`/`VPERMB`-style codebooks and packed low-bit weights otherwise awkward to express as lane-wise code. | Add for a demonstrated kernel need; full family in 12.3. |
 
 BF16 pair dots belong to section 6.1. FP16 pair dots, segmented reductions,
 widening reductions, byte LUT helpers and sub-byte pack/unpack are retained
@@ -621,7 +801,7 @@ decompression, autotuned per matrix shape.
   segmented reductions retained in 12.3.3 may help for per-block sums.
 - **Table lookups.** IQ formats and the `iq4nl` codebook use `pshufb`-style
   in-register byte LUTs. Check whether current ISPC lowering introduces
-  gathers and whether a byte-shuffle helper is needed (ties to #3771).
+  gathers and whether a byte-shuffle helper is needed (ties to [#3771](https://github.com/ispc/ispc/issues/3771)).
 - **Threading and interop.** ggml owns the threadpool, so ISPC kernels must
   be exported per-chunk functions with no `launch`. Block structs
   (`block_q4_0` with `ggml_half`) are mirrored as ISPC structs or passed as
@@ -631,6 +811,14 @@ decompression, autotuned per matrix shape.
   multi-target binary versus `GGML_CPU_ALL_VARIANTS` is a useful comparison.
 
 ### 7.3 Bounded annual exploration
+
+The full original exploration has a deliberate progression: simple Q4_0
+and Q8_0 dot products calibrate the compiler against a small AVX2 intrinsic
+path; Q4_K/Q6_K then stress packed scales and VNNI; repacked Q4_K GEMM
+tests register tiling and the tile API; softmax, rms_norm, swiglu and
+attention cover the surrounding vector computation. The complete named
+kernel list, stage B design and model-level measurements remain in
+[section 12.4]([#124](https://github.com/ispc/ispc/issues/124)-expanded-llamacpp-exploration-and-integration).
 
 Start with `ggml_vec_dot_q4_0_q8_0` as a packed-integer calibration point,
 plus one BF16-relevant kernel (conversion plus FP32 normalization, a fused
@@ -744,6 +932,18 @@ speedups are workload-specific and are not ISPC benefit estimates:
 
 ### 8.3 Selected experiment and stop condition
 
+The original proposal ranked offline pass-pipeline tuning first,
+differential fuzzing second and fitted cost models third, followed by
+width prediction, the porting agent, verified peepholes and MLGO retraining.
+Its rationale was that offline artifacts could improve generated code
+without expensive inference during compilation, while fuzzing could catch
+silent miscompiles before users. Those alternatives and their original
+rough effort estimates are preserved in section 12.5.
+
+The revised choice connects the experiment directly to an active measured
+performance problem. It changes the annual selection; it does not discard
+the original research directions.
+
 Preferred project: a fitted decision table/model for choosing among legal
 gather/load-shuffle/scalarization alternatives exposed by the performance
 work. Start with one target family and an established correctness oracle.
@@ -786,6 +986,31 @@ and keep the initial ACE tile surface internal to a kernel. Small
 short-vector stdlib additions or template bug fixes can be admitted for a
 specific customer within the same budget.
 
+The issues that motivated this direction remain relevant to selecting
+customer fixes:
+
+- **Shared C++ headers and ABI.** OSPRay uses `#ifdef ISPC` shared headers,
+  while the reported UE pain involves struct layout. Document guaranteed
+  compatibility; investigate return-by-value/pointer ABI issues [#1590](https://github.com/ispc/ispc/issues/1590),
+  [#1855](https://github.com/ispc/ispc/issues/1855) and [#2344](https://github.com/ispc/ispc/issues/2344), multi-target header naming [#1666](https://github.com/ispc/ispc/issues/1666), optional emission of
+  unused structs [#2277](https://github.com/ispc/ispc/issues/2277), and short-vector header emission [#2016](https://github.com/ispc/ispc/issues/2016)/[#1679](https://github.com/ispc/ispc/issues/1679).
+- **HLSL-style short vectors.** Swizzle writes ([#17](https://github.com/ispc/ispc/issues/17)), constructors ([#1279](https://github.com/ispc/ispc/issues/1279)),
+  geometric functions ([#1670](https://github.com/ispc/ispc/issues/1670)), layout/padding ([#3106](https://github.com/ispc/ispc/issues/3106)), matrices ([#2252](https://github.com/ispc/ispc/issues/2252)),
+  `soa<>` interaction ([#243](https://github.com/ispc/ispc/issues/243)), struct-reference crashes ([#2766](https://github.com/ispc/ispc/issues/2766)), and
+  shuffle/rotate/shift ([#3446](https://github.com/ispc/ispc/issues/3446)) are separate requests. The full examples,
+  existing behavior and six-step feature proposal are in section 12.6.1.
+- **Templates and compile-time code.** Preserve the concrete bug set
+  [#3016](https://github.com/ispc/ispc/issues/3016), [#3025](https://github.com/ispc/ispc/issues/3025), [#3040](https://github.com/ispc/ispc/issues/3040), [#3232](https://github.com/ispc/ispc/issues/3232) and [#3240](https://github.com/ispc/ispc/issues/3240), default arguments and specialization
+  deduction, struct templates, and `constexpr` ([#3697](https://github.com/ispc/ispc/issues/3697)). Fix a blocker early;
+  the broader extensions remain in section 12.6.2.
+- **Installation and embedding.** PyPI ([#3741](https://github.com/ispc/ispc/issues/3741)), vcpkg ([#1305](https://github.com/ispc/ispc/issues/1305)), library/JIT
+  use ([#791](https://github.com/ispc/ispc/issues/791)) and a single multi-target object ([#1850](https://github.com/ispc/ispc/issues/1850)) address different
+  integration costs. Existing libispc support changes the remaining work
+  for [#791](https://github.com/ispc/ispc/issues/791); it does not erase the original adoption need.
+- **Language quality.** `auto` ([#2310](https://github.com/ispc/ispc/issues/2310)), explicit bitcast syntax ([#1809](https://github.com/ispc/ispc/issues/1809)),
+  missing-return warnings ([#1708](https://github.com/ispc/ispc/issues/1708)), and consistent signed/unsigned
+  conversions ([#2714](https://github.com/ispc/ispc/issues/2714)) remain individually scoped proposals.
+
 The complete HLSL-vector proposal, template extensions, `constexpr`,
 header-sharing improvements, quality items, packaging/embedding and
 framework examples are retained in section 12.6. They are independently
@@ -799,7 +1024,7 @@ the missing behavior or support contract.
   and reserve time for correctness regressions. Reduce recurring work using
   measured improvements to existing infrastructure.
 - **ISPCRT.** Keep security, build and current-consumer support. Review the
-  in-flight load-from-memory work (#3900) with its consumer. A subsequent
+  in-flight load-from-memory work ([#3900](https://github.com/ispc/ispc/pull/3900)) with its consumer. A subsequent
   freeze/deprecation decision is retained in section 12.7 and depends on
   remaining users and migration cost.
 - **Xe GPU.** Keep the opt-in build and existing CI functional; no new
@@ -842,83 +1067,52 @@ intended outcome is preserved without duplicating implementation.
 
 ### 12.1 Broader performance program
 
-The original performance inventory follows. Select individual items through
-section 3; the full redesign, coverage and infrastructure program is not
-committed for this year.
+The detailed issue descriptions and implementation proposals are in
+sections 3.1-3.5. The following larger scopes remain deferred after the
+selected annual fixes; the links keep each proposal next to its evidence.
 
 #### 12.1.1 Gather/scatter lowering
 
-The oldest open performance issues are all here: #304 and #330 (coalescing),
-#1256 (index scale immediate), #1531, #1581 (16-bit indices), #2778 (same
-type source and destination), #2899 (performance warning), #3153
-(`--opt=disable-gathers` failures on 32-wide targets).
-`GatherCoalescePass` has TODOs at lines 851 and 970 about conservative store
-handling and pseudo-call metadata, and `ImproveMemoryOps` predates many LLVM
-improvements.
-
-- Redesign gather coalescing around address-expression analysis (base plus
-  per-lane offset decomposition, stride and permutation detection) rather
-  than pattern matching, and cover the store side.
-- Avoid gathers when the index is a known permutation of a contiguous block
-  (#2778), emitting a load plus shuffle instead.
-- Improve narrow-index codegen and scaled addressing. On x86, hardware
-  gather indices are 32 or 64 bits; retain 16-bit values before extension
-  where profitable rather than assuming a 16-bit-index gather instruction.
-- Emit `llvm.masked.load/store/gather/scatter` and
-  `llvm.experimental.vector.compress` where LLVM now lowers them well, and
-  retire the matching ISPC pseudo builtins after semantic and performance
-  checks. Verify intrinsic names in the chosen LLVM baseline. This may
-  shrink LLVM-upgrade cost; it is not a prerequisite for initial fixes.
-- The gather-versus-shuffle-versus-scalarize choice is the first candidate
-  for a fitted cost model (section 8.3).
+Defer the full address-expression-based redesign across gathers and stores,
+including general stride/permutation detection and broad migration from
+pseudo builtins to LLVM intrinsics. Individual profitable transformations
+can ship earlier. See [gather/scatter issues and design]([#31](https://github.com/ispc/ispc/issues/31)-gatherscatter-lowering)
+for [#304](https://github.com/ispc/ispc/issues/304), [#330](https://github.com/ispc/ispc/issues/330), [#1256](https://github.com/ispc/ispc/issues/1256), [#1531](https://github.com/ispc/ispc/issues/1531), [#1581](https://github.com/ispc/ispc/issues/1581), [#2778](https://github.com/ispc/ispc/issues/2778), [#2899](https://github.com/ispc/ispc/issues/2899) and [#3153](https://github.com/ispc/ispc/issues/3153), and the
+connections to user memory-layout reports.
 
 #### 12.1.2 Mask and control-flow codegen
 
-- Bool and mask representation on AVX2 and AVX-512 (#2920). Use
-  `llvm.vector.reduce.and/or` for coherent-control-flow tests (#1338).
-- Masked execution versus branch-around for divergent `if`: today the choice
-  is a fixed heuristic plus `cif`. Measure it across divergence rates and
-  targets, then evaluate a cost model as an extension of section 8.3.
-  Define which inputs are static and which would require profiling.
-- Varying integer division and modulo (#3000, #3001): magic-number sequences
-  for uniform divisors, better vectorized fallback otherwise.
-- Inlining heuristics and code bloat (#3804), and stopping LLVM from
-  replacing vector loops with libc calls (#3241).
-- Loop overheads (#3455): mask recomputation, induction variable widening,
-  unroll decisions.
+Retain the full bool/mask representation work, coherent-control-flow
+reductions, division/modulo lowering, inlining/code-size tuning, vector
+loop preservation and loop-overhead program. The annual plan selects
+measured cases from [the detailed list]([#32](https://github.com/ispc/ispc/issues/32)-mask-and-control-flow-codegen).
+Learned masked-versus-branch decisions are a separate research extension
+in section 12.5.3.
 
 #### 12.1.3 Lane-width gaps
 
-- `avx2-i64x8` double-pumped target (#2903, the top-voted codegen issue).
-- Investigate the reported restriction to ymm for 64-bit values on
-  `avx512-x8` targets (#3161) against current LLVM/ISPC codegen.
-- Varying 8-bit and 16-bit codegen (#2901), `popcnt` (#3676), `shuffle`
-  (#3771) lowered to native permutes, short-vector shuffle, rotate and shift
-  (#3446).
+Retain `avx2-i64x8`, the AVX-512 x8/64-bit investigation, and broad 8/16-bit,
+popcnt, native permute and short-vector shuffle/rotate/shift coverage.
+See [lane-width issues and workloads]([#33](https://github.com/ispc/ispc/issues/33)-lane-width-gaps). A blocker for
+the selected inference or customer kernel can move into the annual work;
+the rest of the target/operation matrix remains a separate scope.
 
 #### 12.1.4 Math library
 
-- Finish the accuracy audit and publish ULP tables per function and target
-  (#2236), distinguishing tested-domain maxima from proven error bounds.
-- Complete `float16` math coverage (#2290); independently useful, but
-  not a prerequisite for BF16 storage, conversion or dot products.
-- Evaluate SVML-style and Sleef-derived kernels for transcendentals on
-  AVX10.2 (#2906, #3406). Decision criterion: ULP tables plus the
-  benchmarks below.
+Retain the full per-function/per-target accuracy audit and published ULP
+tables ([#2236](https://github.com/ispc/ispc/issues/2236)), complete FP16 math ([#2290](https://github.com/ispc/ispc/issues/2290)), and SVML-style/Sleef-derived
+AVX10.2 transcendental evaluation ([#2906](https://github.com/ispc/ispc/issues/2906), [#3406](https://github.com/ispc/ispc/issues/3406)). See
+[the user requests and proposed work]([#34](https://github.com/ispc/ispc/issues/34)-math-library). The annual plan
+covers functions needed by its selected kernels first.
 
 #### 12.1.5 Performance infrastructure
 
-- Make the daily internal performance run public: a dashboard from the
-  existing tracking job over `benchmarks/`, with per-PR regression gating on
-  a small subset after dedicated-runner stability and noise thresholds
-  are established.
-- Fill `benchmarks/03_complex` (currently empty) with representative
-  kernels: an OIDN-style convolution, a texture compressor block, a ray-box
-  traversal loop, a Chaos-style particle update, and the llama.cpp kernels
-  from section 7. Add x8-versus-x16, bf16 and int8 dot-product microbenchmarks.
-- Publish comparisons against Highway and plain Clang on the same kernels.
-  Initial comparisons belong to the core plan; broad public coverage is
-  the stretch proposal.
+Retain the full public dashboard over the daily tracking job and per-PR
+regression gating, plus broad customer-kernel coverage and public
+Highway/Clang comparisons. The OIDN convolution, texture compression,
+ray-box traversal, Chaos-style particle update and llama.cpp benchmark
+list is in [section 3.5]([#35](https://github.com/ispc/ispc/issues/35)-performance-infrastructure). Start with the
+small annual corpus, then expand reporting and coverage as capacity allows.
 
 ### 12.2 Broader hardware exposure
 
@@ -955,8 +1149,10 @@ contract is settled, and implementation plus target maintenance fits.
 
 #### 12.3.1 Native BF16 arithmetic
 
-Extend the uniform/varying BF16 type to native AVX10.2 arithmetic with
-software lowering elsewhere. Preserve the proposed widen-operate-narrow
+Extend the uniform/varying BF16 type to native AVX10.2 arithmetic through
+the `V*BF16` instructions. The original portable proposal promotes inputs
+to `float`, computes there and demotes the result. Preserve that
+widen-operate-narrow
 fallback as a candidate implementation, but verify rounding, contraction,
 subnormal and exceptional-value behavior against the language contract.
 Expand constant folding, debug info and header/ABI support with the surface.
@@ -997,6 +1193,15 @@ Retain the original larger proposal: `uniform tile<T>` or opaque
 `tile_getrow`, `tile_setrow`, `tile_setcol`, and `bsr_set` scale loading.
 MX group selectors must be compile-time constants where encoded as
 immediates. Resolve BSR layout/API dependencies with LLVM PR 208706.
+
+The original model is a fixed 16x16 accumulator fed from vector registers:
+load or unpack the input vectors, perform repeated outer products, then
+consume rows directly for activation or requantization. On x16, a
+`varying int32` contains four packed INT8 values per lane and a
+`varying uint32` can hold a BF16 pair. `bsr_set` takes two varying
+`uint32` vectors holding packed row/column scales. This is the motivation
+for sharing normal ISPC preprocessing and epilogues with tile computation.
+The low-level design signatures are restored in section 5.2.
 
 Extend beyond x16 to x32 through an explicit subgroup/operand and row
 readback design. The original goal of removing the
@@ -1063,6 +1268,21 @@ Admission: one experiment at a time, an independent correctness mechanism,
 held-out evaluation and explicit engineering/review capacity. Labels such
 as "intern project" do not establish an effort estimate.
 
+The original ordering and rough sizing are retained below as proposal
+context, not validated estimates or promises of simultaneous projects.
+Detailed methods follow the table.
+
+| Original rank | Project | Original sizing/fit | Motivation |
+|---|---|---|---|
+| 1 | Offline-tuned pass pipelines | Small to medium; intern candidate | ISPC owns `src/opt.cpp`; offline search could produce a better fixed pipeline without runtime model inference. |
+| 2 | LLM differential fuzzer | Medium; intern candidate | Pass-aware generation and existing yarpgen CI could expose silent [#3882](https://github.com/ispc/ispc/issues/3882)-like miscompiles earlier. |
+| 3 | Fitted masking/gather cost models | Medium; intern candidate | Directly addresses the gather and control-flow decisions in sections 3.1 and 3.2. |
+| 4 | Width predictor | Medium | Helps users choose x8/x16/x32 based on kernel behavior, initially through advice. |
+| 5 | Intrinsics-to-ISPC porting agent | Medium; adoption/visibility | A migration path for studios with SSE/AVX2 kernels seeking AVX10.2 and ARM support. |
+| 6 | LLM-proposed, verified peepholes | Medium; research/intern candidate | Exploit recurring mask/gather IR patterns while keeping reviewed transformations in the compiler. |
+| 7 | Speed-oriented MLGO retraining | Large; training infrastructure | ISPC's stdlib-heavy, already-vectorized IR differs from the corpus behind Google's size-oriented inliner. |
+| Companion | ISPC-Bench | Medium; pairs with the porting agent | Make CPU SIMD kernel generation measurable, reuse the kernels as data, and improve visibility of ISPC as a generation target. |
+
 #### 12.5.1 Offline-tuned pass pipelines
 
 Search ISPC's `src/opt.cpp` pass order and parameters offline. Start with a
@@ -1079,11 +1299,12 @@ the core fitted-model experiment under section 8.3.
 Use the WhiteFox/Fuzz4All approach: seed a generator with ISPC grammar and
 selected pass sources (mask ops, gather coalescing, uniform/varying
 analysis); build on yarpgen CI. Compare supported targets, widths and
-optimization levels, using independent references for a defined semantic
+`-O0`/`-O2`, including an independent scalar C reference compiled with
+Clang for a defined semantic
 subset. Scalar C must model ISPC collectives, masking and integer/FP rules;
 Clang is not automatically an oracle for arbitrary ISPC programs.
 Include minimization, deduplication and human triage. Measure useful
-confirmed bugs and review time; finding #3882-like miscompiles is the goal.
+confirmed bugs and review time; finding [#3882](https://github.com/ispc/ispc/issues/3882)-like miscompiles is the goal.
 
 #### 12.5.3 Wider fitted cost models
 
@@ -1168,24 +1389,24 @@ provides elementwise math and `select`.
 What is missing, with the issues that show the pain:
 
 - Swizzle **writes** (`v.xy = ...`, `v.xyz += ...`) are rejected in
-  `VectorMemberExpr::GetLValue` (#17).
-- Constructors `float4(a, b.xy, c)` and splat `float4(1)`. #1279 was closed
+  `VectorMemberExpr::GetLValue` ([#17](https://github.com/ispc/ispc/issues/17)).
+- Constructors `float4(a, b.xy, c)` and splat `float4(1)`. [#1279](https://github.com/ispc/ispc/issues/1279) was closed
   because `T(args)` is ambiguous with C-style casts in the LALR grammar;
   investigate a production for known vector type names and validate
   compatibility rather than assuming the grammar issue is solved.
 - Predefined `float2/3/4`, `int2/3/4`, `uint*`, `bool*`, `half*` typedefs.
   Must be opt-in (header or flag) because user code already defines them.
 - Layout: `uniform float<3>` is padded to 16 bytes and `uniform float<100>`
-  to 512 (#3106, Discussion #3447 on float3 alignment differing across
+  to 512 ([#3106](https://github.com/ispc/ispc/issues/3106), Discussion [#3447](https://github.com/ispc/ispc/discussions/3447) on float3 alignment differing across
   ISAs). C++ interop needs a 12-byte option, and the header generator does
-  not emit short-vector types at all (#2016, #1679).
+  not emit short-vector types at all ([#2016](https://github.com/ispc/ispc/issues/2016), [#1679](https://github.com/ispc/ispc/issues/1679)).
 - Geometric stdlib: no `dot`, `cross`, `length`, `normalize`, `lerp`,
   `saturate`, `step`, `smoothstep`, `reflect`, `refract`, `any`/`all` on
-  `bool<N>`, or efficient pairwise reduce (#1670).
+  `bool<N>`, or efficient pairwise reduce ([#1670](https://github.com/ispc/ispc/issues/1670)).
 - Matrix types `float3x3`, `float4x4` with `mul`, `transpose`, `inverse`
-  (#2252, 3 reactions).
-- Short vectors inside `soa<>` (#243), crash with short-vector references in
-  structs (#2766), shuffle/rotate/shift on uniform short vectors (#3446).
+  ([#2252](https://github.com/ispc/ispc/issues/2252), 3 reactions).
+- Short vectors inside `soa<>` ([#243](https://github.com/ispc/ispc/issues/243)), crash with short-vector references in
+  structs ([#2766](https://github.com/ispc/ispc/issues/2766)), shuffle/rotate/shift on uniform short vectors ([#3446](https://github.com/ispc/ispc/issues/3446)).
 
 Retained feature sequence, with each step independently scoped and admitted:
 
@@ -1206,10 +1427,10 @@ Retained feature sequence, with each step independently scoped and admitted:
 #### 12.6.2 Templates and compile-time evaluation
 
 - Default template arguments and deduction in specializations (documented
-  as planned); fix the open template bugs (#3016, #3025, #3040, #3232,
-  #3240). Struct templates can support a general `tile<T>` abstraction;
+  as planned); fix the open template bugs ([#3016](https://github.com/ispc/ispc/issues/3016), [#3025](https://github.com/ispc/ispc/issues/3025), [#3040](https://github.com/ispc/ispc/issues/3040), [#3232](https://github.com/ispc/ispc/issues/3232),
+  [#3240](https://github.com/ispc/ispc/issues/3240)). Struct templates can support a general `tile<T>` abstraction;
   the initial opaque fixed-shape API does not depend on them.
-- `constexpr` per the design proposal in #3697, for more expressive tile
+- `constexpr` per the design proposal in [#3697](https://github.com/ispc/ispc/issues/3697), for more expressive tile
   shapes, block sizes and compile-time dispatch in stdlib code. Existing
   constant-expression checks suffice for the restricted ACE milestone.
 
@@ -1219,25 +1440,25 @@ OSPRay's `#ifdef ISPC` shared-header pattern and the UE struct-layout
 complaints point the same way.
 
 - Document guaranteed layout-compatibility rules.
-- Fix return-by-value and pointer ABI issues (#1590, #1855, #2344).
-- Fix multi-target header naming (#1666); emit unused structs on request
-  (#2277); emit short-vector types (#2016).
+- Fix return-by-value and pointer ABI issues ([#1590](https://github.com/ispc/ispc/issues/1590), [#1855](https://github.com/ispc/ispc/issues/1855), [#2344](https://github.com/ispc/ispc/issues/2344)).
+- Fix multi-target header naming ([#1666](https://github.com/ispc/ispc/issues/1666)); emit unused structs on request
+  ([#2277](https://github.com/ispc/ispc/issues/2277)); emit short-vector types ([#2016](https://github.com/ispc/ispc/issues/2016)).
 
 #### 12.6.4 Small quality items
 
-`auto` (#2310), explicit bitcast syntax (#1809), warning on missing return
-(#1708), consistent signed/unsigned conversions (#2714).
+`auto` ([#2310](https://github.com/ispc/ispc/issues/2310)), explicit bitcast syntax ([#1809](https://github.com/ispc/ispc/issues/1809)), warning on missing return
+([#1708](https://github.com/ispc/ispc/issues/1708)), consistent signed/unsigned conversions ([#2714](https://github.com/ispc/ispc/issues/2714)).
 
 #### 12.6.5 Packaging and embedding
 
-- PyPI (#3741) and an official vcpkg port (#1305) remove the "separate
+- PyPI ([#3741](https://github.com/ispc/ispc/issues/3741)) and an official vcpkg port ([#1305](https://github.com/ispc/ispc/issues/1305)) remove the "separate
   compiler to install" friction. Include release automation, platform
   coverage and ongoing distribution maintenance in the estimate.
-- `libispc` (#791). The JIT and library API already exist in
+- `libispc` ([#791](https://github.com/ispc/ispc/issues/791)). The JIT and library API already exist in
   `src/ispc_impl.cpp` and the docs. Retain stabilization, versioning and
   documentation improvements, but select concrete missing behavior or
   support guarantees with an embedding consumer.
-- Single object for multiple targets (#1850).
+- Single object for multiple targets ([#1850](https://github.com/ispc/ispc/issues/1850)).
 
 #### 12.6.6 Framework interop
 
@@ -1248,18 +1469,18 @@ budget API/version compatibility, layout/conversion and threading tests.
 ### 12.7 Maintenance reductions and target-policy proposals
 
 - **ISPCRT freeze/deprecation.** Retain the proposal to complete the
-  load-from-memory work (#3900), freeze new functionality and assess
+  load-from-memory work ([#3900](https://github.com/ispc/ispc/pull/3900)), freeze new functionality and assess
   deprecation at year end. First confirm remaining consumers and migration
   paths; OSPRay/Open VKL removal alone does not establish that no users remain.
 - **Duplicate pseudo builtins.** Preserve the broader retirement program
   after generic LLVM intrinsic equivalence and performance are established.
-- **Old targets.** Audit i686 (#1865) and the lowest SSE tiers for possible
+- **Old targets.** Audit i686 ([#1865](https://github.com/ispc/ispc/issues/1865)) and the lowest SSE tiers for possible
   removal from release binaries. Measure stdlib build-time/matrix savings,
   assess consumers and define a deprecation/migration policy first.
 - **Other target/research requests from the survey.** Keep ARM SVE/SVE2
-  (#1947), WebAssembly SIMD coverage gaps (#2127), generic SPIR-V (#982),
-  C++-with-intrinsics output (#2722, #2644), and Enzyme automatic
-  differentiation (#3371) visible as future candidates. Verify current
+  ([#1947](https://github.com/ispc/ispc/issues/1947)), WebAssembly SIMD coverage gaps ([#2127](https://github.com/ispc/ispc/issues/2127)), generic SPIR-V ([#982](https://github.com/ispc/ispc/issues/982)),
+  C++-with-intrinsics output ([#2722](https://github.com/ispc/ispc/discussions/2722), [#2644](https://github.com/ispc/ispc/discussions/2644)), and Enzyme automatic
+  differentiation ([#3371](https://github.com/ispc/ispc/discussions/3371)) visible as future candidates. Verify current
   support and a consumer before estimating them. They are not part of the
   year's Intel-hardware commitment or a restart of Xe GPU feature work.
 

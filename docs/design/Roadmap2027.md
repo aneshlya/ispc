@@ -1,6 +1,6 @@
 # ISPC Roadmap: Q4 2026 - Q3 2027
 
-Status: proposal, revision 4 (2026-10-08). Team: one engineer, one intern,
+Status: proposal, revision 5 (2026-10-08). Team: one engineer, one intern,
 AI-assisted development.
 
 Priorities remain: **1. performance; 2. enabling new Intel hardware,
@@ -28,7 +28,7 @@ builds on it.
 Contents:
 
 1. Positioning and evidence
-2. Annual commitments and capacity
+2. Recommended annual commitments
 3. Performance: issues, proposals and measurement
 4. New Intel hardware: Diamond Rapids and Nova Lake
 5. New Intel hardware: ACE
@@ -177,46 +177,152 @@ selected by a consuming workload, correctness and performance evidence,
 hardware requirements, and maintenance cost. See section 13 for the
 distinction between source checks and research notes carried forward.
 
-## 2. Annual commitments and capacity
+## 2. Recommended annual commitments
 
-| Priority | Annual outcome | Owner and dependencies | Acceptance criterion |
-|---|---|---|---|
-| 1 | Representative performance corpus and two or three measured codegen improvements | Engineer owns compiler changes; intern owns harness/data. Requires reproducible workloads and machines. | Correctness checks pass; improvements reproduce against a pinned baseline; report per-workload regressions, compile time and code size. |
-| 2 | DMR/NVL regression fixes and restricted ACE enablement | Engineer; upstream LLVM, CPU/OS capability contract, hardware or emulator access. | Width recommendations follow measurements. ACE has a reviewed semantic contract, reference tests and native codegen checks; execution validation is a separate gate. |
-| 3a | BF16 storage/conversions, FP32 compute and accumulation, and one useful kernel | Engineer owns semantics, compiler and ABI; intern assists workload integration. | Documented numerical contract, conversion/edge-case coverage, supported memory interop, and a kernel compared with an independent reference. |
-| 3b | One bounded AI optimization experiment | Intern, with engineer review; requires the performance corpus and legal transformation alternatives. | Reproducible comparison with existing and simple tuned heuristics on held-out workloads; ship only if the evidence justifies it. A negative result is acceptable. |
-| Supporting work | Fix specific customer/interop blockers and maintain supported releases | Engineer; named consumer or demonstrated failure. | Consuming build or kernel works, with a regression check and bounded scope. |
+**Recommendation: commit the year to the five items below.** Performance
+comes first, followed by ACE enablement, then BF16 and one AI optimization
+experiment. The selected performance work is gather/shuffle lowering and
+DMR/NVL x16 codegen; benchmarking validates these choices and measures their
+results.
 
-The detailed proposals behind these outcomes are:
+| Priority | Recommended commitment | Supporting context |
+|---|---|---|
+| 1a. Performance | Gather-to-load/shuffle transformations and native shuffle lowering for quantized kernels | [Memory-layout issues](#31-gatherscatter-lowering), [shuffle/narrow-integer gaps](#33-lane-width-gaps) |
+| 1b. Performance | Fix confirmed DMR/NVL x16 codegen regressions and publish width guidance | [CPU/LLVM problem and current defaults](#4-new-intel-hardware-diamond-rapids-and-nova-lake) |
+| 2. Intel hardware | Experimental x16 ACE implementation for INT8/BF16, with a reference kernel | [ACE API design](#52-annual-scope-a-restricted-typed-ace-surface), [validation dependencies](#53-validation-gates-and-relationship-to-amx) |
+| 3a. AI language | BF16 type, conversions, FP32-accumulating pair dots and a working dot kernel | [Semantics and interop](#61-bfloat16-semantics-and-first-milestone), [primitive gaps](#62-existing-dots-and-kernel-driven-gaps) |
+| 3b. AI compiler research | One intern experiment on a learned gather-lowering decision, ending with an adopt/reject report | [Experiment and evaluation](#83-selected-experiment-and-stop-condition) |
 
-| Direction | Concrete features and issue context |
-|---|---|
-| Performance | Gather/scatter coalescing and addressing; bool/mask and loop codegen; division/modulo; i64 and narrow-integer widths; popcnt and permutes; math accuracy and transcendentals; real-kernel tracking. Detailed issues: sections 3.1-3.5. |
-| Intel hardware | DMR/NVL width and APX codegen, AVX10.2 instruction exposure, ACE capability detection, vector-fed outer products and tile/BSR management. Core design: sections 4-5; expanded surface: sections 12.2 and 12.3.4. |
-| AI language/programming model | BF16, FP8/sub-byte storage and conversions, dot products, segmented/widening reductions, byte LUTs, typed tiles and framework interop. Sections 6-7 and 12.3-12.4/12.6.6 retain the full scope. |
-| AI compiler research | Offline pipelines, differential fuzzing, fitted cost models, width advice, an intrinsics porting agent, verified peepholes, MLGO and ISPC-Bench. Section 8 selects one experiment; section 12.5 retains the individual proposals and rationale. |
-| Language and adoption | HLSL-style vectors, template completion, `constexpr`, C++ layout/headers, small language quality fixes, packaging and embedding. Issues affecting annual work: section 9; full proposal: section 12.6. |
+### 2.1 Performance: improve gather and shuffle lowering
 
-These are shared workstreams: the BF16 kernel contributes to the performance
-corpus; the ACE surface is one project, not a second generic tile project;
-the AI experiment evaluates a decision arising from the performance work.
+**Deliver two bounded codegen improvements on AVX2 and AVX-512:**
 
-Reserve roughly 25-30% of engineer capacity for releases, LLVM compatibility,
-correctness regressions, customer support and review, including intern
-supervision. Of the remaining capacity, allocate approximately 50% to
-performance, 30% to ACE/hardware enablement, and 20% to BF16 and its proof
-kernel. These are budget envelopes, not task-duration estimates. Estimate
-specific changes after initial investigation; reduce scope when they do not
-fit rather than consuming the maintenance reserve.
+- Turn a gather with a provable permutation of a contiguous block into a
+  safe load plus shuffle. Start from the cases behind
+  [#2778](https://github.com/ispc/ispc/issues/2778) and the related coalescing
+  reports; preserve bounds and inactive-lane fault behavior.
+- Lower the byte/permutation shuffle patterns needed by
+  `ggml_vec_dot_q4_0_q8_0` to native shuffle/permute instructions, addressing
+  [#3771](https://github.com/ispc/ispc/issues/3771) and relevant narrow-integer
+  cases from [#2901](https://github.com/ispc/ispc/issues/2901). Include any
+  minimal helper needed to express those patterns.
 
-Limit implementation work in progress to one major engineer-owned compiler
-change and one intern-owned measurement/research task. Early ACE dependency
-tracking and semantic notes can proceed alongside performance work, but do
-not imply simultaneous full implementations. The intern's dates and duration
-are not specified: schedule the experiment relative to actual availability
-and do not make a core release dependent on year-round intern capacity.
-AI assistance creates contingency; it is not counted as another reviewer
-or an additional engineering FTE.
+Ship the transformations with correctness/codegen tests and reproducible
+before/after kernel measurements. This is the recommended first compiler
+work because it serves both existing image/layout workloads and quantized
+inference. The full gather/scatter redesign remains deferred.
+
+Context: [gather issues and user workloads](#31-gatherscatter-lowering),
+[narrow-integer and shuffle gaps](#33-lane-width-gaps), and
+[ggml's unpacking, dot and byte-LUT patterns](#72-where-the-ispc-model-will-be-stressed).
+
+### 2.2 Performance and new CPUs: fix DMR/NVL x16 codegen regressions
+
+**Resolve the reported avoidable x16-versus-x8 codegen losses.** Produce
+minimized reproducers, identify the responsible LLVM/ISPC lowering, and
+ship an upstream fix or a narrow ISPC workaround for confirmed regressions.
+Add x8/x16 tracking and publish target-width guidance from hardware results.
+Begin diagnosis early because an LLVM fix may have a long lead time.
+
+DMR already defaults to x16; NVL currently defaults to x8. Change NVL's
+default only if representative measurements support it. If the reported
+gap is a legitimate workload tradeoff, document that result and retain the
+appropriate width. Codegen analysis can proceed before hardware access;
+width recommendations require hardware measurements.
+
+Context: [CPU definitions, defaults, APX opportunities and width rationale](#4-new-intel-hardware-diamond-rapids-and-nova-lake).
+
+### 2.3 New Intel hardware: implement an x16 ACE prototype
+
+**Deliver a restricted `ace.isph` implementation for INT8 and BF16 outer
+products**, with opaque INT32/FP32 tile accumulators, initialization,
+row/column transfers, configuration/release and CPU/OS capability handling.
+Define collective execution, masks, tails and tile lifetime. Demonstrate
+a small matrix kernel with vector preprocessing or an epilogue against an
+independent reference.
+
+The annual deliverable is a reviewed programming-model specification,
+reference tests and an experimental codegen implementation on an identified
+LLVM baseline. Functional release support additionally requires hardware
+or emulator execution. Start upstream/OS coordination in Q4; if the LLVM
+dependency slips, report the implementation milestone as blocked and ship
+the completed design/reference work with its limitations.
+
+Keep the first implementation to x16 INT8/BF16. MX/BSR arithmetic, x32,
+generic `tile<T>` and a competitive portable tile library stay deferred.
+
+Context: [ACE architecture and instruction model](#51-ace-primer-for-someone-who-has-not-read-the-spec),
+[draft API and semantic requirements](#52-annual-scope-a-restricted-typed-ace-surface),
+and [validation dependencies and AMX/OIDN relationship](#53-validation-gates-and-relationship-to-amx).
+
+### 2.4 AI language: ship BF16 storage, conversions and FP32-accumulating dots
+
+**Add uniform/varying `bfloat16` as a usable data type**: loads/stores,
+conversions, constant folding/debug support, and a documented C/C++ memory
+interface. Specify rounding and exceptional-value behavior, and provide
+portable conversion behavior across supported targets.
+
+Add BF16 pair-dot support with FP32 accumulation (`VDPBF16PS` where
+available, a defined fallback elsewhere). Deliver a BF16-input dot-product
+kernel returning FP32, checked against an independent reference and
+benchmarked against matching intrinsics. This is the concrete proof of
+usability; the Q4_0 kernel from 2.1 separately tests quantized inference.
+Full native BF16 arithmetic and FP8/sub-byte language types remain deferred.
+
+Context: [BF16 demand, semantics and ABI](#6-ai-in-the-language-bf16-and-a-usable-kernel),
+[dot-product API status and gaps](#62-existing-dots-and-kernel-driven-gaps),
+and [the two-kernel integration/measurement exercise](#73-bounded-annual-exploration).
+
+### 2.5 AI compiler research: evaluate one learned gather-lowering decision
+
+**Assign the intern one four-to-six-week experiment** after the benchmark
+harness exists: fit a small model/table to choose among legal gather,
+load-plus-shuffle and scalarized alternatives on one target family.
+Compare it with the current heuristic and a simple manually tuned rule,
+using held-out workloads and features available at compile time.
+
+Commit to the reproducible evaluation and a recommendation to adopt or
+reject the model. Compiler integration depends on demonstrated benefit.
+This is the year's AI optimization research project; the other research
+proposals remain available in the deferred section. A pass-pipeline study
+is the named replacement only if this decision cannot be usefully exposed,
+with the substitution recorded explicitly.
+
+Context: [research evidence](#81-research-context),
+[evaluation rules](#82-evaluation-principles),
+[experiment scope and stop condition](#83-selected-experiment-and-stop-condition),
+and [alternative research proposals](#125-additional-ai-compiler-research-and-automation).
+
+### 2.6 Shared deliverables, staffing and what follows
+
+**Build one small benchmark corpus for these commitments.** Start with an
+image-layout/remap case for gathers, `ggml_vec_dot_q4_0_q8_0` for packed
+integer/shuffle codegen, the BF16 dot kernel, and the x16 regression
+reproducers. Reuse the existing tracking job; publish per-kernel correctness
+and performance comparisons. The intern owns harness/data work when
+available; the engineer owns compiler changes, semantics and review.
+See [benchmark context](#35-performance-infrastructure) and
+[measurement setup](#36-establish-baselines-first).
+
+Use [section 11's sequence](#11-sequencing-and-decision-gates) to stage this
+work with one major compiler implementation active at a time. Reserve
+25-30% of engineer capacity for releases, LLVM compatibility, correctness
+fixes, customer blockers and review. Of the remaining capacity, target
+approximately 50% performance, 30% ACE/hardware and 20% BF16. These are
+planning envelopes, not estimates of completed engineering work; AI
+assistance provides contingency. Intern timing must fit the harness and
+experiment, rather than being assumed to cover the whole year.
+
+**Next choices if capacity opens:** loop/mask overhead fixes
+([#3455](https://github.com/ispc/ispc/issues/3455),
+[context](#32-mask-and-control-flow-codegen)), then `avx2-i64x8`
+([#2903](https://github.com/ispc/ispc/issues/2903),
+[context](#33-lane-width-gaps)). A named customer blocker can take precedence.
+The full math audit, broad HLSL/template extensions, FP8/MX/x32 tile work,
+llama.cpp backend integration and additional AI research remain in
+[section 12](#12-deferred-and-stretch-proposals), with their technical
+details preserved. Promote an item by naming the added capacity or the
+commitment it replaces.
 
 ## 3. Performance: issues, proposals and measurement
 
@@ -225,10 +331,11 @@ and technical proposals are kept here so the annual priorities have a
 concrete basis. They describe the candidate work, not a promise to complete
 every item in one year.
 
-Start with the baselines in section 3.6, then select two or three fixes
-using section 3.7. Narrow-integer or ABI problems that block a selected
-kernel can move ahead of a larger gather project. Section 12.1 identifies
-the broader redesigns and coverage expansions that remain deferred.
+The recommended annual fixes are [gather/shuffle lowering](#21-performance-improve-gather-and-shuffle-lowering)
+and [DMR/NVL x16 codegen](#22-performance-and-new-cpus-fix-dmrnvl-x16-codegen-regressions).
+Start with the baselines in section 3.6 and validate these changes through
+section 3.7. The additional candidates below remain available for follow-up;
+section 12.1 identifies the broader programs outside the annual scope.
 
 ### 3.1 Gather/scatter lowering
 
@@ -346,19 +453,20 @@ BF16 and packed INT8 microbenchmarks as relevant. Publish reproducible
 results using existing reporting; a full public dashboard and broad per-PR
 gating remain in section 12.1.5.
 
-### 3.7 Select and validate the annual fixes
+### 3.7 Validate the recommended annual fixes
 
-Choose two or three codegen problems by measured workload impact and cost.
-Candidates include gather-to-load/shuffle transformations, mask or loop
-overhead, narrow-integer/shuffle lowering, and avoidable spills. The full
-issue inventory is in sections 3.1-3.4. Move a lane-width fix early if it
-blocks the chosen customer or inference kernel; issue age and votes alone
-do not set the order.
+Implement the gather-to-load/shuffle transformation and native
+byte/permutation lowering recommended in section 2.1, plus the confirmed
+DMR/NVL x16 regressions from section 2.2. Use the baseline measurements to
+establish benefit and regression thresholds. If investigation invalidates
+a recommendation, document the finding and explicitly revise the commitment;
+the rest of the issue inventory in sections 3.1-3.4 remains follow-up work.
 
 For the reported DMR/NVL x16 regression, first capture the affected LLVM
 revision, minimized reproducer, issue link and measurements (section 4).
-An upstream fix or a narrow ISPC workaround can be one of the selected
-performance changes.
+An upstream fix or a narrow ISPC workaround is the delivery path for a
+confirmed regression; retain a reproducible result if no compiler defect
+is found.
 
 For memory transformations, establish legality before choosing a profitable
 lowering: preserve inactive-lane fault suppression, object bounds, aliasing,
@@ -693,8 +801,8 @@ Sequence implementation:
 1. Storage, conversion and memory interop, with an independent conversion
    oracle and numerical edge cases. Exhaustively test BF16 input encodings
    where feasible and test FP32-to-BF16 rounding boundaries.
-2. A useful kernel using BF16 data with FP32 compute/accumulation; measure
-   conversion cost and compare against a suitable existing implementation.
+2. A BF16-input dot-product kernel returning FP32; measure conversion
+   cost and compare against matching intrinsics and an independent reference.
 3. BF16 pair-dot support (`VDPBF16PS` where available), with documented
    accumulation semantics and a correct fallback, to serve the chosen
    kernel and hardware direction.
@@ -737,9 +845,9 @@ workload, with defined overflow, saturation, mask and cross-lane semantics.
 
 The restricted typed tile surface is the same project as section 5.2.
 It is not a second annual commitment to a general tile library.
-Use the bounded workload exercise in section 7 to validate BF16 usability;
-choose a BF16-relevant kernel explicitly because quantized Q4 dots alone
-do not exercise the new type.
+Use the BF16-input, FP32-accumulating dot kernel in section 7 to validate
+BF16 usability alongside the Q4_0 kernel. Quantized Q4 dots alone do not
+exercise the new type.
 
 A PyTorch or ONNX Runtime custom-op example may be selected if it is the
 best way to validate a named consumer. Both proposals and their CMake glue
@@ -818,13 +926,13 @@ path; Q4_K/Q6_K then stress packed scales and VNNI; repacked Q4_K GEMM
 tests register tiling and the tile API; softmax, rms_norm, swiglu and
 attention cover the surrounding vector computation. The complete named
 kernel list, stage B design and model-level measurements remain in
-[section 12.4]([#124](https://github.com/ispc/ispc/issues/124)-expanded-llamacpp-exploration-and-integration).
+[section 12.4](#124-expanded-llamacpp-exploration-and-integration).
 
-Start with `ggml_vec_dot_q4_0_q8_0` as a packed-integer calibration point,
-plus one BF16-relevant kernel (conversion plus FP32 normalization, a fused
-epilogue, or a small BF16 dot/GEMM chosen from a consuming workload).
-Profile the pinned backend/model first; do not infer hot paths from kernel
-names alone. Limit the initial exercise to these two kernels and the
+Deliver `ggml_vec_dot_q4_0_q8_0` as the packed-integer calibration point
+and a BF16-input dot-product kernel with FP32 accumulation/output, as
+recommended in sections 2.1 and 2.4. Profile the pinned backend/model to
+interpret their application impact; do not infer hot paths from kernel
+names alone. Limit the annual exercise to these two kernels and the
 compiler gaps they expose. The expanded kernel list and backend integration
 remain in section 12.4.
 
@@ -1038,23 +1146,32 @@ the missing behavior or support contract.
 
 ## 11. Sequencing and decision gates
 
-Checkpoints organize dependencies; they do not guarantee upstream LLVM or
-hardware delivery dates. Within each period, sequence engineer-owned
-implementations under the work-in-progress limit in section 2.
+This sequence implements [the recommendations in section 2](#2-recommended-annual-commitments).
+The engineer advances one major compiler implementation at a time; early
+ACE coordination can proceed while performance fixes are being developed.
+Upstream LLVM and hardware availability remain external dependencies.
 
-| Period | Main work | Exit or rescoping decision |
+| Period | Recommended work | Deliverable/checkpoint |
 |---|---|---|
-| Q4 2026 | Establish a small corpus and comparison baselines; reproduce x16 issues; select two or three performance fixes. Write BF16 semantics and the restricted ACE contract; confirm upstream/OS/validation dependencies. | Record consumers, owners, estimates, baseline noise and acceptance criteria. If a reported regression is not reproduced, investigate rather than schedule an assumed fix. |
-| Q1 2027 | Ship the first measured performance fixes, then BF16 storage/conversions and a useful kernel. Continue ACE coordination; implement a slice only when the engineer's active change and dependencies allow it. | Require numerical/interop validation for BF16. Review workload results before admitting more helpers or llama.cpp integration. |
-| Q2 2027 | Concentrate engineer implementation on the restricted ACE surface and available validation gates. Run the one intern experiment if the corpus and internship timing permit. | If LLVM or execution access slips, retain an explicitly experimental prototype and redirect remaining capacity to performance. Stop or ship the AI experiment according to held-out results. |
-| Q3 2027 | Harden completed work, validate consuming builds, publish comparisons and document evidence-based width recommendations. | Claim only achieved ACE validation levels. Admit stretch work only from real remaining capacity; record remaining proposals in section 12 for the next cycle. |
+| Q4 2026 | Establish the image-layout, Q4_0, BF16-dot and x16 baseline cases. Diagnose DMR/NVL x16 losses and start the gather-to-load/shuffle change. Write the ACE execution/lifetime contract and contact upstream/validation owners. | Reproducible x16 findings, a tested gather prototype, and an identified ACE LLVM/OS/validation path. |
+| Q1 2027 | Ship safe gather/shuffle and confirmed width fixes; complete native shuffle patterns needed by Q4_0. Then implement BF16 storage/conversions, pair dots and the FP32-accumulating proof kernel. | Release-ready performance changes and BF16 support with before/after measurements, numerical tests and memory interop documentation. |
+| Q2 2027 | Concentrate implementation on x16 ACE INT8/BF16 operations and the reference/codegen tests. Run the one learned gather-lowering experiment once the harness and intern availability align. | Experimental ACE implementation on the recorded LLVM baseline; an adopt/reject report for the learned decision. Missing native execution access is reported explicitly. |
+| Q3 2027 | Complete available ACE execution validation, harden the performance/BF16 changes, run consuming builds and publish results/width recommendations. | State the achieved ACE validation level. Consider the next-priority loop/mask or i64 target work only after accounting for unfinished commitments and maintenance capacity. |
 
-Before implementation, every selected work item records: consuming
-workload/customer; owner; estimated effort and budget; LLVM/hardware/OS
-dependencies; correctness and performance acceptance; and a stop/rescope
-condition. For external dependencies, record who follows up and the next
-decision date. Report progress as validated outcomes, not counts of
-features or generated changes.
+If ACE's LLVM dependency is unavailable, retain the completed design and
+reference tests, identify the blocked implementation work, and redirect
+available implementation time to the named performance follow-ups.
+If investigation disproves an assumed codegen defect or finds an already
+optimal lowering, record the evidence and explicitly substitute the next
+priority. A research result that rejects the learned model still completes
+the experiment. Changes in scope must update section 2 and this sequence
+together.
+
+For each implementation, record its reproducer/workload, owner, effort
+estimate, dependencies and correctness/performance checks. Determine
+regression thresholds from baseline noise before judging results. This
+refines delivery of the named commitments; it does not postpone their
+selection to another planning phase.
 
 ## 12. Deferred and stretch proposals
 
@@ -1064,6 +1181,16 @@ requires the item-level information in section 11 and an explicit capacity
 decision. A selected subset may move into the core plan; remaining features
 stay here for subsequent cycles. Existing functionality is marked so its
 intended outcome is preserved without duplicating implementation.
+
+The full feature context remains organized as follows:
+
+| Direction | Details |
+|---|---|
+| Performance | [Gather/scatter, masks, division/modulo, widths, popcnt/permutes, math and benchmarks](#3-performance-issues-proposals-and-measurement); [larger deferred scopes](#121-broader-performance-program). |
+| Intel hardware | [DMR/NVL and APX](#4-new-intel-hardware-diamond-rapids-and-nova-lake), [ACE architecture/API](#5-new-intel-hardware-ace), [broader instruction exposure](#122-broader-hardware-exposure). |
+| AI language and kernels | [BF16 and primitives](#6-ai-in-the-language-bf16-and-a-usable-kernel), [FP8/sub-byte, reductions, LUTs and tiles](#123-additional-ai-types-primitives-and-tile-programming), [llama.cpp integration](#124-expanded-llamacpp-exploration-and-integration). |
+| AI compiler research | [Research evidence and selected experiment](#8-ai-inside-the-compiler-one-bounded-experiment); [pipelines, fuzzing, cost models, width advice, porting, peepholes, MLGO and ISPC-Bench](#125-additional-ai-compiler-research-and-automation). |
+| Language and adoption | [Customer issues](#9-customer-and-interop-blockers); [HLSL vectors, templates, constexpr, C++ headers/ABI, language quality, packaging, embedding and framework examples](#126-language-interop-distribution-and-framework-features). |
 
 ### 12.1 Broader performance program
 
@@ -1076,7 +1203,7 @@ selected annual fixes; the links keep each proposal next to its evidence.
 Defer the full address-expression-based redesign across gathers and stores,
 including general stride/permutation detection and broad migration from
 pseudo builtins to LLVM intrinsics. Individual profitable transformations
-can ship earlier. See [gather/scatter issues and design]([#31](https://github.com/ispc/ispc/issues/31)-gatherscatter-lowering)
+can ship earlier. See [gather/scatter issues and design](#31-gatherscatter-lowering)
 for [#304](https://github.com/ispc/ispc/issues/304), [#330](https://github.com/ispc/ispc/issues/330), [#1256](https://github.com/ispc/ispc/issues/1256), [#1531](https://github.com/ispc/ispc/issues/1531), [#1581](https://github.com/ispc/ispc/issues/1581), [#2778](https://github.com/ispc/ispc/issues/2778), [#2899](https://github.com/ispc/ispc/issues/2899) and [#3153](https://github.com/ispc/ispc/issues/3153), and the
 connections to user memory-layout reports.
 
@@ -1085,7 +1212,7 @@ connections to user memory-layout reports.
 Retain the full bool/mask representation work, coherent-control-flow
 reductions, division/modulo lowering, inlining/code-size tuning, vector
 loop preservation and loop-overhead program. The annual plan selects
-measured cases from [the detailed list]([#32](https://github.com/ispc/ispc/issues/32)-mask-and-control-flow-codegen).
+measured cases from [the detailed list](#32-mask-and-control-flow-codegen).
 Learned masked-versus-branch decisions are a separate research extension
 in section 12.5.3.
 
@@ -1093,7 +1220,7 @@ in section 12.5.3.
 
 Retain `avx2-i64x8`, the AVX-512 x8/64-bit investigation, and broad 8/16-bit,
 popcnt, native permute and short-vector shuffle/rotate/shift coverage.
-See [lane-width issues and workloads]([#33](https://github.com/ispc/ispc/issues/33)-lane-width-gaps). A blocker for
+See [lane-width issues and workloads](#33-lane-width-gaps). A blocker for
 the selected inference or customer kernel can move into the annual work;
 the rest of the target/operation matrix remains a separate scope.
 
@@ -1102,7 +1229,7 @@ the rest of the target/operation matrix remains a separate scope.
 Retain the full per-function/per-target accuracy audit and published ULP
 tables ([#2236](https://github.com/ispc/ispc/issues/2236)), complete FP16 math ([#2290](https://github.com/ispc/ispc/issues/2290)), and SVML-style/Sleef-derived
 AVX10.2 transcendental evaluation ([#2906](https://github.com/ispc/ispc/issues/2906), [#3406](https://github.com/ispc/ispc/issues/3406)). See
-[the user requests and proposed work]([#34](https://github.com/ispc/ispc/issues/34)-math-library). The annual plan
+[the user requests and proposed work](#34-math-library). The annual plan
 covers functions needed by its selected kernels first.
 
 #### 12.1.5 Performance infrastructure
@@ -1111,7 +1238,7 @@ Retain the full public dashboard over the daily tracking job and per-PR
 regression gating, plus broad customer-kernel coverage and public
 Highway/Clang comparisons. The OIDN convolution, texture compression,
 ray-box traversal, Chaos-style particle update and llama.cpp benchmark
-list is in [section 3.5]([#35](https://github.com/ispc/ispc/issues/35)-performance-infrastructure). Start with the
+list is in [section 3.5](#35-performance-infrastructure). Start with the
 small annual corpus, then expand reporting and coverage as capacity allows.
 
 ### 12.2 Broader hardware exposure
@@ -1182,8 +1309,10 @@ Expand constant folding, debug info and header/ABI support with the surface.
   families on additional targets and emulated paths.
 - Segmented sums per 4, 8 or 16 lanes and widening INT8/INT16 horizontal
   reductions into INT32. Define subgroup, partial-mask and overflow rules.
-- Byte LUT helpers using suitable `VPERMB`/`VPERMI2B` or byte-shuffle
+- Broader byte LUT helpers using suitable `VPERMB`/`VPERMI2B` or byte-shuffle
   instructions, with portable fallbacks and explicit lane semantics.
+  The minimal native shuffle patterns required by Q4_0 are annual work
+  under section 2.1; a general lookup-helper family remains deferred.
 
 #### 12.3.4 Expanded ACE and portable typed tile API
 

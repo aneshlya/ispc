@@ -1,6 +1,6 @@
 # ISPC Roadmap: Q4 2026 - Q3 2027
 
-Status: proposal, revision 5 (2026-10-08). Team: one engineer, one intern,
+Status: proposal, revision 6 (2026-10-16). Team: one engineer, one intern,
 AI-assisted development.
 
 Priorities remain: **1. performance; 2. enabling new Intel hardware,
@@ -387,7 +387,16 @@ the arithmetic itself vectorizes well. The original candidate fixes are:
 - Inlining heuristics and code bloat ([#3804](https://github.com/ispc/ispc/issues/3804)), and stopping LLVM from
   replacing vector loops with libc calls ([#3241](https://github.com/ispc/ispc/issues/3241)).
 - Loop overheads ([#3455](https://github.com/ispc/ispc/issues/3455)): mask recomputation, induction variable widening,
-  unroll decisions.
+  unroll decisions. Unsigned loop counters defeat trip-count analysis
+  ([#3238](https://github.com/ispc/ispc/issues/3238)); `foreach` remainders are peeled rather than predicated
+  ([#3018](https://github.com/ispc/ispc/issues/3018)).
+- Pipeline drift: a 20 percent regression after LLVM 18.1 removed a pass the
+  ISPC pipeline relied on ([#3649](https://github.com/ispc/ispc/issues/3649)). Re-sync the hand-ordered pipeline with
+  the LLVM default pass manager so upgrades stop eroding codegen silently.
+- x86 functions carry no `target-features` attribute (`src/ispc.cpp`); only
+  ARM sets `target-cpu`. This hides the ISA from LLVM's inliner and cost
+  models and lets an AVX2 body legalize to SSE when linked with `-flto`.
+  Small, independent fix.
 
 ### 3.3 Lane-width gaps
 
@@ -419,6 +428,13 @@ the same function/target benchmarks.
 - Evaluate SVML-style and Sleef-derived kernels for transcendentals on
   AVX10.2 ([#2906](https://github.com/ispc/ispc/issues/2906), [#3406](https://github.com/ispc/ispc/issues/3406)). Decision criterion: ULP tables plus the
   benchmarks below.
+- Longer term, regenerate the transcendental stdlib from one ISPC source
+  per precision level with a stated ULP target and a ULP test harness, so
+  every target, including ARM and future ones, gets identical accuracy and
+  `--opt=fast-math` picks cheaper polynomials consistently. Today's
+  implementations derive from Cephes with target-dependent accuracy and no
+  published bounds; batched and fast variants are requested in
+  [#1310](https://github.com/ispc/ispc/issues/1310), [#1570](https://github.com/ispc/ispc/issues/1570) and [#25](https://github.com/ispc/ispc/issues/25).
 
 ### 3.5 Performance infrastructure
 
@@ -489,6 +505,53 @@ such as `exp` in softmax if that kernel is selected. Distinguish measured
 maximum error over a stated domain from a proven ULP bound. A full math
 audit, additional transcendental implementations and full FP16 coverage
 remain in section 12.1.4; full FP16 math is not a prerequisite for BF16.
+
+### 3.8 Portable-performance assessment (2026-10-16)
+
+ISPC's stated goal is portable performance across supported targets. An
+assessment of the open issue tracker, discussions, LLVM and industry trends
+and current codegen ranks the three improvements below by expected payoff
+per unit of work. The first is already the annual commitment in section 2.1;
+the other two are candidates for the next cycle or for capacity freed by
+early completion.
+
+1. **Per-target lowering of gathers, scatters, shuffles and masked memory
+   ops.** The largest issue cluster and the oldest open items (section 3.1,
+   plus [#3771](https://github.com/ispc/ispc/issues/3771), [#3721](https://github.com/ispc/ispc/issues/3721), [#2920](https://github.com/ispc/ispc/issues/2920), [#2720](https://github.com/ispc/ispc/issues/2720)). ISPC emits one generic
+   `llvm.masked.gather` shape and lets each backend cope, while hardware
+   diverged: AVX2 gathers are microcoded and slow after Downfall
+   mitigations, AVX-512 gathers are acceptable but scatters are not, NEON
+   has neither, SVE and RVV have both with predication. The fix is an
+   ISPC-owned lowering with a per-target cost table choosing among
+   contiguous or strided loads plus shuffles, small-table permutes,
+   scalarized loops and the native instruction, handling index width and
+   scale. The learned-lowering experiment in section 8.3 feeds the table.
+   Moves the most kernels on the most targets.
+2. **Loop and mask codegen aligned with the modern LLVM pipeline.**
+   [#3455](https://github.com/ispc/ispc/issues/3455), [#3018](https://github.com/ispc/ispc/issues/3018), [#3238](https://github.com/ispc/ispc/issues/3238), [#3804](https://github.com/ispc/ispc/issues/3804) and [#2920](https://github.com/ispc/ispc/issues/2920) describe one root cause: peeled
+   remainders, unsigned counters, materialized masks and inlining losses.
+   [#3649](https://github.com/ispc/ispc/issues/3649) shows the same cause from the other side, a regression because
+   the hand-ordered pipeline depends on passes LLVM removed. The industry
+   direction is tail folding with predicated loops and vector-predication
+   intrinsics, which the RVV, SVE and AVX-512 backends consume well.
+   Rebuilding `foreach` lowering around a predicated tail and re-syncing the
+   pipeline fixes a family of issues and stops each LLVM upgrade from
+   eroding performance. Pair with the `target-features` fix in section 3.2.
+3. **A generated, accuracy-specified vector math library.** Transcendentals
+   dominate many kernels, and the stdlib implementations have
+   target-dependent accuracy with no documented bounds ([#2236](https://github.com/ispc/ispc/issues/2236)). [#2906](https://github.com/ispc/ispc/issues/2906) is a
+   production user offering the Intel SVML algorithms. Every mainstream
+   vector stack now ships a tested library with ULP guarantees (SLEEF,
+   libmvec, clang `-fveclib`). A single-source generated library (section
+   3.4) is the most portable of the three because it is target independent
+   by construction.
+
+Not selected: inlining ISPC kernels into C++ through a C++ emitter has the
+most explicit requests (section 12.7, [docs/design/EmitCpp.md](EmitCpp.md))
+but benefits only small kernels on clang hosts. New targets such as SVE, RVV
+and the double-pumped `avx2-i64x8` ([#2903](https://github.com/ispc/ispc/issues/2903), [#3161](https://github.com/ispc/ispc/issues/3161)) widen coverage rather
+than deepen it and inherit whatever quality items 1 and 2 deliver. ACE and
+BF16 are already committed.
 
 ## 4. New Intel hardware: Diamond Rapids and Nova Lake
 
@@ -1115,6 +1178,8 @@ customer fixes:
   use ([#791](https://github.com/ispc/ispc/issues/791)) and a single multi-target object ([#1850](https://github.com/ispc/ispc/issues/1850)) address different
   integration costs. Existing libispc support changes the remaining work
   for [#791](https://github.com/ispc/ispc/issues/791); it does not erase the original adoption need.
+  The Python and AI-ecosystem adoption steps (PyPI wheel, DLPack arrays,
+  PyTorch custom ops, JIT module) are ranked in section 12.6.7.
 - **Language quality.** `auto` ([#2310](https://github.com/ispc/ispc/issues/2310)), explicit bitcast syntax ([#1809](https://github.com/ispc/ispc/issues/1809)),
   missing-return warnings ([#1708](https://github.com/ispc/ispc/issues/1708)), and consistent signed/unsigned
   conversions ([#2714](https://github.com/ispc/ispc/issues/2714)) remain individually scoped proposals.
@@ -1190,7 +1255,7 @@ The full feature context remains organized as follows:
 | Intel hardware | [DMR/NVL and APX](#4-new-intel-hardware-diamond-rapids-and-nova-lake), [ACE architecture/API](#5-new-intel-hardware-ace), [broader instruction exposure](#122-broader-hardware-exposure). |
 | AI language and kernels | [BF16 and primitives](#6-ai-in-the-language-bf16-and-a-usable-kernel), [FP8/sub-byte, reductions, LUTs and tiles](#123-additional-ai-types-primitives-and-tile-programming), [llama.cpp integration](#124-expanded-llamacpp-exploration-and-integration). |
 | AI compiler research | [Research evidence and selected experiment](#8-ai-inside-the-compiler-one-bounded-experiment); [pipelines, fuzzing, cost models, width advice, porting, peepholes, MLGO and ISPC-Bench](#125-additional-ai-compiler-research-and-automation). |
-| Language and adoption | [Customer issues](#9-customer-and-interop-blockers); [HLSL vectors, templates, constexpr, C++ headers/ABI, language quality, packaging, embedding and framework examples](#126-language-interop-distribution-and-framework-features). |
+| Language and adoption | [Customer issues](#9-customer-and-interop-blockers); [HLSL vectors, templates, constexpr/static_assert, C++ headers/ABI, language quality, packaging, embedding, framework examples and Python/AI adoption](#126-language-interop-distribution-and-framework-features). |
 
 ### 12.1 Broader performance program
 
@@ -1562,6 +1627,15 @@ Retained feature sequence, with each step independently scoped and admitted:
 - `constexpr` per the design proposal in [#3697](https://github.com/ispc/ispc/issues/3697), for more expressive tile
   shapes, block sizes and compile-time dispatch in stdlib code. Existing
   constant-expression checks suffice for the restricted ACE milestone.
+- `static_assert` ([#2146](https://github.com/ispc/ispc/issues/2146), open since 2021) completes the `assume`/`assert`/
+  `static_assert` triple dbabokin described there. A first version needs
+  only the existing constant folder: `sizeof`, `programCount`, enum values,
+  template parameters and integer arithmetic over them, with a clear error
+  when the condition is not a constant. Conditions calling functions need
+  `constexpr` functions from [#3697](https://github.com/ispc/ispc/issues/3697), so `static_assert` is the natural first
+  consumer of that proposal and a useful test of its evaluator. Low cost,
+  requested by a production user, and immediately useful for ACE tile shape
+  and BF16 layout checks in stdlib code.
 
 #### 12.6.3 C++ header sharing and ABI
 
@@ -1594,6 +1668,63 @@ complaints point the same way.
 Retain both PyTorch custom-op and ONNX Runtime custom-op examples with CMake
 glue. Initially select at most one if it validates the BF16/AI workload;
 budget API/version compatibility, layout/conversion and threading tests.
+
+#### 12.6.7 Python and AI-ecosystem adoption
+
+Assessment (2026-10-16). The `--nanobind-wrapper` generator shipped and
+`examples/cpu/point_transform_nanobind` and `examples/cpu/attention` show
+it working, but the user still needs an ISPC install, CMake, a C++ compiler
+and nanobind headers, and only numpy arrays map to pointers. That is a high
+wall for the Python-first audience that dominates AI work; [#3741](https://github.com/ispc/ispc/issues/3741), with an
+external volunteer who already produced a wheel under the PyPI size limit,
+is the clearest signal. Candidates in order of cost:
+
+1. **`pip install ispc`.** Per-platform wheels with the slim binary (about
+   40 MB zipped), headers and an `ispc.exe_path()` helper, plus a
+   `scikit-build-core` example so `pip install .` builds a nanobind
+   project. One CI job; conda-forge already covers five platforms. Extends
+   the PyPI item in 12.6.5.
+2. **Framework arrays through DLPack.** Emit `nb::ndarray<T, nb::device::cpu>`
+   without the numpy tag so generated functions accept PyTorch, JAX, CuPy
+   and Arrow arrays zero-copy. Small wrapper-emitter change. Map `float16`
+   and `bfloat16` dtypes when the BF16 type (section 6) lands.
+3. **PyTorch custom-op registration.** Optionally emit a `torch.library`
+   registration next to the nanobind module so a kernel has a schema, joins
+   `torch.compile` graphs on CPU and can carry a Python fallback. This
+   positions ISPC as the CPU custom-kernel language for PyTorch, a role
+   Triton fills on GPU and nobody fills well on CPU. Replaces the CMake-glue
+   example in 12.6.6 with generated code; the attention example is the demo.
+4. **Build-free JIT module.** A Python package that compiles a source string
+   through the existing `libispc` JIT and exposes exports via the buffer
+   protocol, a numba-like experience with no CMake step. Largest effort and
+   largest lever for notebooks and research code; admit only with a
+   prototype gate and a named consumer.
+
+Beyond Python:
+
+- **Land in one framework.** The llama.cpp exploration in section 7 is the
+  right instinct; an upstream ggml CPU path or an ONNX Runtime custom-op
+  example in ISPC gives a reference people copy. ExecuTorch and vLLM CPU
+  kernels are the other places where C++ SIMD kernels are hand-written.
+- **Publish the comparison users make.** The AI version of [#3226](https://github.com/ispc/ispc/issues/3226): ISPC
+  against numba, Triton-CPU and intrinsics on softmax, layernorm, RMSNorm,
+  quantize/dequantize and attention, using the section 3.5 harness.
+  Discussions such as [#3156](https://github.com/ispc/ispc/discussions/3156) and [#2933](https://github.com/ispc/ispc/discussions/2933) show users evaluating ISPC against JAX
+  without data.
+- **Be friendly to AI coding assistants.** A growing share of kernel code
+  is assistant-generated, and ISPC suits them: a small C-like language, no
+  intrinsics to hallucinate, fast compile, scalar semantics. Cheap steps:
+  an `llms.txt` and condensed language reference in the repo, an ISPC
+  skill or MCP server that compiles and benchmarks a kernel, and a
+  KernelBench-style task set (12.5.8) showing assistants produce correct,
+  fast ISPC more often than intrinsics.
+- **Ship the dtypes AI code uses.** The only AI-motivated production
+  requests were VNNI ([#2736](https://github.com/ispc/ispc/issues/2736)) and bf16 ([#1940](https://github.com/ispc/ispc/issues/1940), [#3627](https://github.com/ispc/ispc/discussions/3627)). Bindings without
+  BF16 and FP8 land flat.
+
+Recommendation: items 1-3 and the assistant-friendliness steps are each
+days to weeks and fit the current cycle alongside the commitments; the JIT
+module and framework integration stay deferred with a consumer attached.
 
 ### 12.7 Maintenance reductions and target-policy proposals
 

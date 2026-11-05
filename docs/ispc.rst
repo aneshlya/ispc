@@ -6331,8 +6331,8 @@ Dot product
 
 ISPC supports dot product operations for both unsigned and signed int8 and int16 data types,
 utilizing the AVX-VNNI, AVX512-VNNI, and AARCH64 instruction sets. The ISPC targets that
-include native dot product instruction support are ``avx2vnni-i32x*``, ``avx512icl-i32x*``,
-``avx512spr-i32x*`` and newer targets on x86, as well as ``neon-i32x*`` on ARM hardware with
+include native dot product instruction support are ``avx2vnni-i32x*``, ``avx512icl-x*``,
+``avx512spr-x*`` and newer targets on x86, as well as ``neon-i32x*`` on ARM hardware with
 native dot product capabilities.
 
 Please note that not all combinations of signed and unsigned data types are supported on these
@@ -6341,6 +6341,9 @@ unsigned/unsigned int8 dot product operations, while AVX2-VNNI and AVX512-VNNI p
 solely for mixed-sign int8 operations.
 
 If the selected target or platform lacks native dot product support, these operations are emulated.
+Emulated operations return the same results as the native instructions: the products are exact, the
+plain forms wrap around on overflow, and the ``_sat`` forms saturate the exact sum of ``acc`` and all
+products once.
 
 These dot product operations are specifically designed to operate on *packed* input vectors,
 necessitating proper packing or casting of input vectors by the programmer before use. For example:
@@ -6356,7 +6359,7 @@ necessitating proper packing or casting of input vectors by the programmer befor
 For 8-bit Integer Vectors:
 
 The functions below multiply groups of four unsigned 8-bit integers packed in ``a`` with corresponding
-four signed 8-bit integers packed in ``b``, resulting in four intermediate unsigned 16-bit values.
+four signed 8-bit integers packed in ``b``, resulting in four intermediate signed 16-bit values.
 The sum of these values, in combination with the ``acc`` accumulator, is then returned as the final result.
 
 ::

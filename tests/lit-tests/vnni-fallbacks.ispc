@@ -1,6 +1,7 @@
 // Checks the code emitted for the dot4add_*/dot2add_* functions on targets without the matching VNNI instructions.
 // The fallbacks must stay vectorized (no scalar imul) and must not use VNNI forms the target lacks. On avx2vnni,
-// the forms with native support use the VEX encoding.
+// the forms with native support use the VEX encoding. On the VNNI targets, the 8-bit forms without native support
+// are built from two vpdpbusd per vector and the plain 16-bit unsigned forms from vpdpwssd.
 
 // RUN: %{ispc} %s --target=sse4.2-i32x4 --target-os=linux --emit-asm -o - \
 // RUN:   | FileCheck %s -check-prefixes=CHECK,NOVNNI --implicit-check-not=imul \
@@ -60,28 +61,36 @@ unmasked void dot4_u8i8_sat(uniform uint a[], uniform uint b[], uniform int acc[
 }
 
 // CHECK-LABEL: {{^}}dot4_u8u8___{{.*}}:
-// CHECK: {{v?}}pmaddwd
+// NOVNNI: {{v?}}pmaddwd
+// AVXVNNI-COUNT-2: {vex} vpdpbusd{{[ \t]}}
+// AVX512VNNI-COUNT-2: {{^[ \t]+}}vpdpbusd{{[ \t]}}
 // CHECK: ret
 unmasked void dot4_u8u8(uniform uint a[], uniform uint b[], uniform uint acc[], uniform uint dst[]) {
     dst[programIndex] = dot4add_u8u8packed(a[programIndex], b[programIndex], acc[programIndex]);
 }
 
 // CHECK-LABEL: {{^}}dot4_u8u8_sat___{{.*}}:
-// CHECK: {{v?}}pmaddwd
+// NOVNNI: {{v?}}pmaddwd
+// AVXVNNI-COUNT-2: {vex} vpdpbusd{{[ \t]}}
+// AVX512VNNI-COUNT-2: {{^[ \t]+}}vpdpbusd{{[ \t]}}
 // CHECK: ret
 unmasked void dot4_u8u8_sat(uniform uint a[], uniform uint b[], uniform uint acc[], uniform uint dst[]) {
     dst[programIndex] = dot4add_u8u8packed_sat(a[programIndex], b[programIndex], acc[programIndex]);
 }
 
 // CHECK-LABEL: {{^}}dot4_i8i8___{{.*}}:
-// CHECK: {{v?}}p{{(mulld|maddwd|mullw)}}
+// NOVNNI: {{v?}}p{{(mulld|maddwd|mullw)}}
+// AVXVNNI-COUNT-2: {vex} vpdpbusd{{[ \t]}}
+// AVX512VNNI-COUNT-2: {{^[ \t]+}}vpdpbusd{{[ \t]}}
 // CHECK: ret
 unmasked void dot4_i8i8(uniform uint a[], uniform uint b[], uniform int acc[], uniform int dst[]) {
     dst[programIndex] = dot4add_i8i8packed(a[programIndex], b[programIndex], acc[programIndex]);
 }
 
 // CHECK-LABEL: {{^}}dot4_i8i8_sat___{{.*}}:
-// CHECK: {{v?}}p{{(mulld|maddwd|mullw)}}
+// NOVNNI: {{v?}}p{{(mulld|maddwd|mullw)}}
+// AVXVNNI-COUNT-2: {vex} vpdpbusd{{[ \t]}}
+// AVX512VNNI-COUNT-2: {{^[ \t]+}}vpdpbusd{{[ \t]}}
 // CHECK: ret
 unmasked void dot4_i8i8_sat(uniform uint a[], uniform uint b[], uniform int acc[], uniform int dst[]) {
     dst[programIndex] = dot4add_i8i8packed_sat(a[programIndex], b[programIndex], acc[programIndex]);
@@ -106,7 +115,9 @@ unmasked void dot2_i16i16_sat(uniform uint a[], uniform uint b[], uniform int ac
 }
 
 // CHECK-LABEL: {{^}}dot2_u16u16___{{.*}}:
-// CHECK: {{v?}}p{{(mulld|maddwd|mullw)}}
+// NOVNNI: {{v?}}p{{(mulld|maddwd|mullw)}}
+// AVXVNNI: {vex} vpdpwssd{{[ \t]}}
+// AVX512VNNI: {{^[ \t]+}}vpdpwssd{{[ \t]}}
 // CHECK: ret
 unmasked void dot2_u16u16(uniform uint a[], uniform uint b[], uniform uint acc[], uniform uint dst[]) {
     dst[programIndex] = dot2add_u16u16packed(a[programIndex], b[programIndex], acc[programIndex]);
@@ -120,7 +131,9 @@ unmasked void dot2_u16u16_sat(uniform uint a[], uniform uint b[], uniform uint a
 }
 
 // CHECK-LABEL: {{^}}dot2_u16i16___{{.*}}:
-// CHECK: {{v?}}p{{(mulld|maddwd|mullw)}}
+// NOVNNI: {{v?}}p{{(mulld|maddwd|mullw)}}
+// AVXVNNI: {vex} vpdpwssd{{[ \t]}}
+// AVX512VNNI: {{^[ \t]+}}vpdpwssd{{[ \t]}}
 // CHECK: ret
 unmasked void dot2_u16i16(uniform uint a[], uniform uint b[], uniform int acc[], uniform int dst[]) {
     dst[programIndex] = dot2add_u16i16packed(a[programIndex], b[programIndex], acc[programIndex]);

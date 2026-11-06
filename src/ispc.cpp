@@ -2405,8 +2405,10 @@ Target::Target(Arch arch, const char *cpu, ISPCTarget ispc_target, PICLevel picL
         if (arch == Arch::arm || arch == Arch::aarch64) {
             // Set the supported features for ARM target
             std::vector<llvm::StringRef> armFeatures = lGetARMTargetFeatures(arch, m_cpu);
-            setCapability(TargetCapability::ArmDotProduct, lIsARMFeatureSupported("dotprod", armFeatures));
-            setCapability(TargetCapability::ArmI8MM, lIsARMFeatureSupported("i8mm", armFeatures));
+            // Only the NEON targets implement the dot product builtins; generic targets keep the fallbacks.
+            bool isNeon = ISPCTargetIsNeon(m_ispc_target);
+            setCapability(TargetCapability::ArmDotProduct, isNeon && lIsARMFeatureSupported("dotprod", armFeatures));
+            setCapability(TargetCapability::ArmI8MM, isNeon && lIsARMFeatureSupported("i8mm", armFeatures));
             featuresString = llvm::join(armFeatures, ",");
             this->m_funcAttributes.push_back(std::make_pair("target-features", featuresString));
         }

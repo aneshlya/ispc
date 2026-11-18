@@ -214,3 +214,86 @@ define <4 x float> @sext_cancelling_parts(ptr %base, <4 x i32> %x, <4 x i32> %ma
   %v = call <4 x float> @__pseudo_gather_factored_base_offsets64_float(ptr %base, <4 x i64> %off, i32 1, <4 x i64> zeroinitializer, <4 x i32> %mask)
   ret <4 x float> %v
 }
+
+; The lowering adds sext(delta) to sext(offsets) * scale in i64. Moving
+; 0x40000000 * 4 into the i32 delta would wrap it to 0 instead of 4 GiB, so
+; the constant stays in the offset.
+; A32-LABEL: define <4 x float> @big_scaled_delta(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 4, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @big_scaled_delta(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %off = add nsw <4 x i32> %x, splat (i32 1073741824)
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 4, <4 x i32> zeroinitializer, <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; A small constant still moves to the delta.
+; A32-LABEL: define <4 x float> @small_scaled_delta(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %x, i32 4, <4 x i32> <i32 8, i32 12, i32 16, i32 20>, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @small_scaled_delta(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %off = add nsw <4 x i32> %x, <i32 0, i32 1, i32 2, i32 3>
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 4, <4 x i32> splat (i32 8), <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; And for a 32-bit factored offset: 0x80000000 doesn't fit in the i32 delta.
+; A32-LABEL: define <4 x float> @regroup32(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @regroup32(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %a = add nsw <4 x i32> %x, splat (i32 1073741824)
+  %off = add nsw <4 x i32> %a, splat (i32 1073741824)
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; The exact evaluation applies only where the offset is all nsw. Here the
+; inner i16 multiply wraps to 0, so the delta stays 0, not 65536.
+; A32-LABEL: define <4 x float> @wrapped_inner_sext(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %x, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @wrapped_inner_sext(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %c = mul <4 x i16> splat (i16 256), splat (i16 256)
+  %e = sext <4 x i16> %c to <4 x i32>
+  %off = add nsw <4 x i32> %x, %e
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; The exact constant 0x40000000 << 30 times the scale 8 overflows i64: no split.
+; A32-LABEL: define <4 x float> @huge_constant(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 8, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @huge_constant(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %c = shl nsw <4 x i32> splat (i32 1073741824), splat (i32 30)
+  %off = add nsw <4 x i32> %x, %c
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 8, <4 x i32> zeroinitializer, <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; The exact constant 0x80000000 plus the delta INT32_MIN would fit, but the
+; split's variable part x + y wraps at i32 width for x = INT32_MIN, y = -1, so
+; the constant is taken as the IR computes it and the split is refused.
+; A32-LABEL: define <4 x float> @regrouped_variable(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> splat (i32 -2147483648), <4 x i32> %mask)
+; A32: ret
+define <4 x float> @regrouped_variable(ptr %base, <4 x i32> %x, <4 x i32> %y, <4 x i32> %mask) {
+  %a = add nsw <4 x i32> %x, splat (i32 1073741824)
+  %b = add nsw <4 x i32> %a, splat (i32 1073741824)
+  %off = add nsw <4 x i32> %b, %y
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> splat (i32 -2147483648), <4 x i32> %mask)
+  ret <4 x float> %v
+}
+
+; The same rule for the i32 offsets of the 32-bit factored form, which the
+; lowering sign extends: INT32_MIN stays in the offset.
+; A32-LABEL: define <4 x float> @late_unproven_large(
+; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: ret
+define <4 x float> @late_unproven_large(ptr %base, <4 x i32> %x, <4 x i32> %y, <4 x i32> %mask) {
+  %a = add <4 x i32> %x, %y
+  %off = add <4 x i32> %a, splat (i32 -2147483648)
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %off, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+  ret <4 x float> %v
+}

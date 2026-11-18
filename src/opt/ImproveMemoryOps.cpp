@@ -208,9 +208,9 @@ static bool lConstantFits32(llvm::Constant *c) {
 }
 
 /** The largest constant, in units of the i32 value it is split off, that
-    lExtractConstantOffset() splits off a sign extended i32 sum without
-    proving the split exact; each part of the constant is bounded too
-    (lExactPartsWithin()). Then the split's variable
+    lExtractConstantOffset() and lGSBaseOffsetsGetMoreConst() split off a sign
+    extended i32 sum without proving the split exact; each part of the
+    constant is bounded too (lExactPartsWithin()). Then the split's variable
     part can only wrap if the sum is within this bound of the i32 limits. */
 static constexpr int64_t kUnprovenSplitBound = 1 << 16;
 
@@ -1023,6 +1023,51 @@ static bool lIsOriginalPart(llvm::Value *v, llvm::Value *root, int depth) {
     return false;
 }
 
+/** Returns constOffset * scale + delta as an i32 vector constant, with each
+    element sign extended and the arithmetic done in i64, or nullptr if the
+    parts don't fold to constants or a lane doesn't fit in i32.
+
+    If exact, the offset constOffset was split from is all nsw, and the
+    constant part is evaluated exactly (lEvalExact()). If the narrow constant
+    must also not have wrapped (sameAsNarrow), its value as the IR computes
+    it must be the exact one. Otherwise the constant part is taken as the IR
+    computes it. */
+static llvm::Constant *lScaledDelta32(llvm::Value *constOffset, bool exact, bool sameAsNarrow, int64_t scale,
+                                      llvm::Value *delta, const llvm::DataLayout &dl) {
+    llvm::Constant *c = lFoldToConstant(constOffset, dl);
+    llvm::Constant *d = lFoldToConstant(delta, dl);
+    if (c == nullptr || d == nullptr) {
+        return nullptr;
+    }
+    unsigned n = llvm::cast<llvm::FixedVectorType>(constOffset->getType())->getNumElements();
+    std::vector<llvm::Constant *> lanes;
+    for (unsigned i = 0; i < n; ++i) {
+        llvm::ConstantInt *ci = llvm::dyn_cast_or_null<llvm::ConstantInt>(c->getAggregateElement(i));
+        llvm::ConstantInt *di = llvm::dyn_cast_or_null<llvm::ConstantInt>(d->getAggregateElement(i));
+        if (ci == nullptr || di == nullptr || ci->getBitWidth() > 64) {
+            return nullptr;
+        }
+        llvm::APInt value = ci->getValue().sext(64);
+        if (exact) {
+            llvm::APInt exactValue;
+            if (!lEvalExact(constOffset, i, &exactValue, dl) || (sameAsNarrow && exactValue != value)) {
+                return nullptr;
+            }
+            value = exactValue;
+        }
+        bool overflow = false;
+        value = value.smul_ov(llvm::APInt(64, scale, /*isSigned*/ true), overflow);
+        if (!overflow) {
+            value = value.sadd_ov(di->getValue().sext(64), overflow);
+        }
+        if (overflow || !value.isSignedIntN(32)) {
+            return nullptr;
+        }
+        lanes.push_back(LLVMInt32((int32_t)value.getSExtValue()));
+    }
+    return llvm::ConstantVector::get(lanes);
+}
+
 /** Try to improve the decomposition between compile-time constant and
     compile-time unknown offsets in calls to the __pseudo_*_base_offsets*
     functions. After other optimizations have run, we will sometimes be
@@ -1048,6 +1093,10 @@ static llvm::CallInst *lGSBaseOffsetsGetMoreConst(const MemoryAccess &access) {
         return nullptr;
     }
 
+    // With 64-bit pointers, the lowering of the 32-bit form adds sext(delta)
+    // to sext(offsets) * scale in i64 (__gather_elt32_*).
+    const bool offsets32 = origVariableOffset->getType() == LLVMTypes::Int32VectorType && !g->target->is32Bit();
+
     // Try to decompose the old variable offset
     llvm::Value *constOffset = nullptr;
     llvm::Value *variableOffset = nullptr;
@@ -1059,7 +1108,8 @@ static llvm::CallInst *lGSBaseOffsetsGetMoreConst(const MemoryAccess &access) {
     }
 
     // Total luck: everything could be moved to the constant offset
-    if (variableOffset == nullptr) {
+    const bool allConstant = variableOffset == nullptr;
+    if (allConstant) {
         variableOffset = LLVMIntAsType(0, origVariableOffset->getType());
     }
 
@@ -1067,6 +1117,35 @@ static llvm::CallInst *lGSBaseOffsetsGetMoreConst(const MemoryAccess &access) {
     // 2/4/8 scale for the variable offset, if present.
     llvm::ConstantInt *varScale = llvm::dyn_cast<llvm::ConstantInt>(access.scale());
     Assert(varScale != nullptr);
+
+    // The new i32 delta must not wrap either: a constant 0x40000000 with
+    // scale 4 is 4 GiB, not 0.
+    if (offsets32) {
+        // If the offset is all nsw, the constant part is evaluated exactly:
+        // regrouped at i32 width, 0x40000000 + 0x40000000 wraps to INT32_MIN.
+        // Then variable + constant is the offset if the variable part is a
+        // value of the original offset. A variable part the split built,
+        // like x + y of ((x + 0x40000000) + 0x40000000) + y, is computed at
+        // i32 width; the constant must then not have wrapped either.
+        bool exact = lSplitIsNSW(origVariableOffset);
+        bool sameAsNarrow = !allConstant && !lIsOriginalPart(variableOffset, origVariableOffset);
+        // The offset is sign extended by the lowering, so this is the split
+        // of lExtractConstantOffset() under a sign extension: without a proof,
+        // only a constant whose parts are small is split off.
+        const bool proven = allConstant || (exact && !sameAsNarrow);
+        if (!proven &&
+            !lExactConstantWithin(constOffset, kUnprovenSplitBound, callInst->getModule()->getDataLayout())) {
+            return nullptr;
+        }
+        llvm::Constant *delta = lScaledDelta32(constOffset, exact, sameAsNarrow, varScale->getSExtValue(),
+                                               access.delta(), callInst->getModule()->getDataLayout());
+        if (delta == nullptr) {
+            return nullptr;
+        }
+        callInst->setArgOperand(access.op->layout.offsets, variableOffset);
+        callInst->setArgOperand(access.op->layout.delta, delta);
+        return callInst;
+    }
 
     llvm::Value *scaleSmear = nullptr;
     if (origVariableOffset->getType() == LLVMTypes::Int64VectorType) {

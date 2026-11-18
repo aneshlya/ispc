@@ -1,13 +1,16 @@
 ; The Wrapped 32-bit forms, whose offset is the i32 sum offsets * scale +
 ; delta, sign extended once. A gather that becomes a load computes that sum at
-; 32 bits. Wrapped and Extended gathers are coalesced together, and a Wrapped
-; form is lowered to the builtin of the Extended form.
+; 32 bits, while the Extended forms sign extend the parts first, as their
+; lowering does: with the delta INT32_MIN the two differ by 2^32 for some x.
+; Wrapped and Extended gathers are coalesced together, and a Wrapped form is
+; lowered to the builtin of the Extended form.
 ;
 ; RUN: %{ispc-opt} --target=sse4-i32x4 --passes=improve-memory-ops %s -o - | FileCheck %s --check-prefix=LOAD
 ; RUN: %{ispc-opt} --target=sse4-i32x4 --passes=gather-coalesce %s -o - | FileCheck %s --check-prefix=COAL
 ; RUN: %{ispc-opt} --target=sse4-i32x4 --passes=replace-pseudo-memory-ops %s -o - | FileCheck %s --check-prefix=LOWER
 ; REQUIRES: X86_ENABLED
 
+declare <4 x i8> @__pseudo_gather_factored_base_offsets32_i8(ptr, <4 x i32>, i32, <4 x i32>, <4 x i32>)
 declare <4 x i8> @__pseudo_gather_wrapped_factored_base_offsets32_i8(ptr, <4 x i32>, i32, <4 x i32>, <4 x i32>)
 declare <4 x float> @__pseudo_gather_base_offsets32_float(ptr, i32, <4 x i32>, <4 x i32>)
 declare <4 x float> @__pseudo_gather_wrapped_base_offsets32_float(ptr, i32, <4 x i32>, <4 x i32>)
@@ -16,6 +19,19 @@ declare <4 x i32> @__pseudo_gather_wrapped_factored_base_offsets32_i32(ptr, <4 x
 declare <4 x i8> @__gather_factored_base_offsets32_i8(ptr, <4 x i32>, i32, <4 x i32>, <4 x i32>)
 declare <4 x float> @__gather_base_offsets32_float(ptr, i32, <4 x i32>, <4 x i32>)
 declare <4 x i32> @__gather_factored_base_offsets32_i32(ptr, <4 x i32>, i32, <4 x i32>, <4 x i32>)
+
+; LOAD-LABEL: define <4 x i8> @load_extended(
+; LOAD: [[X:%.*]] = sext i32 %x to i64
+; LOAD: [[S:%.*]] = mul nsw i64 1, [[X]]
+; LOAD: [[O:%.*]] = add nsw i64 [[S]], -2147483648
+; LOAD: getelementptr i8, ptr %base, i64 [[O]]
+; LOAD: ret
+define <4 x i8> @load_extended(ptr %base, i32 %x) {
+  %xi = insertelement <4 x i32> poison, i32 %x, i32 0
+  %xs = shufflevector <4 x i32> %xi, <4 x i32> poison, <4 x i32> zeroinitializer
+  %v = call <4 x i8> @__pseudo_gather_factored_base_offsets32_i8(ptr %base, <4 x i32> %xs, i32 1, <4 x i32> splat (i32 -2147483648), <4 x i32> splat (i32 -1))
+  ret <4 x i8> %v
+}
 
 ; LOAD-LABEL: define <4 x i8> @load_wrapped(
 ; LOAD-NOT: sext

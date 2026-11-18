@@ -91,6 +91,24 @@ define <4 x i8> @narrowed_nneg_sum(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
   ret <4 x i8> %v
 }
 
+; With an nsw add, the constant becomes the delta. It was split off under
+; the extension that narrowing removed, so the call takes the Wrapped form.
+; A32-LABEL: define <4 x i8> @narrowed_nneg_nsw_sum(
+; A32: %[[C:.*]] = sext <4 x i32> splat (i32 16) to <4 x i64>
+; A32: %[[D:.*]] = trunc <4 x i64> %[[C]] to <4 x i32>
+; A32: call <4 x i8> @__pseudo_gather_wrapped_factored_base_offsets32_i8(ptr %{{.*}}, <4 x i32> %x, i32 1, <4 x i32> %[[D]], <4 x i32> %mask)
+; A32: ret
+define <4 x i8> @narrowed_nneg_nsw_sum(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
+  %sum = add nsw <4 x i32> %x, splat (i32 16)
+  %off = zext nneg <4 x i32> %sum to <4 x i64>
+  %baseint = ptrtoint ptr %base to i64
+  %bi = insertelement <4 x i64> poison, i64 %baseint, i32 0
+  %bases = shufflevector <4 x i64> %bi, <4 x i64> poison, <4 x i32> zeroinitializer
+  %addr = add <4 x i64> %bases, %off
+  %v = call <4 x i8> @__pseudo_gather64_i8(<4 x i64> %addr, <4 x i32> %mask)
+  ret <4 x i8> %v
+}
+
 ; nsw holds for the original grouping, not for the regrouped constant: for
 ; x = INT32_MIN, (x + 0x40000000) + 0x40000000 is 0, but the constants sum to
 ; 0x80000000, INT32_MIN at i32 width, and sext(x) + sext(INT32_MIN) is -2^32.
@@ -249,9 +267,11 @@ define <4 x float> @regroup32(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
 }
 
 ; The exact evaluation applies only where the offset is all nsw. Here the
-; inner i16 multiply wraps to 0, so the delta stays 0, not 65536.
+; inner i16 multiply wraps to 0, so the delta stays 0, not 65536. The split
+; isn't proven exact, and with scale 1 and no delta the call takes the
+; Wrapped form, whose offset is the i32 sum.
 ; A32-LABEL: define <4 x float> @wrapped_inner_sext(
-; A32: call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %x, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
+; A32: call <4 x float> @__pseudo_gather_wrapped_factored_base_offsets32_float(ptr %base, <4 x i32> %x, i32 1, <4 x i32> zeroinitializer, <4 x i32> %mask)
 ; A32: ret
 define <4 x float> @wrapped_inner_sext(ptr %base, <4 x i32> %x, <4 x i32> %mask) {
   %c = mul <4 x i16> splat (i16 256), splat (i16 256)

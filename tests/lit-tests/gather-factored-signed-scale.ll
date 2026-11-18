@@ -8,6 +8,7 @@
 ; RUN: %{ispc-opt} --target=sse4-i32x4 --passes=gather-coalesce %s -o - | FileCheck %s --check-prefix=COAL
 ; REQUIRES: X86_ENABLED
 
+declare <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr, <4 x i32>, i32, <4 x i32>, <4 x i32>)
 declare <4 x float> @__pseudo_gather_factored_base_offsets64_float(ptr, <4 x i64>, i32, <4 x i64>, <4 x i32>)
 declare <4 x i32> @__pseudo_gather_factored_base_offsets64_i32(ptr, <4 x i64>, i32, <4 x i64>, <4 x i32>)
 
@@ -34,6 +35,23 @@ define <4 x float> @split_negative_scale(ptr %base, <4 x i64> %v, <4 x i32> %mas
   %o = add <4 x i64> %v, splat (i64 2)
   %r = call <4 x float> @__pseudo_gather_factored_base_offsets64_float(ptr %base, <4 x i64> %o, i32 -4, <4 x i64> zeroinitializer, <4 x i32> %mask)
   ret <4 x float> %r
+}
+
+; With 32-bit offsets, the load sign extends the offsets and the delta and
+; adds them to the scaled offsets in i64, as the lowering does: index 1 with
+; scale -1 and delta 8 addresses base + 7, not base + 2^32 + 7.
+; LOAD-LABEL: define <4 x float> @load_negative_scale32(
+; LOAD: [[I:%.*]] = sext i32 %x to i64
+; LOAD: [[S:%.*]] = mul nsw i64 -1, [[I]]
+; LOAD: [[O:%.*]] = add nsw i64 [[S]], 8
+; LOAD: getelementptr i8, ptr %base, i64 [[O]]
+; LOAD: load float
+; LOAD: ret
+define <4 x float> @load_negative_scale32(ptr %base, i32 %x) {
+  %xi = insertelement <4 x i32> poison, i32 %x, i32 0
+  %xs = shufflevector <4 x i32> %xi, <4 x i32> poison, <4 x i32> zeroinitializer
+  %v = call <4 x float> @__pseudo_gather_factored_base_offsets32_float(ptr %base, <4 x i32> %xs, i32 -1, <4 x i32> splat (i32 8), <4 x i32> splat (i32 -1))
+  ret <4 x float> %v
 }
 
 ; COAL-LABEL: define <4 x i32> @coalesce_negative_scale(

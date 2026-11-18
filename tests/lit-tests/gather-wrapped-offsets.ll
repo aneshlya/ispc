@@ -2,7 +2,8 @@
 ; removes to the Wrapped 32-bit forms, whose offset is the i32 sum of the
 ; parts, the operand of that extension, so that a load rebuilt from the
 ; access computes that sum. The declarations of the Wrapped forms are
-; created from those of the Extended forms.
+; created from those of the Extended forms. A scale taken from i64 arithmetic
+; above the extension keeps the Extended form.
 ;
 ; RUN: %{ispc-opt} --target=sse4-i32x4 --passes=improve-memory-ops %s -o - | FileCheck %s --check-prefix=SSE4
 ; RUN: %{ispc-opt} --target=avx2-i32x8 --passes=improve-memory-ops %s -o - | FileCheck %s --check-prefix=AVX2
@@ -40,6 +41,22 @@ define <8 x float> @scale_under_sext(ptr %base, <8 x i32> %x, <8 x i32> %y, <8 x
   %b = mul nsw <8 x i32> %y, splat (i32 24)
   %c = add <8 x i32> %a, %b
   %off = sext <8 x i32> %c to <8 x i64>
+  %bi0 = ptrtoint ptr %base to i64
+  %bi = insertelement <8 x i64> poison, i64 %bi0, i32 0
+  %bs = shufflevector <8 x i64> %bi, <8 x i64> poison, <8 x i32> zeroinitializer
+  %addr = add <8 x i64> %bs, %off
+  %v = call <8 x float> @__pseudo_gather64_float(<8 x i64> %addr, <8 x i32> %mask)
+  ret <8 x float> %v
+}
+
+; A scale of an i64 multiply above the extension: index 0x20000000 times 4
+; is 2 GiB, which the Extended form computes.
+; AVX2-LABEL: define <8 x float> @scale_above_zext(
+; AVX2: call <8 x float> @__pseudo_gather_base_offsets32_float(ptr %{{.*}}, i32 4, <8 x i32> %x, <8 x i32> %mask)
+; AVX2: ret
+define <8 x float> @scale_above_zext(ptr %base, <8 x i32> %x, <8 x i32> %mask) {
+  %z = zext nneg <8 x i32> %x to <8 x i64>
+  %off = mul nsw <8 x i64> %z, splat (i64 4)
   %bi0 = ptrtoint ptr %base to i64
   %bi = insertelement <8 x i64> poison, i64 %bi0, i32 0
   %bs = shufflevector <8 x i64> %bi, <8 x i64> poison, <8 x i32> zeroinitializer

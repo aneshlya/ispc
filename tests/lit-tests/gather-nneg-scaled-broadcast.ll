@@ -2,9 +2,13 @@
 ; sign extends the index before scaling it. When such a gather becomes a
 ; scalar load, the load must not multiply the index at i32 width. At index
 ; 0x20000000, scale 4 addresses base + 2 GiB; the wrapped i32 product
-; addresses base - 2 GiB. SSE4 and AVX1 reach the load through the factored
-; form.
+; addresses base - 2 GiB. AVX2 reaches the load through the native
+; base-offset form, SSE4 and AVX1 through the factored form.
 ;
+; RUN: %{ispc-opt} --target=avx2-i32x4 --addressing=32 --passes=improve-memory-ops %s -o %t-avx2.ll
+; RUN: FileCheck %s --input-file=%t-avx2.ll
+; RUN: %{cc} -O2 -x ir %t-avx2.ll -x c %S/gather-nneg-scaled-broadcast.inc -o %t-avx2.bin
+; RUN: %t-avx2.bin
 ; RUN: %{ispc-opt} --target=avx1-i32x4 --addressing=32 --passes=improve-memory-ops %s -o %t-avx1.ll
 ; RUN: FileCheck %s --input-file=%t-avx1.ll
 ; RUN: %{cc} -O2 -x ir %t-avx1.ll -x c %S/gather-nneg-scaled-broadcast.inc -o %t-avx1.bin

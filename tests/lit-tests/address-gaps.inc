@@ -54,6 +54,40 @@ export void signed_wrap_load_i8(uniform int8 r[], uniform int8 p[], uniform int 
     r[programIndex] = p[b + programIndex];
 }
 
+// All lanes are on. For x = INT32_MAX and y = 1, (x + INT32_MIN) + y is 0
+// without signed overflow, so lane j reads p[j]. Splitting the constant off
+// the index regroups its variable part as x + y, which wraps to INT32_MIN.
+export void split_wrap_load_i8(uniform int8 r[], uniform int8 p[], uniform int x, uniform int y) {
+    r[programIndex] = p[(varying int)x + (int)0x80000000 + y + programIndex];
+}
+
+// The same with a scaled index. For x = -2^30 and y = 0, (x + 2^30) + y is 0,
+// so lane j reads p[j]. The byte offset becomes ((x + y) + (2^30 + j)) << 2:
+// the constant part (2^30 + j) << 2 wraps to 4 * j at 32 bits, while the
+// variable part (x + y) << 2 is -2^32 when its scale is extracted.
+export void split_scale_wrap_load(uniform int r[], uniform int p[], uniform int x, uniform int y) {
+    r[programIndex] = p[(varying int)x + 0x40000000 + y + programIndex];
+}
+
+// A small constant near the limit. For x = INT32_MIN and y = -1, lane j reads
+// p[INT32_MIN + j]. The split gives the variable part x + y, which wraps to
+// INT32_MAX, and the constant 1 + j: sign extended separately, they address
+// p[2^31 + j].
+export void split_edge_load_i8(uniform int8 r[], uniform int8 p[], uniform int x, uniform int y) {
+    r[programIndex] = p[(varying int)x + 1 + y + programIndex];
+}
+
+// The same through a varying struct pointer: the field offset 1 is added
+// above the sign extension of the index. Lane j reads p[INT32_MIN + j + 1].
+struct Bytes2 {
+    int8 a;
+    int8 b;
+};
+export void split_field_load_i8(uniform int8 r[], uniform int8 p[], uniform int x, uniform int y) {
+    Bytes2 *varying q = (Bytes2 * varying)(p + ((varying int)x + 1 + y + programIndex));
+    r[programIndex] = q->b;
+}
+
 // p[idx - 1] with a signed idx: (idx - 1) * 4 fits in 32 bits, idx * 4 doesn't.
 export void minus1_gather(uniform float r[], uniform float p[], uniform int idx[]) {
     r[programIndex] = p[idx[programIndex] - 1];
@@ -123,7 +157,7 @@ static int c_signed_load_i8(void) {
     signed_load_i8(r, p, INT_MIN);
     ok = r[0] == -1;
     for (int j = 1; j < W; j++)
-        ok &= r[j] == 70 + j;
+        ok &= r[j] == (int8_t)(70 + j);
     return ok;
 }
 
@@ -169,6 +203,50 @@ static int c_signed_wrap_load_i8(void) {
     signed_wrap_load_i8(r, p, b);
     for (int j = 0; j < W; j++)
         ok &= r[j] == 50 + j;
+    return ok;
+}
+
+static int c_split_wrap_load_i8(void) {
+    int8_t *p = (int8_t *)P, r[64];
+    int ok = 1;
+    for (int j = 0; j < W; j++)
+        p[j] = (int8_t)(90 + j);
+    split_wrap_load_i8(r, p, INT_MAX, 1);
+    for (int j = 0; j < W; j++)
+        ok &= r[j] == (int8_t)(90 + j);
+    return ok;
+}
+
+static int c_split_scale_wrap_load(void) {
+    int *p = (int *)P, r[64];
+    int ok = 1;
+    for (int j = 0; j < W; j++)
+        p[j] = 1000 + j;
+    split_scale_wrap_load(r, p, -(1 << 30), 0);
+    for (int j = 0; j < W; j++)
+        ok &= r[j] == 1000 + j;
+    return ok;
+}
+
+static int c_split_field_load_i8(void) {
+    int8_t *p = (int8_t *)P, r[64];
+    int ok = 1;
+    for (int j = 0; j < W; j++)
+        p[(int64_t)INT_MIN + j + 1] = (int8_t)(20 + j);
+    split_field_load_i8(r, p, INT_MIN, -1);
+    for (int j = 0; j < W; j++)
+        ok &= r[j] == (int8_t)(20 + j);
+    return ok;
+}
+
+static int c_split_edge_load_i8(void) {
+    int8_t *p = (int8_t *)P, r[64];
+    int ok = 1;
+    for (int j = 0; j < W; j++)
+        p[(int64_t)INT_MIN + j] = (int8_t)(10 + j);
+    split_edge_load_i8(r, p, INT_MIN, -1);
+    for (int j = 0; j < W; j++)
+        ok &= r[j] == (int8_t)(10 + j);
     return ok;
 }
 
@@ -233,6 +311,10 @@ static const struct {
     {"wrap_store_i8", c_wrap_store_i8},
     {"foreach_wrap_load_i8", c_foreach_wrap_load_i8},
     {"signed_wrap_load_i8", c_signed_wrap_load_i8},
+    {"split_wrap_load_i8", c_split_wrap_load_i8},
+    {"split_scale_wrap_load", c_split_scale_wrap_load},
+    {"split_edge_load_i8", c_split_edge_load_i8},
+    {"split_field_load_i8", c_split_field_load_i8},
     {"minus1_gather", c_minus1_gather},
     {"minus1_scatter", c_minus1_scatter},
     {"struct_member", c_struct_member},

@@ -254,6 +254,8 @@ static ArgsParseResult devUsage() {
     printf("    [--[no-]discard-value-names]\tDo not discard/Discard value names when generating LLVM IR\n");
     printf("    [--dump-file[=<path>]]\t\tDump module IR to file(s) in "
            "current directory, or to <path> if specified\n");
+    printf("    [--dump-memory-plans]\t\tPrint the plan of every gather, scatter and masked load/store "
+           "to stderr\n");
     printf("    [--gen-stdlib]\t\tEnable special compilation mode to generate LLVM IR for stdlib.ispc.\n");
     printf("    [--check-bitcode-libs]\t\tCheck the presence of bitcode libraries for ISPC slim binary.\n");
     printf("    [--mock-host-os-apx=on|off]\t\tFor testing: assume the OS has APX state enabled or disabled when "
@@ -761,6 +763,8 @@ ArgsParseResult ispc::ParseCommandLineArgs(int argc, char *argv[], std::string &
             g->debugPM = true;
         } else if (!strcmp(argv[i], "--debug-pm-time-trace") || !strcmp(argv[i], "--time-trace-pm")) {
             g->debugPMTimeTrace = true;
+        } else if (!strcmp(argv[i], "--dump-memory-plans")) {
+            g->dumpMemoryPlans = true;
         } else if (!strcmp(argv[i], "--discard-value-names")) {
             discardValueNames = BooleanOptValue::enabled;
         } else if (!strcmp(argv[i], "--no-discard-value-names")) {

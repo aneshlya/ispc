@@ -93,6 +93,14 @@ struct MemoryOp {
     unsigned offsetBits() const { return key.offsetBits; }
 };
 
+/** The name of the metadata that the frontend attaches, with
+    --dump-memory-plans, to every gather, scatter and masked store it emits:
+    !{!"<function>:<n>"} for the n-th memory access emitted in that function.
+    The memory passes copy it with the other metadata to the calls that
+    replace an access, so the dump can follow an access from one pass run to
+    the next and compare it between two builds of the same target. */
+constexpr const char *MemoryAccessIdMetadata = "ispc_memory_access";
+
 /** The registered builtin with this name, or nullptr. */
 const MemoryOp *LookupMemoryOp(llvm::StringRef name);
 

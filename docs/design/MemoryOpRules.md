@@ -45,8 +45,61 @@ can mean two addresses: an emulated i8 base-offset gather with offsets
 the same operands `base + 2^32 + 4 * j`. Several rewrites depend on the
 products and sums fitting without checking it.
 
-The x86 factored gathers set the offset and delta of the lanes that are
-off to 0, so they load from the base for those lanes.
+The factored gathers of `builtins/util.m4` (x86, and NEON through
+`target-neon-common.ll`) set the offset and delta of the lanes that are
+off to 0, so they load from the base for those lanes. They are the
+lowering of every gather on SSE2, SSE4, AVX1 and NEON, and of the i8, i16
+and half gathers on AVX2 and AVX-512.
+
+**Wrong today.** The base is not an address the program reads, so it may
+not be readable. In
+
+```ispc
+uniform int8 *uniform q = p + n;      // one past the end of p[0 .. n-1]
+if (programIndex < m)
+    r = q[idx[programIndex]];         // idx = <-8, -7, ...>, m = 2
+```
+
+lanes 0 and 1 read `p[n - 8]` and `p[n - 7]`, and the lanes that are off
+read `q[0] = p[n]`. With `p` ending at an unmapped page this faults on
+sse2-i32x4, sse4-i32x4, avx1-i32x8, avx2-i32x8, avx2-i8x32, avx2-i16x16 and
+avx512skx-x16. The base is the program's first element only when it is a
+parameter of the function the application calls, at offset 0.
+
+`ReplacePseudoMemoryOps` lowers a pseudo masked store whose pointer is
+rooted in a stack object of vector type (a `varying` array, or a struct
+with a `varying` member) to a blend: a load of the whole vector, a blend
+with the stored value, and a store of the whole vector
+(`lGetUnderlyingVectorType`, `src/opt/ReplacePseudoMemoryOps.cpp`).
+
+**Wrong today.** The check looks at the vector type of the object, not at
+where the store is in it: a constant offset into an array, or any
+variable offset, is accepted. A store that reaches past the end of the
+object then reads and writes past it, and LLVM's SROA treats that
+access as undefined and deletes it, so the program's store is lost. In
+
+```ispc
+varying int a[2];
+a[0] = 1;
+a[1] = 2;
+uniform int *uniform q = (uniform int *)&a[0];
+if (programIndex < programCount - 1)
+    q[programCount + 1 + programIndex] = 100 + programIndex;
+out[programIndex] = a[1];
+```
+
+lane `i > 0` of `a[1]` is the int lane `i - 1` writes, `100 + i - 1`, but
+every lane reads 2 at `-O1` and `-O2` on sse2-i32x4, sse4-i32x4,
+avx1-i32x8, avx2-i32x8, avx2-i32x16, avx2-i64x4, avx2-i16x16 and
+avx2-i8x32; `-O0` is right. The blend stores the vector at `&a[0] + 4 *
+(programCount + 1)`, 4 bytes past `a`.
+
+The blend also writes back the lanes that are off when another task may
+write them: after `launch writer((uniform int *)&a, n)`, where the task
+writes the lanes `n` and up of `varying int a`, the caller's
+`if (programIndex < n) a = 1;` becomes a load of `a`, a select and a
+store of the whole vector before `sync`, which can undo the task's stores
+(avx2-i32x8, IR).
 
 A lane is on when the mask enables it. A rewrite may read only what the
 program reads in the lanes that are on; reading anything else is correct
@@ -226,9 +279,27 @@ wraps at its width.
   `sext((x + INT_MAX) + 1)` with `x = -INT_MAX` is 1, but the split sums
   the constants to `INT_MAX + 1 = INT_MIN` at 32 bits and gives
   `sext(x) + sext(INT_MIN) = 1 - 2^32` (IR).
+  The same from source, with `--addressing=64`: in
+  `p[(INT32_MAX + (programIndex + v)) + (programIndex << 1) + w]` for an
+  int32 array, every add is `nsw` and, with `v = -INT32_MAX` and `w = 0`,
+  the index is `3 * programIndex`. LLVM folds the lane constants to
+  `<INT32_MAX, INT32_MAX + 3, ...>` at 32 bits, which wrap to
+  `<2147483647, -2147483646, ...>`, under the `sext` of the frontend's
+  64-bit product; the split sign extends them, and lane 1 reads 16 GiB
+  below the array (sse4-i32x4; the hardware gather of avx2-i32x8 is right).
+
 * The copied `nsw` makes the new shift poison: in
   `shl nsw (add nsw x, INT_MAX), 1` with `x = -INT_MAX`, the original is
   0, while the new `shl nsw x, 1` overflows (IR).
+  The same from source: an int64 index with 32-bit addressing is
+  truncated by the frontend, so its adds have no `nsw`, while the multiply
+  by the element size has. For `uniform int16 p[]`,
+  `p[(int64)INT32_MIN + programIndex + w]` with `w = 2^31 + 40` reads
+  `p[40 + programIndex]`. LLVM folds the index to
+  `splat(trunc w) + <INT32_MIN, INT32_MIN + 1, ...>`; the split gives
+  `shl nsw (trunc w), 1`, which overflows, and the consecutive lanes become
+  a load at `p + 2 * sext(trunc w)`, 4 GiB below the array (sse4-i32x4;
+  avx2-i32x8 keeps the base-offset form and is right).
 
 ### more-const: late constant split
 
@@ -323,7 +394,23 @@ comes from has a defined offset, and the broadcast address is readable.
   address is poison (IR).
 * The broadcast loads even when no lane is on, for example in code the
   frontend doesn't guard with a mask test, and then reads an address no
-  lane requested.
+  lane requested. The frontend guards the true and false parts of an `if`
+  and the code after a varying `return`, but not the statements after a
+  `case` label that no lane reaches:
+
+  ```ispc
+  switch (k + programIndex) {           // k = 1: no lane takes case 0
+  case 0:;
+      out[programIndex] = *(&a[u + programIndex] - programIndex);   // a[u]
+  }
+  ```
+
+  faults on sse4-i32x4 when `a[u]` is unmapped. A function called there
+  runs with every lane off, so the broadcast faults in the body of a
+  function that isn't inlined, too: `noinline void g(...)` reading
+  `*(&a[u + programIndex] - programIndex)`, called after `case 0:;`. The
+  generated tests also fault this way on avx2-i32x8 and avx2-i8x32, with
+  i16, i32, i64, float and double elements.
 
 ### masked-store: masked store with a known mask
 
@@ -412,7 +499,22 @@ element size from an element-aligned pointer.
   that is 1 modulo 4 and deltas 3, 11, 19, 27, the slots are 0, 2, 4, 6,
   and the loads start at the base, 3 bytes early, with an alignment of 4
   that the pointer doesn't have (IR).
-* A negative i32 delta is read zero extended, about 4 GiB away.
+* A negative i32 delta is read zero extended, about 4 GiB away. From
+  source, with default options:
+
+  ```ispc
+  foreach (fi = 0 ... programCount) {
+      int32 i = w - 8 * fi;
+      out[fi] = p[i] + p[i + 1] + p[i + 2] + p[i + 3];
+  }
+  ```
+
+  The four gathers are coalesced with the deltas `-32 * j` bytes, read as
+  the slots `0, 1073741816, 1073741808, ...` (`--dump-memory-plans`), and
+  the loads are at `p + 4 * w + 4294967200` and beyond: a fault on
+  sse2-i32x4, sse4-i32x4 and avx1-i32x8, right with
+  `--opt=disable-coalescing` and on avx2-i32x8 (`tests/lit-tests/3984.ispc`
+  checks the same slots in IR).
 
 ### Load selection
 
@@ -460,4 +562,8 @@ shuffles, and concatenates the 4-lane chunks. Widths other than 4, 8, 16,
 first come from the wrong place: the second gather of a group gets chunks
 4 to 11 instead of 8 to 15 at 32 lanes, and 4 to 19 instead of 16 to 31
 at 64 lanes. Width 32 and 64 groups appear with `--opt=disable-gathers`,
-for example on `avx2-i8x32`.
+for example on `avx2-i8x32`. The generated tests hit it for every lane
+stride from 2 to 8 and 2 to 4 neighbouring reads, with int32 and int64
+indices: `p[2 * i + w] + p[2 * i + w + 1]` in a `foreach` reads the sums of
+the wrong elements on avx2-i8x32 with `--opt=disable-gathers`, and is right
+on avx2-i16x16.

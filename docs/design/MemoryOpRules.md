@@ -23,35 +23,35 @@ ISPC source.
 | Rewrite | Wrong case | From | Test |
 | --- | --- | --- | --- |
 | gs-to-based, base recovery | the base is not the object the lanes access | source | `address-gap-provenance.ispc` |
-| gs-to-based, scale extraction | the scale is taken from a multiply that wraps | IR | none yet |
-| gs-to-based, scale extraction | the splat is read through an `int` | source | none yet |
-| gs-to-based, scale extraction | the scale is taken out of a `trunc` | IR | none yet |
+| gs-to-based, scale extraction | the scale is taken from a multiply that wraps | IR | `address-gap-scale-extraction.ll` |
+| gs-to-based, scale extraction | the splat is read through an `int` | source | `address-gap-scale-extraction.ll` |
+| gs-to-based, scale extraction | the scale is taken out of a `trunc` | IR | `address-gap-scale-extraction.ll` |
 | gs-to-based, scale extraction | `nneg` is moved to an operand that may be negative | IR | `address-gap-nneg-scale.ll` |
-| gs-to-based, scale extraction | an int8 or int16 partial scale hits an assertion | IR | none yet |
+| gs-to-based, scale extraction | an int8 or int16 partial scale hits an assertion | IR | `address-gap-partial-scale.ll` |
 | gs-to-based, narrowing | a sum is truncated to 32 bits as if it fitted | source | `address-gap-narrow-sum.ispc`, `address-gap-nested-sum.ispc` |
 | gs-to-based, narrowing | an unfolded delta is assumed to fit in 32 bits | IR | `address-gap-narrow-constant.ll` |
-| gs-to-based, narrowing | the address depends on the lowering | IR | none yet |
+| gs-to-based, narrowing | the address depends on the lowering | IR | `address-gap-narrow-lowering.ll` |
 | gs-to-based, constant split | a split under a `sext` of an add without `nsw` | source | `address-gap-minus-const.ispc` |
 | gs-to-based, constant split | a split under a `zext nneg` of an add that wraps | IR | `address-gap-nneg-split.ll` |
-| gs-to-based, constant split | the regrouped constants wrap | source | none yet |
-| gs-to-based, constant split | a copied `nsw` makes a new shift poison | source | none yet |
-| more-const | `c * scale` wraps at 32 bits | IR | none yet |
-| more-const | the split is inexact | source | none yet |
-| gs-to-load-store | the pointer is rebuilt at 32 bits | IR | none yet |
+| gs-to-based, constant split | the regrouped constants wrap | source | `address-gap-split-source.ispc` |
+| gs-to-based, constant split | a copied `nsw` makes a new shift poison | source | `address-gap-split-source.ispc` |
+| more-const | `c * scale` wraps at 32 bits | IR | `address-gap-more-const.ll` |
+| more-const | the split is inexact | source | `address-gap-split-source.ispc` |
+| gs-to-load-store | the pointer is rebuilt at 32 bits | IR | `address-gap-load-store.ll` |
 | gs-to-load-store | the start is taken from lane 0 when lane 0 is off | source | `address-gap-lane0.ispc` |
 | gs-to-load-store | lanes that wrap are counted as consecutive | source | `address-gap-wrap.ispc` |
-| gs-to-load-store | a loop PHI is counted as linear for any stride | IR | none yet |
-| gs-to-load-store | the consecutive test overflows in the compiler | IR | none yet |
-| gs-to-load-store | the first lane that is on is found by another mask test | IR | none yet |
-| gs-to-load-store | the broadcast reads an undefined lane 0 | IR | none yet |
+| gs-to-load-store | a loop PHI is counted as linear for any stride | IR | `address-gap-load-store.ll` |
+| gs-to-load-store | the consecutive test overflows in the compiler | IR | `address-gap-load-store.ll`, `address-gap-linear-and.ll` |
+| gs-to-load-store | the first lane that is on is found by another mask test | IR | `address-gap-load-store.ll` |
+| gs-to-load-store | the broadcast reads an undefined lane 0 | IR | `address-gap-broadcast-undef-lane.ll` |
 | gs-to-load-store | the broadcast loads when no lane is on | source | `address-gap-off-lanes-broadcast.ispc` |
-| masked-store | the blend stores read the mask by another bit | IR | none yet |
-| coalesce, grouping | a delta that isn't a constant vector hits an assertion | IR | none yet |
-| coalesce, grouping | a call with more lanes than the target's overruns a buffer | IR | none yet |
-| coalesce, grouping | reads are moved across fences and calls that may not return | source, IR | none yet |
-| coalesce, slots | absolute byte offsets are divided instead of distances | IR | none yet |
+| masked-store | the blend stores read the mask by another bit | IR | `address-gap-blend-mask.ll` |
+| coalesce, grouping | a delta that isn't a constant vector hits an assertion | IR | `address-gap-coalesce-delta.ll` |
+| coalesce, grouping | a call with more lanes than the target's overruns a buffer | IR | `address-gap-coalesce-lanes.ll` |
+| coalesce, grouping | reads are moved across fences and calls that may not return | source, IR | `address-gap-coalesce-barrier.ispc`, `address-gap-coalesce.ll` |
+| coalesce, slots | absolute byte offsets are divided instead of distances | IR | `address-gap-coalesce.ll` |
 | coalesce, slots | a negative i32 delta is read zero extended | source | `3984.ispc` |
-| coalesce, shared pointer | the product is taken at the offset width | IR | none yet |
+| coalesce, shared pointer | the product is taken at the offset width | IR | `address-gap-coalesce.ll` |
 | coalesce, assembly | the results are assembled wrongly at 32 and 64 lanes | source | `address-gap-coalesce-wide.ispc` |
 | lowering, emulated gather | the lanes that are off read the base | source | `address-gap-off-lanes-base.ispc` |
 | lowering, blend store | the vector reaches past the stack object | source | `address-gap-blend-store.ispc` |
@@ -229,14 +229,14 @@ is non-negative where the product was.
 1. **The scale is taken from a multiply that wraps.** With
    `--wrap-signed-int` or an unsigned index, `sext((2^30 + j) * 4)` is
    `4 * j`, while the extracted `sext(2^30 + j) * 4` is `2^32 + 4 * j`.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-scale-extraction.ll` (WRAP).
 2. **The splat is read through an `int`.** `a[i * 4294967298]` with an
    int64 `i` and `--addressing=64` on `avx2-i32x8` becomes a hardware
    gather of `a + 8 * i`, not `a + 4 * 4294967298 * i`.
-   *Test:* none yet.
+   *Test:* `address-gap-scale-extraction.ll` (WIDE).
 3. **The scale is taken out of a `trunc`.** `sext(trunc(i * (2^32 + 8)))`
    is 8 for `i = 1`; the extracted form gives `2^32 + 8`.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-scale-extraction.ll` (TRUNC).
 4. **`nneg` is moved to an operand that may be negative.**
    `zext nneg (mul i32 x, 4)` is defined for `x = -1073741823` (the
    multiply wraps to 4), but the extracted `zext nneg x` is poison.
@@ -244,7 +244,7 @@ is non-negative where the product was.
 5. **An int8 or int16 partial scale hits an assertion.** The partial
    scale of an int8 or int16 multiply is divided by an i64 constant (the
    frontend widens such indices before it multiplies).
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-partial-scale.ll`.
 
 #### Narrowing to 32-bit offsets
 
@@ -281,7 +281,7 @@ arithmetic at 32 bits gives the same address as the 64-bit one.
    `scale = 4`, `delta = -4`, the factored gather of `builtins/util.m4`
    computes `2^31 - 4`; the factored builtin of `builtins/generic.ispc`
    multiplies with `nsw` at 32 bits and gets poison.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-narrow-lowering.ll`.
 
 #### Constant split
 
@@ -325,7 +325,7 @@ at its width.
    `<2147483647, -2147483646, ...>`; the split sign extends them, and lane
    1 reads 16 GiB below the array (sse4-i32x4; the hardware gather of
    avx2-i32x8 is right).
-   *Test:* none yet.
+   *Test:* `address-gap-split-source.ispc` (`wrapped_constants`).
 4. **A copied `nsw` makes a new shift poison.** An int64 index with 32-bit
    addressing is truncated by the frontend, so its adds have no `nsw`,
    while the multiply by the element size has. For `uniform int16 p[]`,
@@ -335,7 +335,7 @@ at its width.
    `shl nsw (trunc w), 1`, which overflows, and the load starts at
    `p + 2 * sext(trunc w)`, 4 GiB below the array (sse4-i32x4; avx2-i32x8
    keeps the base-offset form and is right).
-   *Test:* none yet.
+   *Test:* `address-gap-split-source.ispc` (`int64_index`).
 
 ### more-const: late constant split
 
@@ -357,13 +357,13 @@ constant's share of the address.
    with scale 4 and a zero delta are `2^32` bytes from the base at `x = 0`
    for the factored gather of `builtins/util.m4`; the split makes the delta
    `0x40000000 * 4 = 0` at 32 bits, and the gather then reads at the base.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-more-const.ll`.
 2. **The split is inexact.** `lExtractConstantOffset` is wrong here in the
    same cases as when the call was made: under a `sext` of an add without
    `nsw`, under a `zext nneg` of an add that wraps, when the regrouped
    constants wrap at 32 bits, and when a copied `nsw` makes a new shift
    overflow.
-   *Test:* none yet.
+   *Test:* `address-gap-split-source.ispc` (`late_split`: the gather of an inlined function, split after inlining).
 
 ### gs-to-load-store: based gather or scatter to a load, a store or a broadcast
 
@@ -403,7 +403,7 @@ comes from has a defined offset, and the broadcast address is readable.
    `0x20000000 * 4`, which wraps at 32 bits to `-2^31`: the broadcast
    loads 2 GiB below the base, where the factored gather of
    `builtins/util.m4` reads 2 GiB above it.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-load-store.ll` (REBUILT).
 2. **The start is taken from lane 0 when lane 0 is off.** For a signed
    index whose byte offset in lane 0 doesn't fit in 32 bits while those of
    the lanes that are on do, the load's start is 4 GiB off or poison.
@@ -423,13 +423,13 @@ comes from has a defined offset, and the broadcast address is readable.
    `<0, 1, 2, 3>` and is multiplied by -1 on each iteration pass as
    consecutive, and the gather becomes a forward load on the iterations
    where the offsets are `<0, -1, -2, -3>`.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-load-store.ll` (PHI).
 5. **The consecutive test overflows in the compiler.** For constant
    64-bit offsets it computes `previous + step` in a C++ `int64_t`
    (offsets `<INT64_MAX, INT64_MIN, ...>`); for an `and` with a splat it
    computes the splat plus one, which is 0 for all ones (an assertion
    follows) and overflows for `INT64_MAX`.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-load-store.ll` (OVERFLOW), `address-gap-linear-and.ll`.
 6. **The first lane that is on is found by another mask test.** The
    first-on-lane start counts a lane as on if its mask is nonzero, the
    mask status counts its sign bit. With byte offsets
@@ -437,11 +437,13 @@ comes from has a defined offset, and the broadcast address is readable.
    `<1, -1, 0, 0>`, the start comes from lane 0, and the load of lane 1
    reads `base + 2^32` instead of `base` (the frontend's masks are 0 or -1
    per lane).
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-load-store.ll` (MASKBIT).
 7. **The broadcast reads an undefined lane 0.** When lane 0 is off and
-   undefined (`LLVMVectorValuesAllEqual` ignores it), the broadcast's
-   address is poison.
-   **IR.** *Test:* none yet.
+   undefined (`LLVMVectorValuesAllEqual` ignores it), the broadcast takes
+   its address from that lane. For offsets that are an insert chain without
+   lane 0 the lane isn't there, and an assertion of `llvmutil.cpp` fails:
+   the compiler crashes.
+   **IR.** *Test:* `address-gap-broadcast-undef-lane.ll`.
 8. **The broadcast loads when no lane is on.** The frontend guards the
    true and false parts of an `if` and the code after a varying `return`,
    but not the statements after a `case` label that no lane reaches:
@@ -486,7 +488,7 @@ flavor reads the mask by its sign bit.
    `<-2, -2, -2, -2>` it writes nothing, and the rule turns it into a
    store of every lane (the frontend's masks are 0 or -1 per lane, for
    which the rule is correct).
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-blend-mask.ll`.
 
 ### masked-load: masked load with a known mask
 
@@ -532,18 +534,21 @@ between may write.
    that is neither a constant data vector nor zero (an instruction, or a
    `ConstantVector`) reaches an assertion when the slots are computed,
    even for one gather.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-coalesce-delta.ll`.
 2. **A call with more lanes than the target's overruns a buffer.** Its
-   lane offsets are written past their part of the buffer when the slots
-   are computed.
-   **IR.** *Test:* none yet.
-3. **Reads are moved across fences and calls that may not return.** A
-   fence or an atomic load with acquire ordering doesn't stop the group,
-   although another thread's stores must be seen after it; a fence comes
-   from `memory_barrier()`, which calls a builtin declared `readnone`. A
-   read-only or `readnone` call that may not return or may unwind doesn't
-   stop it either, although the read may not be safe before it (IR).
-   *Test:* none yet.
+   lane offsets would be written past their part of the buffer when the
+   slots are computed; today the group is planned with the target's vector
+   types first and fails with "Unexpected gather type in lPlanCoalesce".
+   **IR.** *Test:* `address-gap-coalesce-lanes.ll`.
+3. **Reads are moved across fences and calls that may not return.** Only
+   an instruction that may write memory stops the group. A `fence`
+   instruction does, but `memory_barrier()` calls a builtin declared
+   `readnone`, so from source the reads after a barrier are made before it,
+   and another thread's stores that it orders before them may not be seen.
+   A read-only or `readnone` call that may not return or may unwind doesn't
+   stop the group either, although the read may not be safe before it
+   (IR).
+   *Test:* `address-gap-coalesce-barrier.ispc`, `address-gap-coalesce.ll` (CALL).
 
 ### Slots
 
@@ -560,7 +565,7 @@ element size from an element-aligned pointer.
    base that is 1 modulo 4 and deltas 3, 11, 19, 27, the slots are 0, 2,
    4, 6, and the loads start at the base, 3 bytes early, with an alignment
    of 4 that the pointer doesn't have.
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-coalesce.ll` (SLOTS).
 2. **A negative i32 delta is read zero extended**, about 4 GiB away. From
    source, with default options:
 
@@ -618,7 +623,7 @@ object.
    factored gather of `builtins/util.m4`, but `-2^31` for the shared
    pointer, so the loads are 4 GiB off (with deltas that aren't
    consecutive, so that the gathers reach the pass as gathers).
-   **IR.** *Test:* none yet.
+   **IR.** *Test:* `address-gap-coalesce.ll` (PRODUCT).
 
 ### Assembly
 

@@ -1,5 +1,5 @@
-// Kernels and the runtime oracle of the address-gap-off-lanes-*.ispc and
-// address-gap-coalesce-wide.ispc tests: wrong code of the memory passes found by
+// Kernels and the runtime oracle of the address-gap-off-lanes-*.ispc,
+// address-gap-split-source.ispc and address-gap-coalesce-wide.ispc tests: wrong code of the memory passes found by
 // scripts/memory_harness.py and reduced. Each case reads an array that lies
 // against an unmapped page, so a read the program doesn't make faults. The
 // driver takes the names of the cases to run and returns nonzero if one of
@@ -37,6 +37,26 @@ export void broadcast_in_callee(uniform int a[], uniform int u, uniform int k, u
         broadcast_callee(a, u, out);
         break;
     }
+}
+
+// An int64 index with 32-bit addressing: the frontend truncates it, LLVM
+// folds it to splat(trunc w) + <INT32_MIN, INT32_MIN + 1, ...>, and the
+// constant split gives shl nsw (trunc w), 1, which overflows.
+export void int64_index(uniform int16 p[], uniform int64 w, uniform int16 out[]) {
+    out[programIndex] = p[(int64)(-2147483648ll) + (int64)programIndex + w];
+}
+
+// With --addressing=64, LLVM folds INT32_MAX + 3 * programIndex to a constant
+// vector whose lanes wrap at 32 bits, and the split sign extends it.
+export void wrapped_constants(uniform int32 p[], uniform int32 v, uniform int32 w, uniform int32 out[]) {
+    out[programIndex] = p[(2147483647 + (programIndex + v)) + (programIndex << 1) + w];
+}
+
+// The index of get_i16's gather becomes splat(trunc w) + <INT32_MIN, ...>
+// only after inlining, where the late split (more-const) splits it.
+int16 get_i16(uniform int16 p[], int i) { return p[i]; }
+export void late_split(uniform int16 p[], uniform int64 w, uniform int16 out[]) {
+    out[programIndex] = get_i16(p, (int)((int64)(-2147483648ll) + (int64)programIndex + w));
 }
 
 // Two neighbouring ints per lane, lanes 2 ints apart: coalesced, the result
@@ -95,6 +115,23 @@ int main(int argc, char **argv) {
             else
                 broadcast_in_callee((int *)m, (int)(pg / 4), 1, out);
             ok = out[0] == 7;
+        } else if (!strcmp(name, "int64_index") || !strcmp(name, "late_split")) {
+            // index = INT32_MIN + lane + 2^31 + 40 = 40 + lane
+            int16_t *p = (int16_t *)m, out[64];
+            for (int i = 0; i < 128; i++)
+                p[i] = (int16_t)i;
+            if (!strcmp(name, "int64_index"))
+                int64_index(p, 2147483648ll + 40, out);
+            else
+                late_split(p, 2147483648ll + 40, out);
+            ok = out[0] == 40 && out[1] == 41 && out[3] == 43;
+        } else if (!strcmp(name, "wrapped_constants")) {
+            // index = INT32_MAX + (lane - INT32_MAX) + 2 * lane = 3 * lane
+            int32_t *p = (int32_t *)m, out[64];
+            for (int i = 0; i < 256; i++)
+                p[i] = i;
+            wrapped_constants(p, -2147483647, 0, out);
+            ok = out[0] == 0 && out[1] == 3 && out[3] == 9;
         } else if (!strcmp(name, "coalesce_stride2")) {
             // lane j reads p[2j + 10] and p[2j + 11]: the sum is 4j + 21
             int32_t *p = (int32_t *)m, out[64];
